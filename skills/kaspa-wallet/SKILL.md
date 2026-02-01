@@ -129,12 +129,41 @@ print(f"TX: {tx_id}")
 - **Mainnet prefix**: `kaspa:`
 - **Testnet prefix**: `kaspatest:`
 
+### Get Transaction History (with Sender)
+
+```python
+import urllib.request
+import json
+
+KASPA_API = "https://api.kaspa.org"
+
+def get_transaction(tx_id: str) -> dict:
+    """Fetch transaction from block explorer API."""
+    url = f"{KASPA_API}/transactions/{tx_id}"
+    with urllib.request.urlopen(url) as response:
+        return json.loads(response.read().decode())
+
+def find_sender(tx_data: dict, my_address: str) -> str | None:
+    """Sender = the change output address (not my address)."""
+    for output in tx_data.get("outputs", []):
+        addr = output.get("script_public_key_address", "")
+        if addr and addr != my_address:
+            return addr
+    return None
+
+# Usage
+tx = get_transaction("71d9c5c8b91840b7...")
+sender = find_sender(tx, "kaspa:qr...")
+print(f"From: {sender}")
+```
+
 ## Scripts
 
 See `scripts/` for ready-to-use utilities:
 - `create_wallet.py` - Generate new wallet
 - `check_balance.py` - Query address balance
 - `send_transaction.py` - Send KAS
+- `get_transactions.py` - Get transaction history with sender info
 
 ## References
 
