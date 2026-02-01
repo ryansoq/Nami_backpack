@@ -14,7 +14,11 @@ KASPA_API = "https://api.kaspa.org"
 def fetch_transaction(tx_id: str) -> dict:
     """Fetch transaction details from Kaspa block explorer API."""
     url = f"{KASPA_API}/transactions/{tx_id}"
-    with urllib.request.urlopen(url, timeout=30) as response:
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (compatible; KaspaWallet/1.0)",
+        "Accept": "application/json",
+    })
+    with urllib.request.urlopen(req, timeout=30) as response:
         return json.loads(response.read().decode())
 
 
