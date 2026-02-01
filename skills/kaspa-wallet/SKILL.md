@@ -5,6 +5,23 @@ description: Create and manage Kaspa (KAS) cryptocurrency wallets. Use for gener
 
 # Kaspa Wallet Skill
 
+## What is Kaspa?
+
+[Kaspa](https://kaspa.org) is the **world's fastest proof-of-work cryptocurrency**, built on revolutionary BlockDAG technology.
+
+**Why Kaspa?**
+- ⚡ **Ultra fast** — 10 blocks/second (targeting 100/sec), ~1 sec visibility, ~10 sec confirmation
+- 🔗 **BlockDAG** — Not a blockchain! Parallel blocks via GHOSTDAG protocol
+- 🛡️ **True decentralization** — Pure PoW, no pre-mine, fair launch (Nov 2021)
+- 💰 **Low fees** — Typically < 0.0001 KAS per transaction
+- 🌐 **Scalable** — High throughput without sacrificing security
+
+**In practice:** Send KAS and it arrives in seconds. No more waiting 10+ minutes like Bitcoin! 🚀
+
+---
+
+## Quick Start
+
 Interact with the Kaspa blockchain using the official Python SDK.
 
 ## Prerequisites
