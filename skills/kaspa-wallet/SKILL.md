@@ -39,6 +39,36 @@ print(f"Private Key: {private_key.to_string()}")
 
 ⚠️ **Security**: Store mnemonic and private key securely. Never expose in logs or chat.
 
+### Secure Storage Pattern
+
+Store wallet secrets in a `.secrets/` directory within your workspace:
+
+```
+your-workspace/
+├── .gitignore        ← Add ".secrets/" here
+├── .secrets/
+│   └── my-wallet.json   ← Private keys (never uploaded)
+├── memory/
+└── ...
+```
+
+**Example `.secrets/my-wallet.json`:**
+```json
+{
+  "name": "My Kaspa Wallet",
+  "network": "mainnet",
+  "mnemonic": "word1 word2 ... word24",
+  "address": "kaspa:qr...",
+  "privateKey": "abc123..."
+}
+```
+
+**Key principles:**
+- ✅ Keep secrets in workspace (accessible to agent)
+- ✅ Add to `.gitignore` (never upload to git)
+- ✅ Agent can read/use but won't leak publicly
+- ❌ Never log or display private keys in chat
+
 ### Check Balance
 
 ```python
