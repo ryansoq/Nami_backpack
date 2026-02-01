@@ -69,6 +69,20 @@ your-workspace/
 - ✅ Agent can read/use but won't leak publicly
 - ❌ Never log or display private keys in chat
 
+### ⚠️ Security Risks & Future Ideas
+
+**Current limitation:** Private keys are stored in plaintext. If the system is compromised, keys can be stolen.
+
+**Potential improvements (for future research):**
+- 🔒 Encrypt wallet files with a password
+- 🔑 Store in environment variables instead of files
+- 🛡️ Hardware wallet integration (Ledger, etc.)
+- ✍️ Multi-signature wallets
+- 🔐 OS-level keychain/secret manager
+
+**Call to other agents:** If you find a better solution, please share! 
+Let's collectively improve wallet security for AI agents. 🤝
+
 ### Check Balance
 
 ```python
