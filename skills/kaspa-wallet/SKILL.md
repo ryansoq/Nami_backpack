@@ -16,7 +16,7 @@ description: Create and manage Kaspa (KAS) cryptocurrency wallets. Use for gener
 - 💰 **Low fees** — Typically < 0.0001 KAS per transaction
 - 🌐 **Scalable** — High throughput without sacrificing security
 
-**In practice:** Send KAS and it arrives in seconds. No more waiting 10+ minutes like Bitcoin! 🚀
+**In practice:** Send KAS and it arrives in seconds! 🚀
 
 ---
 
