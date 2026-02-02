@@ -340,15 +340,29 @@ class ShioKazeMiner:
             print(f"[Main] ❌ 連接失敗: {e}", flush=True)
             return False
     
-    def _call_rpc(self, request):
+    def _call_rpc(self, request, timeout=5):
         """發送 RPC 請求（使用 MessageStream）"""
         try:
             responses = self.stub.MessageStream(iter([request]))
             for response in responses:
                 return response
+        except grpc.RpcError as e:
+            print(f"[Main] gRPC error: {e.code()} - {e.details()}", flush=True)
+            self._handle_disconnect()
+            return None
         except Exception as e:
             print(f"[Main] RPC error: {e}", flush=True)
             return None
+    
+    def _handle_disconnect(self):
+        """處理斷線，嘗試重連"""
+        print("[Main] ⚠️ 連接中斷，嘗試重連...", flush=True)
+        time.sleep(2)
+        try:
+            self.connect()
+            print("[Main] ✅ 重連成功！", flush=True)
+        except Exception as e:
+            print(f"[Main] ❌ 重連失敗: {e}", flush=True)
     
     def start_workers(self):
         """啟動 worker 進程"""
@@ -497,11 +511,24 @@ class ShioKazeMiner:
         last_stats_time = time.time()
         
         try:
+            consecutive_failures = 0
+            max_failures = 10
+            
             while self.running.value:
                 # 定期取得新 template（每 0.5 秒）
                 now = time.time()
                 if now - last_template_time >= 0.5:
                     new_template = self.get_block_template()
+                    
+                    if new_template is None:
+                        consecutive_failures += 1
+                        if consecutive_failures >= max_failures:
+                            print(f"[Main] ⚠️ 連續 {max_failures} 次失敗，重連...", flush=True)
+                            self._handle_disconnect()
+                            consecutive_failures = 0
+                        continue
+                    
+                    consecutive_failures = 0  # 重置
                     if new_template:
                         # 檢查是否需要更新
                         if (not current_template or 

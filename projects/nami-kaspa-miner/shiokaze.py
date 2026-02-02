@@ -449,7 +449,7 @@ class ShioKaze:
         request = kaspa_pb2.KaspadMessage(
             submitBlockRequest=kaspa_pb2.SubmitBlockRequestMessage(
                 block=block,
-                allowNonDAABlocks=False
+                allowNonDAABlocks=True  # 允許稍微過期的區塊
             )
         )
         
@@ -458,10 +458,19 @@ class ShioKaze:
         if response and response.HasField('submitBlockResponse'):
             submit_resp = response.submitBlockResponse
             
+            # 檢查 rejectReason
+            if submit_resp.rejectReason != 0:  # 0 = NONE
+                reason_names = {0: "NONE", 1: "BLOCK_INVALID", 2: "IS_IN_IBD"}
+                reason = reason_names.get(submit_resp.rejectReason, f"UNKNOWN({submit_resp.rejectReason})")
+                self.log(f"   RejectReason: {reason}", "DEBUG")
+            
             if submit_resp.HasField('error') and submit_resp.error.message:
                 return False, submit_resp.error.message
             
-            return True, "Block accepted!"
+            if submit_resp.rejectReason == 0:
+                return True, "Block accepted!"
+            else:
+                return False, f"Rejected: reason={submit_resp.rejectReason}"
         
         return False, "No response"
     
@@ -492,6 +501,9 @@ class ShioKaze:
             
             if result <= target:
                 self.log(f"Found valid nonce: 0x{nonce:016x}", "SUCCESS")
+                self.log(f"   Hash: {digest.hex()}", "DEBUG")
+                self.log(f"   Result: 0x{result:064x}", "DEBUG")
+                self.log(f"   Target: 0x{target:064x}", "DEBUG")
                 return nonce
             
             # 進度報告
@@ -551,7 +563,14 @@ class ShioKaze:
                     if nonce is not None:
                         # 提交區塊
                         block = template["block"]
+                        
+                        # Debug: 顯示提交前的資訊
+                        self.log(f"💎 Found nonce: 0x{nonce:016x}", "SUCCESS")
+                        self.log(f"   Template timestamp: {template['header']['timestamp']}")
+                        self.log(f"   Block header nonce before: {block.header.nonce}")
+                        
                         block.header.nonce = nonce
+                        self.log(f"   Block header nonce after: {block.header.nonce}")
                         
                         self.stats["blocks_submitted"] += 1
                         success, message = self.submit_block(block)
@@ -560,7 +579,8 @@ class ShioKaze:
                             self.stats["blocks_accepted"] += 1
                             self.log(f"🎉 Block accepted! ({self.stats['blocks_accepted']} total)", "SUCCESS")
                         else:
-                            self.log(f"Block rejected: {message}", "WARN")
+                            self.log(f"❌ Block rejected: {message}", "WARN")
+                            self.log(f"   This might be due to stale template", "WARN")
                     
                     # 短暫休息
                     time.sleep(0.1)
