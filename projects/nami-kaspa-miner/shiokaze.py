@@ -258,7 +258,16 @@ class ShioKaze:
         self.log(f"Connecting to {self.address}...")
         
         try:
-            self.channel = grpc.insecure_channel(self.address)
+            # gRPC keepalive 設定（防止連線逾時）
+            self.channel = grpc.insecure_channel(
+                self.address,
+                options=[
+                    ('grpc.keepalive_time_ms', 10000),
+                    ('grpc.keepalive_timeout_ms', 5000),
+                    ('grpc.keepalive_permit_without_calls', True),
+                    ('grpc.http2.max_pings_without_data', 0),
+                ]
+            )
             self.stub = kaspa_pb2_grpc.RPCStub(self.channel)
             
             # 取得節點資訊
@@ -512,37 +521,54 @@ class ShioKaze:
         self.stats["start_time"] = time.time()
         
         try:
+            consecutive_errors = 0
             while self.running:
-                # 獲取模板
-                template = self.get_block_template()
-                
-                if not template:
-                    self.log("Failed to get template, retrying...", "WARN")
+                try:
+                    # 獲取模板
+                    template = self.get_block_template()
+                    
+                    if not template:
+                        consecutive_errors += 1
+                        self.log(f"Failed to get template (attempt {consecutive_errors}), retrying...", "WARN")
+                        if consecutive_errors >= 5:
+                            self.log("Too many errors, reconnecting...", "WARN")
+                            self.disconnect()
+                            time.sleep(2)
+                            if not self.connect():
+                                self.log("Reconnection failed, stopping", "ERROR")
+                                break
+                            consecutive_errors = 0
+                        time.sleep(1)
+                        continue
+                    
+                    consecutive_errors = 0  # Reset on success
+                    bits_hex = f"0x{template['header']['bits']:08x}"
+                    self.log(f"New template #{self.stats['templates_received']}: bits={bits_hex}")
+                    
+                    # 挖礦
+                    nonce = self.mine(template)
+                    
+                    if nonce is not None:
+                        # 提交區塊
+                        block = template["block"]
+                        block.header.nonce = nonce
+                        
+                        self.stats["blocks_submitted"] += 1
+                        success, message = self.submit_block(block)
+                        
+                        if success:
+                            self.stats["blocks_accepted"] += 1
+                            self.log(f"🎉 Block accepted! ({self.stats['blocks_accepted']} total)", "SUCCESS")
+                        else:
+                            self.log(f"Block rejected: {message}", "WARN")
+                    
+                    # 短暫休息
+                    time.sleep(0.1)
+                    
+                except Exception as e:
+                    consecutive_errors += 1
+                    self.log(f"Error in mining loop: {e}", "ERROR")
                     time.sleep(1)
-                    continue
-                
-                bits_hex = f"0x{template['header']['bits']:08x}"
-                self.log(f"New template #{self.stats['templates_received']}: bits={bits_hex}")
-                
-                # 挖礦
-                nonce = self.mine(template)
-                
-                if nonce is not None:
-                    # 提交區塊
-                    block = template["block"]
-                    block.header.nonce = nonce
-                    
-                    self.stats["blocks_submitted"] += 1
-                    success, message = self.submit_block(block)
-                    
-                    if success:
-                        self.stats["blocks_accepted"] += 1
-                        self.log(f"🎉 Block accepted! ({self.stats['blocks_accepted']} total)", "SUCCESS")
-                    else:
-                        self.log(f"Block rejected: {message}", "WARN")
-                
-                # 短暫休息
-                time.sleep(0.1)
                 
         except KeyboardInterrupt:
             self.log("\nStopping...")
