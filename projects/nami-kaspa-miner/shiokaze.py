@@ -711,6 +711,8 @@ Examples:
                         help='Max nonce per template (default: 50000)')
     parser.add_argument('--debug', '-d', action='store_true',
                         help='Enable debug output')
+    parser.add_argument('--random', '-r', action='store_true',
+                        help='Use random nonce instead of sequential')
     
     args = parser.parse_args()
     
