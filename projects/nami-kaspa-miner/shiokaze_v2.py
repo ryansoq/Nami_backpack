@@ -133,9 +133,11 @@ def mine_worker(
     result_queue: mp.Queue,
     hash_counter: mp.Value,
     stop_flag: mp.Value,
+    use_random: bool = False,
 ):
     """Worker: 從 task_queue 取任務，找到 nonce 放入 result_queue"""
-    print(f"[Worker {worker_id}] Started", flush=True)
+    import random
+    print(f"[Worker {worker_id}] Started (random={use_random})", flush=True)
     
     while not stop_flag.value:
         try:
@@ -157,9 +159,17 @@ def mine_worker(
         matrix = generate_matrix(pre_pow_hash)
         
         local_hashes = 0
-        for nonce in range(nonce_start, nonce_end):
+        nonce_count = nonce_end - nonce_start
+        
+        for i in range(nonce_count):
             if stop_flag.value:
                 break
+            
+            # 隨機或順序 nonce
+            if use_random:
+                nonce = random.randint(0, 2**64 - 1)
+            else:
+                nonce = nonce_start + i
             
             result_hash = compute_pow(pre_pow_hash, timestamp, nonce, matrix)
             local_hashes += 1
@@ -189,11 +199,12 @@ def mine_worker(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class ShioKazeV2:
-    def __init__(self, wallet: str, testnet: bool = False, num_workers: int = None):
+    def __init__(self, wallet: str, testnet: bool = False, num_workers: int = None, use_random: bool = False):
         self.wallet = wallet
         self.testnet = testnet
         self.address = f"127.0.0.1:{16210 if testnet else 16110}"
         self.num_workers = num_workers or mp.cpu_count()
+        self.use_random = use_random
         
         self.channel = None
         self.stub = None
@@ -207,6 +218,9 @@ class ShioKazeV2:
         self.workers = []
         self.stats = {'templates': 0, 'submitted': 0, 'accepted': 0, 'start': None}
         self.template_id = 0
+        
+        # 保存每個 template 對應的 block（避免 stale block）
+        self.template_cache = {}
     
     def log(self, msg: str, level: str = "INFO"):
         ts = time.strftime("%H:%M:%S")
@@ -284,6 +298,7 @@ class ShioKazeV2:
                 self.current_block = tmpl.block
                 header = tmpl.block.header
                 return {
+                    'block': tmpl.block,  # 保存 block 供提交時使用
                     'pre_pow_hash': self._compute_pre_pow_hash(header),
                     'timestamp': header.timestamp,
                     'bits': header.bits,
@@ -292,12 +307,19 @@ class ShioKazeV2:
             self.log(f"Template error: {e}", "ERROR")
         return None
     
-    def submit_block(self, nonce: int) -> Tuple[bool, str]:
-        if not self.current_block:
+    def submit_block(self, nonce: int, template_id: int = None) -> Tuple[bool, str]:
+        # 優先使用 template_id 從 cache 取得對應的 block
+        if template_id and template_id in self.template_cache:
+            template = self.template_cache[template_id]
+            source_block = template['block']
+        elif self.current_block:
+            source_block = self.current_block
+        else:
             return False, "No block"
+        
         try:
             block = kaspa_pb2.RpcBlock()
-            block.CopyFrom(self.current_block)
+            block.CopyFrom(source_block)
             block.header.nonce = nonce
             req = kaspa_pb2.KaspadMessage(
                 submitBlockRequest=kaspa_pb2.SubmitBlockRequestMessage(
@@ -315,11 +337,12 @@ class ShioKazeV2:
         return False, "Unknown"
     
     def start_workers(self):
-        self.log(f"Starting {self.num_workers} workers...")
+        mode = "random" if self.use_random else "sequential"
+        self.log(f"Starting {self.num_workers} workers ({mode} nonce)...")
         for i in range(self.num_workers):
             p = Process(target=mine_worker, args=(
                 i, self.task_queue, self.result_queue, 
-                self.hash_counter, self.stop_flag
+                self.hash_counter, self.stop_flag, self.use_random
             ), daemon=True)
             p.start()
             self.workers.append(p)
@@ -329,6 +352,13 @@ class ShioKazeV2:
         """分發挖礦任務給 workers"""
         self.template_id += 1
         nonces_per_worker = 100000
+        
+        # 保存 template 到 cache（用於提交時找到對應的 block）
+        self.template_cache[self.template_id] = template
+        # 只保留最近 100 個 template
+        if len(self.template_cache) > 100:
+            oldest = min(self.template_cache.keys())
+            del self.template_cache[oldest]
         
         for i in range(self.num_workers):
             task = {
@@ -375,9 +405,9 @@ class ShioKazeV2:
                 while not self.result_queue.empty():
                     try:
                         result = self.result_queue.get_nowait()
-                        self.log(f"💎 Found nonce: {result['nonce']}", "SUCCESS")
+                        self.log(f"💎 Found nonce: {result['nonce']} (template #{result.get('template_id', '?')})", "SUCCESS")
                         self.stats['submitted'] += 1
-                        ok, msg = self.submit_block(result['nonce'])
+                        ok, msg = self.submit_block(result['nonce'], result.get('template_id'))
                         if ok:
                             self.stats['accepted'] += 1
                             self.log(f"🎉 Block accepted! (#{self.stats['accepted']})", "SUCCESS")
@@ -409,9 +439,10 @@ def main():
     parser.add_argument('--wallet', '-w', required=True)
     parser.add_argument('--testnet', '-t', action='store_true')
     parser.add_argument('--workers', '-n', type=int)
+    parser.add_argument('--random', '-r', action='store_true', help='使用隨機 nonce')
     args = parser.parse_args()
     
-    miner = ShioKazeV2(wallet=args.wallet, testnet=args.testnet, num_workers=args.workers)
+    miner = ShioKazeV2(wallet=args.wallet, testnet=args.testnet, num_workers=args.workers, use_random=args.random)
     miner.run()
 
 if __name__ == '__main__':
