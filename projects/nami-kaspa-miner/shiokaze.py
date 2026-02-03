@@ -194,7 +194,7 @@ class WaveHasher:
         # 最終 hash
         digest = cshake256(bytes(digest), b'HeavyHash', 32)
         
-        return digest[::-1]
+        return digest  # 不反轉！保持原始順序
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -533,7 +533,7 @@ class ShioKaze:
             nonce = (start_nonce + i) % (2**64)
             
             digest = self.hasher.heavyhash(hash_values, timestamp, nonce)
-            result = int.from_bytes(digest, byteorder='big')
+            result = int.from_bytes(digest, byteorder='little')  # 小端序，與 v6 一致
             
             if result <= target:
                 self.log(f"Found valid nonce: 0x{nonce:016x}", "SUCCESS")
