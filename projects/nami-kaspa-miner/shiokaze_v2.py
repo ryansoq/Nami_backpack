@@ -160,9 +160,20 @@ def mine_worker(
         
         local_hashes = 0
         nonce_count = nonce_end - nonce_start
+        max_attempts = 5000  # 最多嘗試 5000 次就放棄，拿新 template
         
         for i in range(nonce_count):
             if stop_flag.value:
+                break
+            
+            # 🔄 每 1000 次檢查有沒有新 template，有就放棄當前的
+            if i > 0 and i % 1000 == 0:
+                if not task_queue.empty():
+                    # 有新任務，放棄當前的
+                    break
+            
+            # 超過 max_attempts 就放棄
+            if i >= max_attempts:
                 break
             
             # 隨機或順序 nonce
