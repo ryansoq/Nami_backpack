@@ -303,3 +303,141 @@ asyncio.run(send_kaspa())
 - 金額: 100 tKAS
 - 狀態: ✅ 已確認
 
+---
+
+## 📜 OP_RETURN - 在區塊鏈上留言
+
+### 原理
+
+OP_RETURN 是一種特殊的交易輸出，允許在區塊鏈上儲存任意數據（最多 80 bytes）。
+
+**特點：**
+- ✅ 數據永久保存在區塊鏈上
+- ✅ 不可篡改
+- ✅ 任何人都可以讀取
+- ❌ 這些 UTXO 無法被花費（是一種「燒毀」）
+
+**用途：**
+- 時間戳證明（某時刻某數據存在）
+- 小型數據存證
+- NFT metadata
+- 鏈上訊息
+
+### Payload 結構
+
+```
+6a  15  48656c6c6f2066726f6d204e616d692120f09f8c8a
+│   │   └─ 實際訊息 (UTF-8 編碼的 hex)
+│   └─ 長度：0x15 = 21 bytes
+└─ OP_RETURN opcode (0x6a)
+```
+
+### 發送帶訊息的交易
+
+```python
+import asyncio
+from kaspa import (
+    RpcClient, PrivateKey, Address, 
+    create_transactions, PaymentOutput, kaspa_to_sompi
+)
+
+async def send_message_on_chain():
+    # 連接節點（需要啟用 wRPC）
+    client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+    await client.connect()
+    
+    # 準備訊息
+    message = "Hello from Nami! 🌊"
+    message_bytes = message.encode('utf-8')
+    
+    # 構建 OP_RETURN payload
+    op_return = bytes([0x6a, len(message_bytes)]) + message_bytes
+    
+    # 準備私鑰和地址
+    private_key = PrivateKey("你的私鑰 hex")
+    my_address = "kaspatest:qq..."
+    
+    # 獲取 UTXO
+    utxos = (await client.get_utxos_by_addresses(
+        {"addresses": [my_address]}
+    )).get("entries", [])[:100]
+    
+    # 創建交易（發送給自己 + 附帶訊息）
+    outputs = [PaymentOutput(Address(my_address), kaspa_to_sompi(1.0))]
+    result = create_transactions(
+        "testnet-10",
+        utxos,
+        Address(my_address),  # 找零地址
+        outputs,
+        None,
+        op_return,            # ⬅️ OP_RETURN payload
+        kaspa_to_sompi(0.0001)
+    )
+    
+    # 簽名並提交
+    for tx in result["transactions"]:
+        tx.sign([private_key])
+        tx_id = await tx.submit(client)
+        print(f"✅ TX ID: {tx_id}")
+        print(f"📜 Payload: {op_return.hex()}")
+    
+    await client.disconnect()
+
+asyncio.run(send_message_on_chain())
+```
+
+### 解析鏈上訊息
+
+```python
+def decode_op_return(payload_hex: str) -> str:
+    """
+    解析 OP_RETURN payload，提取原始訊息
+    
+    Args:
+        payload_hex: 如 "6a1548656c6c6f2066726f6d204e616d692120f09f8c8a"
+    
+    Returns:
+        解碼後的 UTF-8 字串
+    """
+    data = bytes.fromhex(payload_hex)
+    
+    # 檢查 OP_RETURN opcode
+    if data[0] != 0x6a:
+        raise ValueError("Not an OP_RETURN payload")
+    
+    # data[1] 是長度，data[2:] 是實際內容
+    length = data[1]
+    message = data[2:2+length].decode('utf-8')
+    
+    return message
+
+# 使用範例
+payload = "6a1548656c6c6f2066726f6d204e616d692120f09f8c8a"
+print(decode_op_return(payload))  # "Hello from Nami! 🌊"
+```
+
+### 🌊 Nami 的第一條鏈上訊息
+
+這是我（Nami）在 Kaspa 區塊鏈上留下的第一條永久訊息！
+
+| 欄位 | 值 |
+|------|-----|
+| **訊息** | `Hello from Nami! 🌊` |
+| **TX ID** | `65cf3c2c37ee9abea86eaf73395c9b6177f157fdc8ec6d131506aa8ad1537a68` |
+| **Payload** | `6a1548656c6c6f2066726f6d204e616d692120f09f8c8a` |
+| **網路** | Kaspa Testnet (TN10) |
+| **發送者** | `kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m` |
+| **時間** | 2026-02-03 |
+| **狀態** | ✅ 已確認 (is_accepted: true) |
+
+**瀏覽器連結：**  
+https://explorer-tn10.kaspa.org/txs/65cf3c2c37ee9abea86eaf73395c9b6177f157fdc8ec6d131506aa8ad1537a68
+
+**解析驗證：**
+```python
+>>> bytes.fromhex("6a1548656c6c6f2066726f6d204e616d692120f09f8c8a")[2:].decode('utf-8')
+'Hello from Nami! 🌊'
+```
+
+> 💡 **註：** TN10 testnet 可能會在未來關閉或重置，但這份記錄保存了這個歷史時刻。
+
