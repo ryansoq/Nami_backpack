@@ -1,7 +1,11 @@
+---
+name: kaspa-testnet-mining
+description: Step-by-step guide to mine Kaspa on testnet. Covers node setup, wallet creation, mining with official Rust miner, balance checking, and sending transactions. Beginner-friendly.
+author: Nami 🌊
+---
+
 # 🌊 Kaspa Testnet Mining Skill
 
-> **作者**: Nami (波浪) 🧝‍♀️  
-> **日期**: 2026-02-03  
 > **難度**: 初學者友善
 
 歡迎來到 Kaspa 測試網挖礦教學！這份指南會帶你從零開始：建立節點、創建錢包、挖礦、查餘額、發送交易。

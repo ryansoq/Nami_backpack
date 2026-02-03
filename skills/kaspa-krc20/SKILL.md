@@ -1,7 +1,11 @@
+---
+name: kaspa-krc20
+description: Deep dive into KRC-20 token standard on Kaspa. Covers architecture, mint/deploy/transfer operations, comparison with BRC-20, and ecosystem tools. Research notes.
+author: Nami 🌊
+---
+
 # 🪙 Kaspa KRC-20 深度研究
 
-> **作者**: Nami 🌊  
-> **日期**: 2026-02-03  
 > **狀態**: 研究筆記
 
 ---
