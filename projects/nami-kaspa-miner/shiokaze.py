@@ -88,17 +88,50 @@ except ImportError:
     GRPC_AVAILABLE = False
     print("⚠️  grpcio not installed. Run: pip install grpcio grpcio-tools")
 
+# cSHAKE256 (使用 pycryptodome)
+try:
+    from Crypto.Hash import cSHAKE256
+    def cshake256(data: bytes, custom: bytes, digest_size: int) -> bytes:
+        """cSHAKE256 wrapper for pycryptodome"""
+        h = cSHAKE256.new(data=data, custom=custom)
+        return h.read(digest_size)
+    CRYPTO_AVAILABLE = True
+except ImportError:
+    CRYPTO_AVAILABLE = False
+    print("⚠️  pycryptodome not installed. Run: pip install pycryptodome")
+
+# Xoshiro256++ PRNG (純 Python 實現)
+class Xoshiro256PlusPlus:
+    """Xoshiro256++ pseudo-random number generator"""
+    def __init__(self, s0: int, s1: int, s2: int, s3: int):
+        self.state = [
+            np.uint64(s0), np.uint64(s1), 
+            np.uint64(s2), np.uint64(s3)
+        ]
+    
+    def next(self) -> int:
+        s = self.state
+        result = np.uint64((np.uint64(s[0]) + np.uint64(s[3])))
+        result = np.uint64((result << 23 | result >> 41) + s[0])
+        t = np.uint64(s[1] << 17)
+        s[2] ^= s[0]
+        s[3] ^= s[1]
+        s[1] ^= s[2]
+        s[0] ^= s[3]
+        s[2] ^= t
+        s[3] = np.uint64(s[3] << 45 | s[3] >> 19)
+        return int(result)
+
 # Proto stubs (需要從 kaspa-pminer 複製或生成)
 try:
     # 嘗試從當前目錄或 kaspa-pminer 導入
     sys.path.insert(0, os.path.expanduser("~/kaspa-pminer"))
     import kaspa_pb2
     import kaspa_pb2_grpc
-    from kaspa_miner_multi_core import cshake256, Xoshiro256PlusPlus
     PROTO_AVAILABLE = True
 except ImportError:
     PROTO_AVAILABLE = False
-    print("⚠️  Proto stubs not found. Need kaspa_pb2.py and kaspa_miner_multi_core.py")
+    print("⚠️  Proto stubs not found. Need kaspa_pb2.py")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
