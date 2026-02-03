@@ -215,7 +215,15 @@ class ShioKazeV2:
     
     def connect(self) -> bool:
         try:
-            self.channel = grpc.insecure_channel(self.address)
+            # gRPC keepalive 設定（防止靜默斷線）
+            self.channel = grpc.insecure_channel(
+                self.address,
+                options=[
+                    ('grpc.keepalive_time_ms', 10000),
+                    ('grpc.keepalive_timeout_ms', 5000),
+                    ('grpc.keepalive_permit_without_calls', True),
+                ]
+            )
             self.stub = kaspa_pb2_grpc.RPCStub(self.channel)
             req = kaspa_pb2.KaspadMessage(getInfoRequest=kaspa_pb2.GetInfoRequestMessage())
             resp = next(self.stub.MessageStream(iter([req])))
