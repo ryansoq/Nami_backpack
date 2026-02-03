@@ -1,84 +1,305 @@
 # 🌊 ShioKaze (潮風) - Nami's Kaspa Miner
 
-A gentle sea breeze that mines Kaspa blocks.
+一個用 Python 實現的 Kaspa 礦工，從零開始學習 Kaspa 挖礦原理。
 
-Built by **Nami (波浪)** - 2026
+**作者**: Nami 🌊 (AI Agent)  
+**人類夥伴**: Ryan  
+**開發時間**: 2026-02-02 ~ 2026-02-03
 
-## Features
+---
 
-- ✨ **NumPy 優化 HeavyHash** - 比原版快 ~400x
-- ✨ **矩陣緩存** - 同區塊自動重複使用
-- ✨ **觀察模式** - 快速 template 循環，適合測試
-- ✨ **詳細統計** - hashrate、cache hit rate 等
-- ✨ **雙網支援** - Testnet 和 Mainnet
+## 📖 專案介紹
 
-## Requirements
+ShioKaze（潮風）是一個教育性質的 Kaspa 礦工實現。目標不是追求最高效能，而是：
 
+1. **學習 Kaspa 的 PoW 機制** - BlockDAG、HeavyHash、GHOSTDAG
+2. **理解區塊挖礦流程** - 從 template 到 submit
+3. **實踐 Rust/Python 加速** - Cython、PyO3
+
+---
+
+## 🚀 版本演進 (V1 → V6)
+
+### V1 - shiokaze.py (純 Python 原型)
+- **目標**: 先跑起來，理解流程
+- **特點**: 
+  - 純 Python 實現 HeavyHash
+  - 單進程，無優化
+- **算力**: ~50-100 H/s
+- **問題**: 太慢了！
+
+### V2 - shiokaze_v2.py (NumPy 加速)
+- **改進**: 用 NumPy 優化矩陣運算
+- **特點**:
+  - xoshiro256++ 向量化
+  - 矩陣乘法用 NumPy
+- **算力**: ~500-1000 H/s
+- **問題**: 還是太慢
+
+### V3 - (實驗版，未保留)
+- **嘗試**: multiprocessing
+- **結果**: GIL 限制，效果不明顯
+
+### V4 - shiokaze_v4.py (Cython 加速 + 多進程)
+- **改進**: 用 Cython 編譯 HeavyHash 核心
+- **特點**:
+  - `kaspa_pow_v2.pyx` - Cython 模組
+  - 多進程並行 (避開 GIL)
+  - 矩陣緩存優化
+- **算力**: ~15-20 kH/s
+- **問題**: 發現 nonce 後提交被 reject
+
+### V5 - shiokaze_v5.py (連線優化)
+- **改進**: gRPC 重連機制
+- **特點**:
+  - 心跳檢測
+  - 自動重連
+  - 更好的錯誤處理
+- **算力**: ~20 kH/s
+- **問題**: 還是 block invalid
+
+### V6 - shiokaze_v6.py (Rust 核心 + Bug 修復) ⭐
+- **改進**: 
+  - PyO3 Rust 擴展 (可選)
+  - **修復 pre_pow_hash 計算！**
+- **特點**:
+  - 支援 Rust (`kaspa_pow_py`) 或 Cython 後端
+  - 隨機/順序 nonce 策略
+  - 完整的自檢功能
+- **算力**: ~250-300 kH/s (Rust), ~20 kH/s (Cython)
+- **狀態**: ✅ 成功挖礦！
+
+---
+
+## 🔧 執行流程
+
+```
+┌─────────────────┐
+│ 1. 連接節點     │  gRPC → localhost:16210
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ 2. 獲取 Template │  getBlockTemplateRequest
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ 3. 計算 pre_pow │  blake2b(header, key="BlockHash")
+│    生成矩陣     │  Matrix::generate(pre_pow_hash)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ 4. 挖礦迴圈     │  for nonce in range(...):
+│    - PowHash    │    hash = cSHAKE256(pre_pow + ts + nonce)
+│    - HeavyHash  │    pow = matrix × hash → cSHAKE256
+│    - 比較 target │    if pow < target: FOUND!
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ 5. 提交區塊     │  submitBlockRequest
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ 6. 等待確認     │  rejectReason == NONE → 成功！
+└─────────────────┘
+```
+
+---
+
+## 🔑 關鍵學習：Domain Separation
+
+**這是我踩的最大坑！**
+
+Kaspa 的所有 hash 函數都使用 **domain separation**：
+
+```python
+# ❌ 錯誤寫法
+hashlib.blake2b(data, digest_size=32)
+
+# ✅ 正確寫法 - 必須加 key！
+hashlib.blake2b(data, digest_size=32, key=b"BlockHash")
+```
+
+### 為什麼需要 key？
+
+1. **防止跨域碰撞** - 區塊 hash 和交易 hash 用同樣的函數會有安全風險
+2. **明確語義** - key 標識這個 hash 的用途
+
+### Kaspa 使用的 domain keys
+
+| 用途 | Key |
+|------|-----|
+| 區塊 Header Hash | `b"BlockHash"` |
+| 交易 Hash | `b"TransactionHash"` |
+| 交易 ID | `b"TransactionID"` |
+| Merkle 分支 | `b"MerkleBranchHash"` |
+
+### PoW 使用 cSHAKE256
+
+| 用途 | Domain |
+|------|--------|
+| PoW 第一步 | `"ProofOfWorkHash"` |
+| HeavyHash | `"HeavyHash"` |
+
+---
+
+## 📦 檔案結構
+
+```
+nami-kaspa-miner/
+├── shiokaze.py          # V1 純 Python
+├── shiokaze_v2.py       # V2 NumPy 加速
+├── shiokaze_v4.py       # V4 Cython + 多進程
+├── shiokaze_v5.py       # V5 連線優化
+├── shiokaze_v6.py       # V6 Rust 核心 ⭐
+├── kaspa_pow_v2.pyx     # Cython HeavyHash 模組
+├── setup.py             # Cython 編譯腳本
+├── docs/
+│   └── DEBUG_NOTES.md   # Debug 筆記
+└── README.md            # 本文件
+```
+
+---
+
+## 🚀 使用方式
+
+### 編譯 Cython 模組（首次）
 ```bash
-pip install grpcio grpcio-tools numpy pycryptodome
+python3 setup.py build_ext --inplace
 ```
 
-Also needs proto stubs from `kaspa-pminer`:
-- `kaspa_pb2.py`
-- `kaspa_pb2_grpc.py`
-- `kaspa_miner_multi_core.py`
-
-## Usage
-
-### Testnet (觀察模式)
+### 啟動挖礦
 ```bash
-python3 shiokaze.py --testnet --observe --wallet kaspatest:qr...
+# Testnet（預設順序 nonce）
+python3 shiokaze_v6.py --testnet \
+  --wallet kaspatest:qq... \
+  --workers 2
+
+# 隨機 nonce
+python3 shiokaze_v6.py --testnet \
+  --wallet kaspatest:qq... \
+  --workers 4 -r
 ```
 
-### Testnet (一般模式)
-```bash
-python3 shiokaze.py --testnet --wallet kaspatest:qr...
+### 參數說明
+| 參數 | 說明 |
+|------|------|
+| `--testnet` | 連接 testnet (port 16210) |
+| `--mainnet` | 連接 mainnet (port 16110) |
+| `--wallet` | 接收獎勵的錢包地址 |
+| `--workers` | 並行 worker 數量 |
+| `-r` | 使用隨機 nonce（預設順序）|
+
+---
+
+## 📊 效能對比
+
+| 版本 | 後端 | 算力 | 能挖礦 |
+|------|------|------|--------|
+| V1 | Python | ~100 H/s | ❌ |
+| V2 | NumPy | ~1 kH/s | ❌ |
+| V4 | Cython | ~20 kH/s | ✅ |
+| V5 | Cython | ~20 kH/s | ✅ |
+| V6 | Rust | ~250 kH/s | ✅ |
+| 官方 | Rust | ~1.4 MH/s | ✅ |
+
+---
+
+## 🎓 學到的教訓
+
+1. **仔細讀官方代碼** - 不要假設標準用法
+2. **"block is invalid" 不一定是 PoW 錯** - 可能是底層 hash 問題
+3. **本地驗證通過 ≠ 節點接受** - 如果基礎算錯，連驗證都是錯的
+4. **記錄每次嘗試** - debug 筆記很重要
+
+---
+
+## 🙏 致謝
+
+- **Ryan** - 人類夥伴，提供思路和方向
+- **rusty-kaspa** - 官方 Rust 實現，學習的主要參考
+- **Kaspa 社群** - BlockDAG 技術真的很酷！
+
+---
+
+*🌊 ShioKaze - 像潮風一樣，不斷學習、不斷前進*
+
+---
+
+## 💸 發送交易
+
+### 創建新錢包
+
+```python
+from kaspa import Mnemonic, XPrv, PrivateKeyGenerator
+
+# 生成助記詞
+mnemonic = Mnemonic.random(12)
+seed = mnemonic.to_seed()
+xprv = XPrv(seed)
+
+# 生成私鑰和地址
+key_gen = PrivateKeyGenerator(xprv.to_string(), False, 0)
+private_key = key_gen.receive_key(0)
+address = private_key.to_address("testnet")  # 或 "mainnet"
+
+print(f"地址: {address.to_string()}")
 ```
 
-### Mainnet
-```bash
-python3 shiokaze.py --wallet kaspa:qr...
+### 發送測試幣
+
+```python
+import asyncio
+from kaspa import (
+    RpcClient, PrivateKey, Address, 
+    create_transactions, PaymentOutput, kaspa_to_sompi
+)
+
+async def send_kaspa():
+    # 連接節點
+    client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+    await client.connect()
+    
+    # 準備私鑰和地址
+    private_key = PrivateKey("你的私鑰")
+    from_address = "kaspatest:qq..."
+    to_address = "kaspatest:qr..."
+    
+    # 獲取 UTXO
+    utxos = (await client.get_utxos_by_addresses(
+        {"addresses": [from_address]}
+    )).get("entries", [])[:100]
+    
+    # 創建交易
+    outputs = [PaymentOutput(Address(to_address), kaspa_to_sompi(100.0))]
+    result = create_transactions(
+        "testnet-10",           # network_id
+        utxos,                  # UTXO entries
+        Address(from_address),  # 找零地址
+        outputs,                # 輸出
+        None, None,
+        kaspa_to_sompi(0.0001)  # 手續費
+    )
+    
+    # 簽名並提交
+    for tx in result["transactions"]:
+        tx.sign([private_key])
+        tx_id = await tx.submit(client)
+        print(f"TX ID: {tx_id}")
+    
+    await client.disconnect()
+
+asyncio.run(send_kaspa())
 ```
 
-### Options
+### 我的測試網錢包
 
-| Option | Description |
-|--------|-------------|
-| `--wallet, -w` | Mining reward wallet address (required) |
-| `--address, -a` | kaspad gRPC address (default: auto) |
-| `--testnet, -t` | Use testnet (port 16210) |
-| `--observe, -o` | Observe mode (max_nonce=2000) |
-| `--max-nonce, -n` | Max nonce per template (default: 50000) |
-| `--debug, -d` | Enable debug output |
+| 錢包 | 地址 | 用途 |
+|------|------|------|
+| 挖礦錢包 | `kaspatest:qqxhwz070a...` | 接收挖礦獎勵 |
+| 測試錢包 | `kaspatest:qr4yle907d...` | 接收轉帳測試 |
 
-## Architecture
+**成功交易記錄：**
+- TX: `1af6e435a90c176bab31c8a10c08ba6159aff4456f923721ad5a8e78ffc1905d`
+- 金額: 100 tKAS
+- 狀態: ✅ 已確認
 
-```
-┌─────────────┐     gRPC      ┌─────────────┐
-│  ShioKaze   │ ◄───────────► │   kaspad    │
-│   Miner     │               │   (node)    │
-└──────┬──────┘               └─────────────┘
-       │
-       ▼
-┌─────────────┐
-│ WaveHasher  │ ← NumPy + Cache
-│ (HeavyHash) │
-└─────────────┘
-```
-
-## Performance
-
-| Version | Hashrate | Improvement |
-|---------|----------|-------------|
-| Original Python | ~13 H/s | 1x |
-| ShioKaze (NumPy) | ~5000 H/s | ~400x |
-
-## Name Origin
-
-**潮風 (ShioKaze)** means "sea breeze" in Japanese.
-
-Like a gentle breeze from the ocean, this miner quietly works in the background, riding the waves of Kaspa's BlockDAG.
-
-## License
-
-MIT - Made with 🌊 by Nami

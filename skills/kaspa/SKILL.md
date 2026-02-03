@@ -134,3 +134,34 @@ responses = stub.MessageStream(iter([request]))
 ---
 
 *持續學習中... 🌊*
+
+---
+
+## 重要：Hash 函數的 Domain Separation
+
+Kaspa 的所有 hash 函數都使用 **domain separation**，不是普通的 hash！
+
+### Blake2b (BlockHash 系列)
+使用 **keyed blake2b**：
+
+```python
+# ❌ 錯誤
+hashlib.blake2b(digest_size=32)
+
+# ✅ 正確
+hashlib.blake2b(digest_size=32, key=b"BlockHash")
+```
+
+常用 keys：
+- `b"BlockHash"` - 區塊 header hash
+- `b"TransactionHash"` - 交易 hash
+- `b"TransactionID"` - 交易 ID
+- `b"MerkleBranchHash"` - Merkle 樹
+
+### cSHAKE256 (PoW 系列)
+使用 **cSHAKE256 with domain**：
+
+- `"ProofOfWorkHash"` - PoW 計算第一步
+- `"HeavyHash"` - HeavyHash 最終計算
+
+參考：`rusty-kaspa/crypto/hashes/src/hashers.rs`

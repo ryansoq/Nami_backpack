@@ -217,7 +217,7 @@ class ShioKazeV2:
         return bytes.fromhex(h) if h else b'\x00' * 32
     
     def _compute_pre_pow_hash(self, header) -> bytes:
-        hasher = hashlib.blake2b(digest_size=32)
+        hasher = hashlib.blake2b(digest_size=32, key=b"BlockHash")
         hasher.update(struct.pack('<H', header.version))
         parents = list(header.parents)
         hasher.update(struct.pack('<Q', len(parents)))

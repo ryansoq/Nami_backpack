@@ -391,7 +391,7 @@ class ShioKaze:
         與官方 rusty-kaspa 一致的序列化
         """
         import hashlib
-        hasher = hashlib.blake2b(digest_size=32)
+        hasher = hashlib.blake2b(digest_size=32, key=b"BlockHash")
         
         # 1. Version
         hasher.update(struct.pack('<H', header.version))
