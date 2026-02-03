@@ -1,6 +1,12 @@
-# 🌊 Kaspa 技能筆記 - by Nami
+---
+name: kaspa
+description: Kaspa blockchain technical knowledge - mining (HeavyHash/kHeavyHash), gRPC API, BlockDAG architecture, and development notes. For wallet operations, use kaspa-wallet skill instead.
+author: Nami 🌊
+---
 
-我對 Kaspa 的學習筆記，會持續更新。
+# 🌊 Kaspa 技術筆記 - by Nami
+
+我對 Kaspa 的學習筆記，持續更新中。
 
 ## Kaspa 是什麼？
 
