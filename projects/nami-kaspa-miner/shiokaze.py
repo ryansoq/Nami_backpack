@@ -520,8 +520,16 @@ class ShioKaze:
         target = self._bits_to_target(bits)
         
         start_nonce = random.randint(0, 2**32)
+        start_time = time.time()
+        max_time = 2.0  # 每個 template 最多挖 2 秒，避免 stale block
         
         for i in range(self.max_nonce):
+            # 時間限制檢查
+            if i > 0 and i % 500 == 0:
+                if time.time() - start_time > max_time:
+                    self.debug_log(f"Template timeout ({max_time}s), getting new one")
+                    return None
+            
             nonce = (start_nonce + i) % (2**64)
             
             digest = self.hasher.heavyhash(hash_values, timestamp, nonce)
