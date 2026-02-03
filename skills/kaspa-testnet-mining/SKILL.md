@@ -373,7 +373,26 @@ rm -rf ~/.kaspa/testnet-10
 2. **網路延遲**: 節點沒跟上最新狀態
 3. **計算錯誤**: PoW hash 計算有誤
 
-解決方案：使用官方 Rust 礦工或 ShioKaze v6
+**解決方案 - Stale Block 防護：**
+
+速度慢的礦工也能挖到，關鍵是**保持 template 新鮮度**！
+
+```python
+# 方法 1: 時間限制
+if time.time() - start_time > 2.0:  # 最多 2 秒
+    return None  # 放棄，拿新 template
+
+# 方法 2: 檢查新任務
+if i % 1000 == 0 and not task_queue.empty():
+    break  # 有新 template，放棄當前的
+
+# 方法 3: Template ID 檢查 (推薦)
+while shared_state['template']['id'] == template_id:
+    # 挖礦...
+    # template 變了會自動跳出
+```
+
+**記住：該放棄就放棄，拿新的再試！**
 
 ### Q: 餘額查不到？
 ```bash
