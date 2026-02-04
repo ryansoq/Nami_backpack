@@ -191,6 +191,57 @@ def get_roulette_result(block_hash: str) -> int:
     hash_int = int(block_hash, 16)
     return hash_int % 38
 
+
+async def get_draw_block_at_score(target_score: int) -> dict | None:
+    """
+    確定性開獎：取得指定 blueScore 的開獎區塊
+    
+    官方排序規則（來自 rusty-kaspa/consensus/src/processes/ghostdag/ordering.rs）：
+    1. blueWork 大的優先（降序）
+    2. 如果相同，hash 字母順序小的優先（升序）
+    
+    返回: {'hash': str, 'blueWork': str, 'blocks_count': int} 或 None
+    """
+    import urllib.request
+    
+    API_URL = "https://api-tn10.kaspa.org"
+    
+    try:
+        url = f"{API_URL}/blocks-from-bluescore?blueScore={target_score}&limit=20"
+        req = urllib.request.Request(url, headers={'User-Agent': 'NamiKaspaBot/1.0'})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode())
+        
+        # 篩選出目標高度的區塊
+        blocks = []
+        for block in data:
+            score = int(block.get('verboseData', {}).get('blueScore', 0))
+            if score == target_score:
+                blocks.append({
+                    'hash': block['verboseData']['hash'],
+                    'blueWork': block['header']['blueWork'],
+                })
+        
+        if not blocks:
+            logger.warning(f"No blocks found at blueScore {target_score}")
+            return None
+        
+        # 官方排序：blueWork 降序，hash 升序
+        blocks.sort(key=lambda b: (-int(b['blueWork'], 16), b['hash']))
+        
+        winner = blocks[0]
+        logger.info(f"Draw block at {target_score}: {len(blocks)} blocks, winner={winner['hash'][:16]}...")
+        
+        return {
+            'hash': winner['hash'],
+            'blueWork': winner['blueWork'],
+            'blocks_count': len(blocks)
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to get draw block: {e}")
+        return None
+
 def get_bet_color(number: int) -> str:
     """取得數字對應的顏色"""
     if number in RED_NUMBERS:
@@ -1348,23 +1399,19 @@ async def auto_draw_check_standalone(bot):
             logger.info(f"Auto draw triggered at block {current_height}, target was {current_6666}")
             save_last_draw_block(current_6666)
             
-            # 確定性選擇 tip：按 blueScore 降序，相同則按 hash 字母序
-            tips = info.get("tipHashes", ["0"])
-            tip_info = []
-            for th in tips[:10]:  # 最多檢查 10 個 tip
-                try:
-                    block = await client.get_block({"hash": th, "includeTransactions": False})
-                    header = block.get('block', {}).get('header', {})
-                    tip_info.append({
-                        'hash': th,
-                        'blueScore': header.get('blueScore', 0)
-                    })
-                except:
-                    tip_info.append({'hash': th, 'blueScore': 0})
+            # 確定性開獎：使用官方排序規則 (blueWork↓ → hash↑)
+            # 來源: rusty-kaspa/consensus/src/processes/ghostdag/ordering.rs
+            draw_result = await get_draw_block_at_score(current_6666)
             
-            # 排序：blueScore 高優先，相同則 hash 字母序
-            tip_info.sort(key=lambda x: (-x['blueScore'], x['hash']))
-            tip_hash = tip_info[0]['hash'] if tip_info else tips[0]
+            if not draw_result:
+                # Fallback: 用舊方法（tip hashes）
+                logger.warning(f"Fallback to tip hashes for block {current_6666}")
+                tips = info.get("tipHashes", ["0"])
+                tip_hash = tips[0]
+                blocks_count = 1
+            else:
+                tip_hash = draw_result['hash']
+                blocks_count = draw_result['blocks_count']
             
             result = get_roulette_result(tip_hash)
             result_display = str(result) if result < 37 else "00"
@@ -1382,6 +1429,8 @@ async def auto_draw_check_standalone(bot):
             history.append({
                 "target_block": current_6666,
                 "block_hash": tip_hash,
+                "blocks_at_height": blocks_count,
+                "blueWork": draw_result.get('blueWork') if draw_result else None,
                 "result": result,
                 "result_display": result_display,
                 "color": result_color,
@@ -1461,15 +1510,19 @@ async def auto_draw_check_standalone(bot):
         else:
             losers_text = "  （無人輸錢）\n"
         
+        explorer_url = f"https://explorer-tn10.kaspa.org/blocks/{tip_hash}"
         result_msg = (
-            f"🎰 *自動開獎結果！*\n\n"
-            f"Block Hash:\n`{tip_hash}`\n\n"
-            f"int(hash,16) % 38 = *{result}*\n"
+            f"🎰 *開獎結果！*\n\n"
+            f"📍 開獎高度: `{current_6666}`\n"
+            f"📊 該高度區塊: {blocks_count} 個\n"
+            f"🏆 開獎區塊 (排序第一):\n`{tip_hash[:32]}...`\n\n"
+            f"🎲 hash mod 38 = *{result}*\n"
             f"結果：*{result_color}({result_display})*\n\n"
             f"🏆 *贏家：*\n{winners_text}\n"
             f"💀 *輸家：*\n{losers_text}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"💰 本輪發放：{total_payout} tKAS"
+            f"💰 本輪發放：{total_payout} tKAS\n\n"
+            f"🔗 [驗證連結]({explorer_url})"
         )
         
         # 公告到群組
