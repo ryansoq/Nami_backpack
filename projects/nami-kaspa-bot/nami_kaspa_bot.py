@@ -192,19 +192,104 @@ def get_roulette_result(block_hash: str) -> int:
     return hash_int % 38
 
 
-def get_current_blue_score() -> int:
-    """用 REST API 取得當前 blueScore（不是 daaScore！）"""
-    import urllib.request
+def get_current_daa_score() -> int:
+    """用 gRPC 取得當前 daaScore（這是大家說的「高度」）"""
+    import asyncio
+    from kaspa import RpcClient
+    
+    async def _get():
+        try:
+            client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+            await client.connect()
+            info = await client.get_block_dag_info({})
+            await client.disconnect()
+            return info.get("virtualDaaScore", 0)
+        except Exception as e:
+            logger.error(f"Failed to get daaScore: {e}")
+            return 0
     
     try:
-        url = "https://api-tn10.kaspa.org/info/virtual-chain-blue-score"
-        req = urllib.request.Request(url, headers={'User-Agent': 'NamiKaspaBot/1.0'})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-        return data.get("blueScore", 0)
+        return asyncio.get_event_loop().run_until_complete(_get())
+    except RuntimeError:
+        # 如果已經在 async context 中
+        loop = asyncio.new_event_loop()
+        result = loop.run_until_complete(_get())
+        loop.close()
+        return result
+
+
+async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
+    """
+    確定性開獎：取得指定 daaScore 的開獎區塊
+    
+    由於 API 沒有直接用 daaScore 查詢的方法，我們：
+    1. 估算對應的 blueScore 範圍
+    2. 掃描該範圍的區塊
+    3. 篩選出 daaScore 等於目標的區塊
+    4. 用官方排序規則選出開獎區塊
+    """
+    import urllib.request
+    
+    API_URL = "https://api-tn10.kaspa.org"
+    
+    try:
+        # daaScore 和 blueScore 的比例約 1.015-1.016
+        # 估算 blueScore 範圍（給一些緩衝）
+        estimated_blue = int(target_daa / 1.0155)
+        
+        # 掃描範圍 ±500
+        blocks_found = []
+        
+        for offset in range(-500, 501, 100):
+            blue_score = estimated_blue + offset
+            url = f"{API_URL}/blocks-from-bluescore?blueScore={blue_score}&limit=50"
+            req = urllib.request.Request(url, headers={'User-Agent': 'NamiKaspaBot/1.0'})
+            
+            try:
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read().decode())
+                
+                for block in data:
+                    daa = int(block.get('header', {}).get('daaScore', 0))
+                    if daa == target_daa:
+                        blocks_found.append({
+                            'hash': block['verboseData']['hash'],
+                            'blueWork': block['header']['blueWork'],
+                            'daaScore': daa,
+                            'blueScore': int(block['verboseData']['blueScore'])
+                        })
+            except Exception as e:
+                logger.debug(f"Scan at blueScore {blue_score}: {e}")
+                continue
+        
+        if not blocks_found:
+            logger.warning(f"No blocks found at daaScore {target_daa}")
+            return None
+        
+        # 去重（同一個 hash 可能被掃到多次）
+        seen = set()
+        unique_blocks = []
+        for b in blocks_found:
+            if b['hash'] not in seen:
+                seen.add(b['hash'])
+                unique_blocks.append(b)
+        
+        # 官方排序：blueWork 降序，hash 升序
+        unique_blocks.sort(key=lambda b: (-int(b['blueWork'], 16), b['hash']))
+        
+        winner = unique_blocks[0]
+        logger.info(f"Draw block at daaScore {target_daa}: {len(unique_blocks)} blocks, winner={winner['hash'][:16]}...")
+        
+        return {
+            'hash': winner['hash'],
+            'blueWork': winner['blueWork'],
+            'daaScore': winner['daaScore'],
+            'blocks_count': len(unique_blocks)
+        }
+    
     except Exception as e:
-        logger.error(f"Failed to get blueScore: {e}")
-        return 0
+        logger.error(f"Failed to get draw block at daaScore: {e}")
+        return None
 
 
 async def get_draw_block_at_score(target_score: int) -> dict | None:
@@ -927,15 +1012,15 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 如果是第一個下注，設定目標開獎區塊
         if not bets_data.get("target_block"):
-            # 用 blueScore（不是 daaScore！）計算下一個 6666 區塊
-            current_h = get_current_blue_score()
+            # 用 daaScore（大家說的「高度」）計算下一個 6666 區塊
+            current_h = get_current_daa_score()
             remainder = current_h % 10000
             if remainder < 6666:
                 target = current_h - remainder + 6666
             else:
                 target = current_h - remainder + 16666
             bets_data["target_block"] = target
-            logger.info(f"New round target blueScore: {target}")
+            logger.info(f"New round target daaScore: {target}")
         
         bets_data["bets"].append({
             "user_id": user_id,
@@ -978,8 +1063,8 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 rpc = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
                 await rpc.connect()
                 try:
-                    # 用 blueScore（不是 daaScore！）
-                    current_height = get_current_blue_score()
+                    # 用 daaScore（大家說的「高度」）
+                    current_height = get_current_daa_score()
                     
                     # 計算下一個 6666 區塊
                     remainder = current_height % 10000
@@ -1078,8 +1163,8 @@ async def roulette_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await client.connect()
         
         try:
-            # 用 blueScore（不是 daaScore！）
-            current_height = get_current_blue_score()
+            # 用 daaScore（大家說的「高度」）
+            current_height = get_current_daa_score()
             
             # 計算下一個 6666 區塊
             remainder = current_height % 10000
@@ -1089,8 +1174,8 @@ async def roulette_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 next_6666 = current_height - remainder + 16666
             
             blocks_left = next_6666 - current_height
-            # 估算時間（blueScore 每秒約 10 區塊）
-            seconds_left = blocks_left // 10
+            # 估算時間（daaScore 每秒約 1）
+            seconds_left = blocks_left
             
             bets_data = load_roulette_bets()
             bet_count = len(bets_data.get("bets", []))
@@ -1139,12 +1224,12 @@ async def draw(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await client.connect()
         
         try:
-            # 用 blueScore（不是 daaScore！）
-            current_height = get_current_blue_score()
+            # 用 daaScore（大家說的「高度」）
+            current_height = get_current_daa_score()
             target_block = bets_data.get("target_block", current_height)
             
             # 確定性開獎：使用官方排序規則 (blueWork↓ → hash↑)
-            draw_result = await get_draw_block_at_score(target_block)
+            draw_result = await get_draw_block_at_daa_score(target_block)
             
             if draw_result:
                 tip_hash = draw_result['hash']
@@ -1388,15 +1473,15 @@ async def auto_draw_check_standalone(bot):
         await client.connect()
         
         try:
-            # 用 blueScore（不是 daaScore！）
-            current_height = get_current_blue_score()
+            # 用 daaScore（大家說的「高度」）
+            info = await client.get_block_dag_info({})
+            current_height = info.get("virtualDaaScore", 0)
             
             # 檢查是否到達目標開獎區塊
             if current_height < target_block:
                 return  # 還沒到開獎時間
             
             current_6666 = target_block  # 使用下注時設定的目標區塊
-            info = await client.get_block_dag_info({})  # 仍需要 for fallback tips
             
             # 開獎！
             logger.info(f"Auto draw triggered at block {current_height}, target was {current_6666}")
@@ -1404,7 +1489,7 @@ async def auto_draw_check_standalone(bot):
             
             # 確定性開獎：使用官方排序規則 (blueWork↓ → hash↑)
             # 來源: rusty-kaspa/consensus/src/processes/ghostdag/ordering.rs
-            draw_result = await get_draw_block_at_score(current_6666)
+            draw_result = await get_draw_block_at_daa_score(current_6666)
             
             if not draw_result:
                 # Fallback: 用舊方法（tip hashes）
