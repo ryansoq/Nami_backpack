@@ -252,13 +252,14 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
                             'blueScore': header.get('blueScore', 0)
                         })
                     elif daa > target_daa:
-                        # 繼續往回找 (gRPC 欄位是 parentsByLevel)
+                        # 繼續往回找 (gRPC: parentsByLevel 是 List[List[str]])
                         parents_by_level = header.get('parentsByLevel', [])
-                        for level_parents in parents_by_level:
-                            parent_hashes = level_parents.get('parentHashes', [])
-                            for ph in parent_hashes[:3]:  # 限制每層
-                                if ph not in visited:
-                                    queue.append(ph)
+                        for parent_hashes in parents_by_level:
+                            # parent_hashes 是 list of hash strings
+                            if isinstance(parent_hashes, list):
+                                for ph in parent_hashes[:3]:  # 限制每層
+                                    if ph not in visited:
+                                        queue.append(ph)
                     # 如果 daa < target_daa，不需要繼續往這個方向找
                     
                 except Exception as e:
