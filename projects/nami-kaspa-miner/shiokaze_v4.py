@@ -444,10 +444,11 @@ class ShioKazeMiner:
             print(f"[Main] ❌ 連接失敗: {e}", flush=True)
             return False
     
-    def _call_rpc(self, request, timeout=5):
-        """發送 RPC 請求（使用 MessageStream）"""
+    def _call_rpc(self, request, timeout=10):
+        """發送 RPC 請求（使用 MessageStream，帶 timeout）"""
         try:
-            responses = self.stub.MessageStream(iter([request]))
+            # 🔧 修復：加入 timeout 避免永久卡住
+            responses = self.stub.MessageStream(iter([request]), timeout=timeout)
             for response in responses:
                 return response
         except grpc.RpcError as e:

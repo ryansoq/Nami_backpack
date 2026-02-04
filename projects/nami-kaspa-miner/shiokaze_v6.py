@@ -530,9 +530,10 @@ class ShioKazeMiner:
             print(f"[Main] ❌ 連接失敗: {e}", flush=True)
             return False
     
-    def _call_rpc(self, request, timeout=5):
+    def _call_rpc(self, request, timeout=10):
+        """🔧 修復：加入 timeout 避免永久卡住"""
         try:
-            responses = self.stub.MessageStream(iter([request]))
+            responses = self.stub.MessageStream(iter([request]), timeout=timeout)
             for response in responses:
                 return response
         except grpc.RpcError as e:

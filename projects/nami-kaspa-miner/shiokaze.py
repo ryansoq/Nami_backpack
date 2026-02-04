@@ -358,10 +358,10 @@ class ShioKaze:
             self.channel = None
             self.stub = None
     
-    def _call_rpc(self, request) -> Optional[Any]:
-        """發送 RPC 請求"""
+    def _call_rpc(self, request, timeout=10) -> Optional[Any]:
+        """發送 RPC 請求（🔧 修復：加入 timeout 避免永久卡住）"""
         try:
-            responses = self.stub.MessageStream(iter([request]))
+            responses = self.stub.MessageStream(iter([request]), timeout=timeout)
             for response in responses:
                 return response
         except Exception as e:
