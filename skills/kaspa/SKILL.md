@@ -131,6 +131,49 @@ responses = stub.MessageStream(iter([request]))
 **原因**：純 Python 的 heavyhash 太慢
 **解法**：用 NumPy + 緩存（見 ShioKaze）
 
+## 官方排序規則 (Block Ordering)
+
+Kaspa 是 DAG，同一個 blueScore 可能有多個區塊。當需要確定性選擇時，使用官方排序規則。
+
+### 原始碼位置
+`rusty-kaspa/consensus/src/processes/ghostdag/ordering.rs`
+
+### Rust 實現
+```rust
+impl Ord for SortableBlock {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.blue_work.cmp(&other.blue_work)
+            .then_with(|| self.hash.cmp(&other.hash))
+    }
+}
+```
+
+### 排序優先順序
+1. **blueWork 大的優先**（累積工作量，16進位數值）
+2. **如果 blueWork 相同 → hash 字母順序小的優先**
+
+### Python 實現
+```python
+def sort_blocks_official(blocks: list) -> list:
+    """
+    官方排序規則
+    blocks: [{'hash': str, 'blueWork': str}, ...]
+    """
+    return sorted(blocks, key=lambda b: (-int(b['blueWork'], 16), b['hash']))
+```
+
+### 用途
+- Virtual parent 選擇
+- GHOSTDAG 排序
+- **Kaspa Roulette 確定性開獎** 🎰
+
+### 注意事項
+- `blueWork` 是 16 進位字串，比較時要轉成整數
+- `hash` 是字串，直接字母順序比較
+- **Chain block** 和 **排序第一** 不一定相同！
+  - Chain block 由 GHOSTDAG 協議選出（selected parent）
+  - 排序是純數學規則
+
 ## 資源連結
 
 - [rusty-kaspa](https://github.com/kaspanet/rusty-kaspa) - 官方 Rust 實現
