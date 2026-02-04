@@ -211,7 +211,8 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
     """
     確定性開獎：取得指定 daaScore 的開獎區塊
     
-    由於 API 沒有直接用 daaScore 查詢的方法，我們用 gRPC 從當前 tips 往回找。
+    用 BFS 搜尋所有 daaScore 等於目標的區塊。
+    DAG 中同一個 daaScore 可能有多個區塊且不在同一條鏈上。
     """
     from kaspa import RpcClient
     
@@ -221,17 +222,24 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
         
         try:
             info = await client.get_block_dag_info({})
+            current_daa = info.get("virtualDaaScore", 0)
+            
+            # 如果目標還沒到，返回 None
+            if current_daa < target_daa:
+                logger.debug(f"Target daaScore {target_daa} not reached yet (current: {current_daa})")
+                return None
+            
+            # BFS 搜尋：從 tips 開始，遍歷所有 parents
             tips = info.get("tipHashes", [])
-            
-            # BFS 搜尋找到目標 daaScore 的區塊
             visited = set()
-            queue = list(tips[:20])  # 從 tips 開始
+            queue = list(tips[:50])  # 從多個 tips 開始
             blocks_found = []
-            max_iterations = 500  # 防止無限迴圈
-            iterations = 0
+            max_iterations = 20000
             
-            while queue and iterations < max_iterations:
-                iterations += 1
+            for iteration in range(max_iterations):
+                if not queue:
+                    break
+                
                 current_hash = queue.pop(0)
                 
                 if current_hash in visited:
@@ -240,8 +248,7 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
                 
                 try:
                     block_resp = await client.get_block({"hash": current_hash, "includeTransactions": False})
-                    block = block_resp.get('block', {})
-                    header = block.get('header', {})
+                    header = block_resp.get('block', {}).get('header', {})
                     daa = header.get('daaScore', 0)
                     
                     if daa == target_daa:
@@ -251,27 +258,24 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
                             'daaScore': daa,
                             'blueScore': header.get('blueScore', 0)
                         })
-                    elif daa > target_daa:
-                        # 繼續往回找 (gRPC: parentsByLevel 是 List[List[str]])
-                        parents_by_level = header.get('parentsByLevel', [])
-                        for parent_hashes in parents_by_level:
-                            # parent_hashes 是 list of hash strings
-                            if isinstance(parent_hashes, list):
-                                for ph in parent_hashes[:3]:  # 限制每層
-                                    if ph not in visited:
-                                        queue.append(ph)
-                    # 如果 daa < target_daa，不需要繼續往這個方向找
                     
+                    # 只有 daa > target 時才繼續往回找
+                    if daa > target_daa:
+                        parents_by_level = header.get('parentsByLevel', [])
+                        # 加入所有 level 0 的 parents（最重要的）
+                        if parents_by_level and parents_by_level[0]:
+                            for ph in parents_by_level[0]:
+                                if ph not in visited:
+                                    queue.append(ph)
+                        
                 except Exception as e:
-                    logger.debug(f"Failed to get block {current_hash[:16]}: {e}")
                     continue
             
             if not blocks_found:
-                logger.warning(f"No blocks found at daaScore {target_daa} after {iterations} iterations")
+                logger.warning(f"No blocks found at daaScore {target_daa} after {iteration} iterations")
                 return None
             
             # 官方排序：blueWork 降序，hash 升序
-            # blueWork 是字串，需要轉成整數比較
             blocks_found.sort(key=lambda b: (-int(b['blueWork'], 16) if isinstance(b['blueWork'], str) else -b['blueWork'], b['hash']))
             
             winner = blocks_found[0]
