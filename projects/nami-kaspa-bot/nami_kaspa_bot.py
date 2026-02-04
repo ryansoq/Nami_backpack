@@ -211,73 +211,85 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
     """
     確定性開獎：取得指定 daaScore 的開獎區塊
     
-    由於 API 沒有直接用 daaScore 查詢的方法，我們：
-    1. 估算對應的 blueScore 範圍
-    2. 掃描該範圍的區塊
-    3. 篩選出 daaScore 等於目標的區塊
-    4. 用官方排序規則選出開獎區塊
+    由於 API 沒有直接用 daaScore 查詢的方法，我們用 gRPC 從當前 tips 往回找。
     """
-    import urllib.request
-    
-    API_URL = "https://api-tn10.kaspa.org"
+    from kaspa import RpcClient
     
     try:
-        # daaScore 和 blueScore 的比例約 1.015-1.016
-        # 估算 blueScore 範圍（給一些緩衝）
-        estimated_blue = int(target_daa / 1.0155)
+        client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+        await client.connect()
         
-        # 掃描範圍 ±500
-        blocks_found = []
-        
-        for offset in range(-500, 501, 100):
-            blue_score = estimated_blue + offset
-            url = f"{API_URL}/blocks-from-bluescore?blueScore={blue_score}&limit=50"
-            req = urllib.request.Request(url, headers={'User-Agent': 'NamiKaspaBot/1.0'})
+        try:
+            info = await client.get_block_dag_info({})
+            tips = info.get("tipHashes", [])
             
-            try:
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = json.loads(resp.read().decode())
+            # BFS 搜尋找到目標 daaScore 的區塊
+            visited = set()
+            queue = list(tips[:20])  # 從 tips 開始
+            blocks_found = []
+            max_iterations = 500  # 防止無限迴圈
+            iterations = 0
+            
+            while queue and iterations < max_iterations:
+                iterations += 1
+                current_hash = queue.pop(0)
                 
-                for block in data:
-                    daa = int(block.get('header', {}).get('daaScore', 0))
+                if current_hash in visited:
+                    continue
+                visited.add(current_hash)
+                
+                try:
+                    block_resp = await client.get_block({"hash": current_hash, "includeTransactions": False})
+                    block = block_resp.get('block', {})
+                    header = block.get('header', {})
+                    daa = header.get('daaScore', 0)
+                    
                     if daa == target_daa:
                         blocks_found.append({
-                            'hash': block['verboseData']['hash'],
-                            'blueWork': block['header']['blueWork'],
+                            'hash': current_hash,
+                            'blueWork': header.get('blueWork', '0'),
                             'daaScore': daa,
-                            'blueScore': int(block['verboseData']['blueScore'])
+                            'blueScore': header.get('blueScore', 0)
                         })
-            except Exception as e:
-                logger.debug(f"Scan at blueScore {blue_score}: {e}")
-                continue
-        
-        if not blocks_found:
-            logger.warning(f"No blocks found at daaScore {target_daa}")
-            return None
-        
-        # 去重（同一個 hash 可能被掃到多次）
-        seen = set()
-        unique_blocks = []
-        for b in blocks_found:
-            if b['hash'] not in seen:
-                seen.add(b['hash'])
-                unique_blocks.append(b)
-        
-        # 官方排序：blueWork 降序，hash 升序
-        unique_blocks.sort(key=lambda b: (-int(b['blueWork'], 16), b['hash']))
-        
-        winner = unique_blocks[0]
-        logger.info(f"Draw block at daaScore {target_daa}: {len(unique_blocks)} blocks, winner={winner['hash'][:16]}...")
-        
-        return {
-            'hash': winner['hash'],
-            'blueWork': winner['blueWork'],
-            'daaScore': winner['daaScore'],
-            'blocks_count': len(unique_blocks)
-        }
+                    elif daa > target_daa:
+                        # 繼續往回找
+                        parents = header.get('parents', [])
+                        for level_parents in parents:
+                            parent_hashes = level_parents.get('parentHashes', [])
+                            for ph in parent_hashes:
+                                if ph not in visited:
+                                    queue.append(ph)
+                    # 如果 daa < target_daa，不需要繼續往這個方向找
+                    
+                except Exception as e:
+                    logger.debug(f"Failed to get block {current_hash[:16]}: {e}")
+                    continue
+            
+            if not blocks_found:
+                logger.warning(f"No blocks found at daaScore {target_daa} after {iterations} iterations")
+                return None
+            
+            # 官方排序：blueWork 降序，hash 升序
+            # blueWork 是字串，需要轉成整數比較
+            blocks_found.sort(key=lambda b: (-int(b['blueWork'], 16) if isinstance(b['blueWork'], str) else -b['blueWork'], b['hash']))
+            
+            winner = blocks_found[0]
+            logger.info(f"Draw block at daaScore {target_daa}: {len(blocks_found)} blocks, winner={winner['hash'][:16]}...")
+            
+            return {
+                'hash': winner['hash'],
+                'blueWork': winner['blueWork'],
+                'daaScore': winner['daaScore'],
+                'blocks_count': len(blocks_found)
+            }
+            
+        finally:
+            await client.disconnect()
     
     except Exception as e:
         logger.error(f"Failed to get draw block at daaScore: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
 

@@ -30,5 +30,17 @@
     "timestamp": "2026-02-04T23:19:26.004418",
     "bets_count": 1,
     "total_pool": 30.0
+  },
+  {
+    "target_block": 378576666,
+    "block_hash": "280374d9f89c7e48ea8e308a67c04c7835ee160d812383e545504b395e54826d",
+    "blocks_at_height": 1,
+    "blueWork": null,
+    "result": 3,
+    "result_display": "3",
+    "color": "\ud83d\udd34 \u7d05",
+    "timestamp": "2026-02-04T23:36:21.406944",
+    "bets_count": 1,
+    "total_pool": 10.0
   }
 ]
