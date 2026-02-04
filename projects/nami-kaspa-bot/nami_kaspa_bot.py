@@ -1328,15 +1328,24 @@ async def draw(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             losers_text = "  （無人輸錢）\n"
         
+        explorer_url = f"https://explorer-tn10.kaspa.org/blocks/{tip_hash}"
         result_msg = (
             f"🎰 *開獎結果！*\n\n"
-            f"Block Hash:\n`{tip_hash}`\n\n"
-            f"int(hash,16) % 38 = *{result}*\n"
+            f"📍 開獎高度: `{target_block}`\n"
+            f"📊 該高度區塊: {blocks_count} 個\n"
+            f"🏆 開獎區塊:\n`{tip_hash[:32]}...`\n\n"
+            f"🎲 hash mod 38 = *{result}*\n"
             f"結果：*{result_color}({result_display})*\n\n"
             f"🏆 *贏家：*\n{winners_text}\n"
             f"💀 *輸家：*\n{losers_text}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"💰 本輪發放：{total_payout} tKAS"
+            f"💰 本輪發放：{total_payout} tKAS\n\n"
+            f"🔗 [驗證連結]({explorer_url})\n\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"🎨 *輪盤顏色對照：*\n"
+            f"🟢 0, 00(37)\n"
+            f"🔴 1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36\n"
+            f"⚫ 2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35"
         )
         
         # 公告到群組
@@ -1616,7 +1625,12 @@ async def auto_draw_check_standalone(bot):
             f"💀 *輸家：*\n{losers_text}\n"
             f"━━━━━━━━━━━━━━\n"
             f"💰 本輪發放：{total_payout} tKAS\n\n"
-            f"🔗 [驗證連結]({explorer_url})"
+            f"🔗 [驗證連結]({explorer_url})\n\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"🎨 *輪盤顏色對照：*\n"
+            f"🟢 0, 00(37)\n"
+            f"🔴 1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36\n"
+            f"⚫ 2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35"
         )
         
         # 公告到群組
