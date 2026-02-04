@@ -3,8 +3,10 @@
 🎰 Kaspa Roulette - Provably Fair 輪盤
 用 Kaspa 區塊 hash 決定結果
 
+開獎規則：見 RULES.md
+
 作者: Nami 🌊 & Ryan
-日期: 2026-02-03
+日期: 2026-02-04
 """
 
 import urllib.request
@@ -12,10 +14,11 @@ import json
 import time
 import sys
 
-# === 輪盤配置 ===
+# === 配置 ===
 ROUND_INTERVAL = 1000        # 每 1000 blocks 開一局
 BLOCKS_PER_SECOND = 14       # 約 14 blocks/sec
 API_URL = "https://api-tn10.kaspa.org"
+EXPLORER_URL = "https://explorer-tn10.kaspa.org/blocks"
 
 # === 輪盤數字顏色 ===
 RED_NUMBERS = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
@@ -26,7 +29,7 @@ def api_get(endpoint: str) -> dict:
     """呼叫 API"""
     url = f"{API_URL}{endpoint}"
     req = urllib.request.Request(url, headers={'User-Agent': 'KaspaRoulette/1.0'})
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read().decode())
 
 
@@ -95,36 +98,59 @@ def get_blue_score() -> int:
     return data["blueScore"]
 
 
-def get_block_hash_at_score(target_score: int) -> str:
-    """取得指定 blue score 附近的區塊 hash"""
-    # 取得最近的區塊列表
-    data = api_get(f"/blocks?limit=100")
+def get_blocks_at_score(target_score: int) -> list:
+    """取得指定 blueScore 的所有區塊"""
+    data = api_get(f"/blocks-from-bluescore?blueScore={target_score}&limit=20")
     
-    best_block = None
-    best_diff = float('inf')
+    blocks = []
+    for block in data:
+        score = int(block.get('verboseData', {}).get('blueScore', 0))
+        if score == target_score:
+            blocks.append({
+                'hash': block['verboseData']['hash'],
+                'blueScore': score,
+                'blueWork': block['header']['blueWork'],
+                'isChainBlock': block['verboseData'].get('isChainBlock', False)
+            })
     
-    for block in data.get("blocks", []):
-        score = block.get("blueScore", 0)
-        diff = abs(score - target_score)
-        if score >= target_score and diff < best_diff:
-            best_diff = diff
-            best_block = block
-    
-    if best_block:
-        return best_block.get("blockHash", "")
-    
-    # 如果找不到，用第一個超過目標的
-    for block in data.get("blocks", []):
-        if block.get("blueScore", 0) >= target_score:
-            return block.get("blockHash", "")
-    
-    return data["blocks"][0].get("blockHash", "") if data.get("blocks") else ""
+    return blocks
 
 
-def hash_to_result(block_hash: str) -> int:
-    """將區塊 hash 轉換為輪盤結果 (0-37)"""
-    hash_int = int(block_hash, 16)
-    return hash_int % 38
+def sort_blocks_official(blocks: list) -> list:
+    """
+    官方排序規則
+    來源: rusty-kaspa/consensus/src/processes/ghostdag/ordering.rs
+    
+    1. blueWork 大的優先（降序）
+    2. 如果相同，hash 字母順序小的優先（升序）
+    """
+    return sorted(blocks, key=lambda b: (-int(b['blueWork'], 16), b['hash']))
+
+
+def draw_at_score(target_score: int) -> dict:
+    """
+    確定性開獎
+    返回: {'hash': str, 'result': int, 'blocks_count': int}
+    """
+    blocks = get_blocks_at_score(target_score)
+    
+    if not blocks:
+        return None
+    
+    # 官方排序
+    sorted_blocks = sort_blocks_official(blocks)
+    
+    # 取第一個
+    winner = sorted_blocks[0]
+    result = int(winner['hash'], 16) % 38
+    
+    return {
+        'hash': winner['hash'],
+        'blueWork': winner['blueWork'],
+        'result': result,
+        'blocks_count': len(blocks),
+        'all_blocks': sorted_blocks
+    }
 
 
 def display_wheel():
@@ -174,7 +200,7 @@ def play_round(balance: float) -> float:
    高(h)/低(l)     → 1:1    數字 0-36      → 35:1
    0 / 00          → 35:1
    
-   輸入 q 離開 | w 顯示輪盤
+   輸入 q 離開 | w 顯示輪盤 | rules 查看規則
 """)
     
     bet_type = input("下注類型: ").strip()
@@ -183,6 +209,18 @@ def play_round(balance: float) -> float:
         return -1  # 離開信號
     if bet_type.lower() == 'w':
         display_wheel()
+        return balance
+    if bet_type.lower() == 'rules':
+        print("""
+📜 開獎規則 (Provably Fair):
+   1. 每 1000 blueScore 開一局
+   2. 取得該高度的所有區塊
+   3. 按官方規則排序: blueWork↓ → hash↑
+   4. 取第一個區塊的 hash
+   5. 結果 = hash mod 38
+   
+   詳見 RULES.md
+        """)
         return balance
     
     try:
@@ -214,27 +252,37 @@ def play_round(balance: float) -> float:
         print(f"   {current:,} → {next_draw:,} | 還差 {remaining} (~{seconds:.0f}s)   ", end='\r')
         time.sleep(2)
     
-    # 取得開獎區塊
+    # 開獎
     print("\n\n🎲 開獎中...")
     time.sleep(1)
     
-    block_hash = get_block_hash_at_score(next_draw)
-    result = hash_to_result(block_hash)
+    draw_result = draw_at_score(next_draw)
+    
+    if not draw_result:
+        print("❌ 無法取得開獎區塊，請稍後再試")
+        return balance
+    
+    block_hash = draw_result['hash']
+    result = draw_result['result']
+    blocks_count = draw_result['blocks_count']
     
     # 顯示結果
     print("\n" + "🎰"*20)
     print(f"""
-    ╔═══════════════════════════════════════════════════════════╗
-    ║                      🎲 開獎結果 🎲                       ║
-    ╠═══════════════════════════════════════════════════════════╣
-    ║  區塊高度: {next_draw:<44}║
-    ║  Hash: {block_hash[:20]}...{block_hash[-12:]:<15}║
-    ║  Hash mod 38 = {result:<40}║
-    ║                                                           ║
-    ║           >>> {get_color(result):^20} <<<              ║
-    ║                                                           ║
-    ╚═══════════════════════════════════════════════════════════╝
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║                       🎲 開獎結果 🎲                          ║
+    ╠═══════════════════════════════════════════════════════════════╣
+    ║  開獎高度: {next_draw:<50}║
+    ║  區塊數量: {blocks_count} 個 (按官方規則排序取第一)               ║
+    ║  blueWork: {draw_result['blueWork']:<50}║
+    ║  Hash: {block_hash[:24]}...{block_hash[-12:]:<10}║
+    ║  Hash mod 38 = {result:<46}║
+    ║                                                               ║
+    ║              >>> {get_color(result):^20} <<<               ║
+    ║                                                               ║
+    ╚═══════════════════════════════════════════════════════════════╝
     """)
+    print(f"    🔗 驗證: {EXPLORER_URL}/{block_hash}")
     print("🎰"*20)
     
     # 結算
@@ -276,9 +324,13 @@ def main():
     ║       用 Kaspa 區塊 hash 決定結果                            ║
     ║       by Nami 🌊 & Ryan                                       ║
     ║                                                               ║
-    ║   • 每 1000 blocks (~71秒) 開一局                            ║
-    ║   • 結果 = block_hash mod 38                                 ║
-    ║   • 0-36 對應輪盤數字，37 = 00                               ║
+    ║   📜 開獎規則:                                                ║
+    ║      1. 每 1000 blueScore 開一局                             ║
+    ║      2. 取該高度所有區塊                                      ║
+    ║      3. 官方排序: blueWork↓ → hash↑                          ║
+    ║      4. 取第一個區塊 hash mod 38                             ║
+    ║                                                               ║
+    ║   🔗 規則詳見 RULES.md                                        ║
     ║                                                               ║
     ╚═══════════════════════════════════════════════════════════════╝
     """)

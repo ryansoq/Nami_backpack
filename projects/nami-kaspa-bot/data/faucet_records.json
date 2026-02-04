@@ -1,0 +1,64 @@
+{
+  "records": [
+    {
+      "user_id": 5168530096,
+      "username": "ryansoq",
+      "address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "amount": 10,
+      "tx_id": "2c6d7d9ad26d3ada48714d39187395eff187639efac3ad2b0e53635cb8ea64cd",
+      "date": "2026-02-04",
+      "timestamp": "2026-02-04T18:42:35.287285"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qz4ghnyprck8lr569rsrm9p3s5lg0n9z2gmq33g2mrc03yugqzl575aa6eu9w",
+      "amount": 10,
+      "tx_id": "f816f0d534e9f1da1b0614549e5217610dbae568efbea67cbc516758fcb29880",
+      "date": "2026-02-04",
+      "timestamp": "2026-02-04T20:17:38.838464"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qz4ghnyprck8lr569rsrm9p3s5lg0n9z2gmq33g2mrc03yugqzl575aa6eu9w",
+      "amount": 10,
+      "tx_id": "937a359ff0af7606f8bbc02c35369c72235526cccc0c7cc41ead6319a5c80351",
+      "date": "2026-02-04",
+      "timestamp": "2026-02-04T20:17:57.053561"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qz4ghnyprck8lr569rsrm9p3s5lg0n9z2gmq33g2mrc03yugqzl575aa6eu9w",
+      "amount": 10,
+      "tx_id": "397e58b398005f2a488967e1342e513f7346ada2c55911c4e548962bd9d39a52",
+      "date": "2026-02-04",
+      "timestamp": "2026-02-04T20:17:59.650576"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qz4ghnyprck8lr569rsrm9p3s5lg0n9z2gmq33g2mrc03yugqzl575aa6eu9w",
+      "amount": 10,
+      "tx_id": "63f432594040f4254b0bcc1df589e1f7ea1850386e8aa616c395779dacba1d55",
+      "date": "2026-02-04",
+      "timestamp": "2026-02-04T20:18:01.851454"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qz4ghnyprck8lr569rsrm9p3s5lg0n9z2gmq33g2mrc03yugqzl575aa6eu9w",
+      "amount": 10,
+      "tx_id": "29293ac6184f943ec6a1e3001d429b0a18bcf568d6a47609326652674eaab960",
+      "date": "2026-02-04",
+      "timestamp": "2026-02-04T20:18:03.950429"
+    }
+  ],
+  "daily_stats": {
+    "2026-02-04": {
+      "count": 6,
+      "total": 60
+    }
+  }
+}
