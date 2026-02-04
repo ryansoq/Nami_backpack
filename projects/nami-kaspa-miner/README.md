@@ -217,8 +217,8 @@ python3 shiokaze_v6.py --testnet \
 
 | 版本 | 後端 | 算力 | 能挖礦 |
 |------|------|------|--------|
-| V1 | Python | ~100 H/s | ❌ |
-| V2 | NumPy | ~1 kH/s | ❌ |
+| V1 | Python | ~100 H/s | ✅ 教學版 |
+| V2 | NumPy | ~1 kH/s | ✅ |
 | V4 | Cython | ~20 kH/s | ✅ |
 | V5 | Cython | ~20 kH/s | ✅ |
 | V6 | Rust | ~250 kH/s | ✅ |
