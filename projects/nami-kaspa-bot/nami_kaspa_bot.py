@@ -192,6 +192,21 @@ def get_roulette_result(block_hash: str) -> int:
     return hash_int % 38
 
 
+def get_current_blue_score() -> int:
+    """用 REST API 取得當前 blueScore（不是 daaScore！）"""
+    import urllib.request
+    
+    try:
+        url = "https://api-tn10.kaspa.org/info/virtual-chain-blue-score"
+        req = urllib.request.Request(url, headers={'User-Agent': 'NamiKaspaBot/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        return data.get("blueScore", 0)
+    except Exception as e:
+        logger.error(f"Failed to get blueScore: {e}")
+        return 0
+
+
 async def get_draw_block_at_score(target_score: int) -> dict | None:
     """
     確定性開獎：取得指定 blueScore 的開獎區塊
@@ -912,21 +927,15 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 如果是第一個下注，設定目標開獎區塊
         if not bets_data.get("target_block"):
-            # 計算下一個 6666 區塊
-            from kaspa import RpcClient as RpcClient2
-            rpc2 = RpcClient2(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
-            await rpc2.connect()
-            try:
-                info2 = await rpc2.get_block_dag_info({})
-                current_h = info2.get("virtualDaaScore", 0)
-                remainder = current_h % 10000
-                if remainder < 6666:
-                    target = current_h - remainder + 6666
-                else:
-                    target = current_h - remainder + 16666
-                bets_data["target_block"] = target
-            finally:
-                await rpc2.disconnect()
+            # 用 blueScore（不是 daaScore！）計算下一個 6666 區塊
+            current_h = get_current_blue_score()
+            remainder = current_h % 10000
+            if remainder < 6666:
+                target = current_h - remainder + 6666
+            else:
+                target = current_h - remainder + 16666
+            bets_data["target_block"] = target
+            logger.info(f"New round target blueScore: {target}")
         
         bets_data["bets"].append({
             "user_id": user_id,
@@ -969,8 +978,8 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 rpc = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
                 await rpc.connect()
                 try:
-                    info = await rpc.get_block_dag_info({})
-                    current_height = info.get("virtualDaaScore", 0)
+                    # 用 blueScore（不是 daaScore！）
+                    current_height = get_current_blue_score()
                     
                     # 計算下一個 6666 區塊
                     remainder = current_height % 10000
@@ -1069,9 +1078,8 @@ async def roulette_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await client.connect()
         
         try:
-            # 取得目前區塊高度
-            info = await client.get_block_dag_info({})
-            current_height = info.get("virtualDaaScore", 0)
+            # 用 blueScore（不是 daaScore！）
+            current_height = get_current_blue_score()
             
             # 計算下一個 6666 區塊
             remainder = current_height % 10000
@@ -1081,8 +1089,8 @@ async def roulette_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 next_6666 = current_height - remainder + 16666
             
             blocks_left = next_6666 - current_height
-            # 估算時間（每秒約 1 區塊）
-            seconds_left = blocks_left
+            # 估算時間（blueScore 每秒約 10 區塊）
+            seconds_left = blocks_left // 10
             
             bets_data = load_roulette_bets()
             bet_count = len(bets_data.get("bets", []))
@@ -1131,28 +1139,22 @@ async def draw(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await client.connect()
         
         try:
-            # 取得當前區塊資訊作為隨機源
-            info = await client.get_block_dag_info({})
-            current_height = info.get("virtualDaaScore", 0)
+            # 用 blueScore（不是 daaScore！）
+            current_height = get_current_blue_score()
             target_block = bets_data.get("target_block", current_height)
             
-            # 確定性選擇 tip：按 blueScore 降序，相同則按 hash 字母序
-            tips = info.get("tipHashes", ["0"])
-            tip_info = []
-            for th in tips[:10]:  # 最多檢查 10 個 tip
-                try:
-                    block = await client.get_block({"hash": th, "includeTransactions": False})
-                    header = block.get('block', {}).get('header', {})
-                    tip_info.append({
-                        'hash': th,
-                        'blueScore': header.get('blueScore', 0)
-                    })
-                except:
-                    tip_info.append({'hash': th, 'blueScore': 0})
+            # 確定性開獎：使用官方排序規則 (blueWork↓ → hash↑)
+            draw_result = await get_draw_block_at_score(target_block)
             
-            # 排序：blueScore 高優先，相同則 hash 字母序
-            tip_info.sort(key=lambda x: (-x['blueScore'], x['hash']))
-            tip_hash = tip_info[0]['hash'] if tip_info else tips[0]
+            if draw_result:
+                tip_hash = draw_result['hash']
+                blocks_count = draw_result['blocks_count']
+            else:
+                # Fallback
+                info = await client.get_block_dag_info({})
+                tips = info.get("tipHashes", ["0"])
+                tip_hash = tips[0]
+                blocks_count = 1
             
             # 用區塊 hash + 目標區塊算結果
             result = get_roulette_result(tip_hash)
@@ -1386,14 +1388,15 @@ async def auto_draw_check_standalone(bot):
         await client.connect()
         
         try:
-            info = await client.get_block_dag_info({})
-            current_height = info.get("virtualDaaScore", 0)
+            # 用 blueScore（不是 daaScore！）
+            current_height = get_current_blue_score()
             
             # 檢查是否到達目標開獎區塊
             if current_height < target_block:
                 return  # 還沒到開獎時間
             
             current_6666 = target_block  # 使用下注時設定的目標區塊
+            info = await client.get_block_dag_info({})  # 仍需要 for fallback tips
             
             # 開獎！
             logger.info(f"Auto draw triggered at block {current_height}, target was {current_6666}")
