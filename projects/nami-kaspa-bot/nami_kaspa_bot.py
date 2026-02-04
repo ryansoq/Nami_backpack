@@ -209,10 +209,12 @@ async def get_current_daa_score_async() -> int:
 
 async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
     """
-    確定性開獎：取得指定 daaScore 的開獎區塊
+    確定性開獎：取得 >= 目標 daaScore 的第一個區塊
     
-    用 BFS 搜尋所有 daaScore 等於目標的區塊。
-    DAG 中同一個 daaScore 可能有多個區塊且不在同一條鏈上。
+    規則：
+    1. 找到 >= target 的最小 daaScore
+    2. 該 daaScore 可能有多個區塊（DAG 特性）
+    3. 用官方排序（blueWork↓ → hash↑）取第一個
     """
     from kaspa import RpcClient
     
@@ -229,12 +231,15 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
                 logger.debug(f"Target daaScore {target_daa} not reached yet (current: {current_daa})")
                 return None
             
-            # BFS 搜尋：從 tips 開始，遍歷所有 parents
+            # BFS 搜尋：找到 >= target 的最小 daaScore
             tips = info.get("tipHashes", [])
             visited = set()
-            queue = list(tips[:50])  # 從多個 tips 開始
-            blocks_found = []
-            max_iterations = 20000
+            queue = list(tips[:50])
+            
+            # 記錄找到的 >= target 的區塊，按 daaScore 分組
+            blocks_by_daa = {}
+            min_daa_found = float('inf')
+            max_iterations = 30000
             
             for iteration in range(max_iterations):
                 if not queue:
@@ -251,8 +256,14 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
                     header = block_resp.get('block', {}).get('header', {})
                     daa = header.get('daaScore', 0)
                     
-                    if daa == target_daa:
-                        blocks_found.append({
+                    # 如果 daa >= target，記錄這個區塊
+                    if daa >= target_daa:
+                        if daa < min_daa_found:
+                            min_daa_found = daa
+                        
+                        if daa not in blocks_by_daa:
+                            blocks_by_daa[daa] = []
+                        blocks_by_daa[daa].append({
                             'hash': current_hash,
                             'blueWork': header.get('blueWork', '0'),
                             'daaScore': daa,
@@ -260,9 +271,9 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
                         })
                     
                     # 只有 daa > target 時才繼續往回找
+                    # 一旦 daa < target 就不用再往這個方向找了
                     if daa > target_daa:
                         parents_by_level = header.get('parentsByLevel', [])
-                        # 加入所有 level 0 的 parents（最重要的）
                         if parents_by_level and parents_by_level[0]:
                             for ph in parents_by_level[0]:
                                 if ph not in visited:
@@ -271,20 +282,25 @@ async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
                 except Exception as e:
                     continue
             
-            if not blocks_found:
-                logger.warning(f"No blocks found at daaScore {target_daa} after {iteration} iterations")
+            if not blocks_by_daa:
+                logger.warning(f"No blocks found >= daaScore {target_daa} after {iteration} iterations")
                 return None
+            
+            # 取最小 daaScore 的所有區塊
+            actual_daa = min(blocks_by_daa.keys())
+            blocks_found = blocks_by_daa[actual_daa]
             
             # 官方排序：blueWork 降序，hash 升序
             blocks_found.sort(key=lambda b: (-int(b['blueWork'], 16) if isinstance(b['blueWork'], str) else -b['blueWork'], b['hash']))
             
             winner = blocks_found[0]
-            logger.info(f"Draw block at daaScore {target_daa}: {len(blocks_found)} blocks, winner={winner['hash'][:16]}...")
+            logger.info(f"Draw block: target={target_daa}, actual={actual_daa}, {len(blocks_found)} blocks, winner={winner['hash'][:16]}...")
             
             return {
                 'hash': winner['hash'],
                 'blueWork': winner['blueWork'],
-                'daaScore': winner['daaScore'],
+                'daaScore': winner['daaScore'],  # 實際的 daaScore（可能 > target）
+                'target_daa': target_daa,         # 原始目標
                 'blocks_count': len(blocks_found)
             }
             
@@ -1117,7 +1133,7 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
                          f"🏦 莊家籌碼：{pool_balance:,.1f} tKAS\n\n"
                          f"━━━━━━━━━━━━━━\n"
                          f"📊 目前高度：{current_height:,}\n"
-                         f"🎯 開獎高度：{next_6666:,}\n"
+                         f"🎯 開獎：daaScore >= {next_6666:,} 的第一個區塊\n"
                          f"⏳ 約 {minutes_left} 分鐘後開獎",
                     parse_mode='Markdown'
                 )
@@ -1189,11 +1205,14 @@ async def roulette_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             await update.message.reply_text(
                 f"🎰 *輪盤狀態*\n\n"
-                f"📊 目前區塊：{current_height:,}\n"
-                f"🎯 開盤區塊：{next_6666:,}\n"
-                f"⏳ 剩餘：{blocks_left:,} 塊（約 {seconds_left//60} 分鐘）\n\n"
+                f"📊 目前高度：{current_height:,}\n"
+                f"🎯 開獎：daaScore >= {next_6666:,} 的第一個區塊\n"
+                f"⏳ 剩餘：約 {seconds_left//60} 分鐘\n\n"
                 f"🎲 下注數：{bet_count}\n"
-                f"💰 總彩池：{total_pool} tKAS",
+                f"💰 總彩池：{total_pool} tKAS\n\n"
+                f"📜 *規則：*\n"
+                f"• 找到 daaScore >= 目標的最小值\n"
+                f"• 該高度若有多個區塊，取官方排序第一",
                 parse_mode='Markdown'
             )
             
@@ -1512,9 +1531,11 @@ async def auto_draw_check_standalone(bot):
                 tips = info.get("tipHashes", ["0"])
                 tip_hash = tips[0]
                 blocks_count = 1
+                actual_daa = current_6666
             else:
                 tip_hash = draw_result['hash']
                 blocks_count = draw_result['blocks_count']
+                actual_daa = draw_result['daaScore']  # 實際的 daaScore（可能 > target）
             
             result = get_roulette_result(tip_hash)
             result_display = str(result) if result < 37 else "00"
@@ -1614,9 +1635,10 @@ async def auto_draw_check_standalone(bot):
             losers_text = "  （無人輸錢）\n"
         
         explorer_url = f"https://explorer-tn10.kaspa.org/blocks/{tip_hash}"
+        daa_info = f"📍 目標高度: `{current_6666}`\n📍 實際高度: `{actual_daa}`" if actual_daa != current_6666 else f"📍 開獎高度: `{current_6666}`"
         result_msg = (
             f"🎰 *開獎結果！*\n\n"
-            f"📍 開獎高度: `{current_6666}`\n"
+            f"{daa_info}\n"
             f"📊 該高度區塊: {blocks_count} 個\n"
             f"🏆 開獎區塊 (排序第一):\n`{tip_hash[:32]}...`\n\n"
             f"🎲 hash mod 38 = *{result}*\n"
