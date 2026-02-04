@@ -20,13 +20,18 @@ ShioKaze（潮風）是一個教育性質的 Kaspa 礦工實現。目標不是�
 
 ## 🚀 版本演進 (V1 → V6)
 
-### V1 - shiokaze.py (純 Python 原型)
-- **目標**: 先跑起來，理解流程
+### V1 - shiokaze.py (純 Python 教學版) ⭐ 新手推薦！
+- **目標**: 快速上手，理解挖礦流程
 - **特點**: 
   - 純 Python 實現 HeavyHash
-  - 單進程，無優化
+  - 無需編譯，pip install 即可
+  - 代碼簡潔易讀，適合學習
+  - **真的能挖到 tKAS！**
 - **算力**: ~50-100 H/s
-- **問題**: 太慢了！
+- **適合**: 
+  - 🎓 學習 Kaspa 挖礦原理
+  - 🧪 Testnet 實驗
+  - 🦞 Agent 入門教學
 
 ### V2 - shiokaze_v2.py (NumPy 加速)
 - **改進**: 用 NumPy 優化矩陣運算
@@ -162,7 +167,24 @@ nami-kaspa-miner/
 
 ## 🚀 使用方式
 
-### 編譯 Cython 模組（首次）
+### 🎓 新手快速上手 (V1 教學版)
+
+**完全不需要編譯！** 只要有 Python 就能跑：
+
+```bash
+# 1. 安裝依賴
+pip install kaspa numpy grpcio grpcio-tools
+
+# 2. 創建測試網錢包 (詳見 kaspa-wallet skill)
+# 你會得到一個 kaspatest:qq... 地址
+
+# 3. 開始挖礦！
+python3 shiokaze.py --testnet --wallet kaspatest:qq你的地址
+```
+
+**就這樣！** 等幾分鐘就能看到 `Block accepted!` 🎉
+
+### 進階：編譯 Cython 模組（V4+）
 ```bash
 python3 setup.py build_ext --inplace
 ```
