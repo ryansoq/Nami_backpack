@@ -192,30 +192,19 @@ def get_roulette_result(block_hash: str) -> int:
     return hash_int % 38
 
 
-def get_current_daa_score() -> int:
-    """用 gRPC 取得當前 daaScore（這是大家說的「高度」）"""
-    import asyncio
+async def get_current_daa_score_async() -> int:
+    """用 gRPC 取得當前 daaScore（這是大家說的「高度」）- async 版本"""
     from kaspa import RpcClient
     
-    async def _get():
-        try:
-            client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
-            await client.connect()
-            info = await client.get_block_dag_info({})
-            await client.disconnect()
-            return info.get("virtualDaaScore", 0)
-        except Exception as e:
-            logger.error(f"Failed to get daaScore: {e}")
-            return 0
-    
     try:
-        return asyncio.get_event_loop().run_until_complete(_get())
-    except RuntimeError:
-        # 如果已經在 async context 中
-        loop = asyncio.new_event_loop()
-        result = loop.run_until_complete(_get())
-        loop.close()
-        return result
+        client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+        await client.connect()
+        info = await client.get_block_dag_info({})
+        await client.disconnect()
+        return info.get("virtualDaaScore", 0)
+    except Exception as e:
+        logger.error(f"Failed to get daaScore: {e}")
+        return 0
 
 
 async def get_draw_block_at_daa_score(target_daa: int) -> dict | None:
@@ -1013,7 +1002,7 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 如果是第一個下注，設定目標開獎區塊
         if not bets_data.get("target_block"):
             # 用 daaScore（大家說的「高度」）計算下一個 6666 區塊
-            current_h = get_current_daa_score()
+            current_h = await get_current_daa_score_async()
             remainder = current_h % 10000
             if remainder < 6666:
                 target = current_h - remainder + 6666
@@ -1064,7 +1053,7 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await rpc.connect()
                 try:
                     # 用 daaScore（大家說的「高度」）
-                    current_height = get_current_daa_score()
+                    current_height = await get_current_daa_score_async()
                     
                     # 計算下一個 6666 區塊
                     remainder = current_height % 10000
@@ -1164,7 +1153,7 @@ async def roulette_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             # 用 daaScore（大家說的「高度」）
-            current_height = get_current_daa_score()
+            current_height = await get_current_daa_score_async()
             
             # 計算下一個 6666 區塊
             remainder = current_height % 10000
@@ -1225,7 +1214,7 @@ async def draw(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             # 用 daaScore（大家說的「高度」）
-            current_height = get_current_daa_score()
+            current_height = await get_current_daa_score_async()
             target_block = bets_data.get("target_block", current_height)
             
             # 確定性開獎：使用官方排序規則 (blueWork↓ → hash↑)
