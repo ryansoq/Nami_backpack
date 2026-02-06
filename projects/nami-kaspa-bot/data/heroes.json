@@ -17,13 +17,32 @@
       "source_hash": "934d482aa20d8862f00f74320016ea1ab304e22a220277f78779c4686eb6d656",
       "tx_id": "509caf16102ea492dd90fd6902012531c148129c61c3ea6d79e6107f2831a00a",
       "latest_tx": "509caf16102ea492dd90fd6902012531c148129c61c3ea6d79e6107f2831a00a"
+    },
+    "379963444": {
+      "card_id": 379963444,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "warrior",
+      "rarity": "common",
+      "atk": 75,
+      "def": 36,
+      "spd": 81,
+      "status": "alive",
+      "latest_daa": 379963444,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-06T13:56:47.371400",
+      "source_hash": "94b2d256e6720f90007b7b7af5136dac85641d80bae3a5c5c117b522952e6e82",
+      "tx_id": "",
+      "latest_tx": ""
     }
   },
   "user_heroes": {
     "5168530096": [
-      379260473
+      379260473,
+      379963444
     ]
   },
-  "total_mana_pool": 10,
-  "last_summon_daa": 379260473
+  "total_mana_pool": 20,
+  "last_summon_daa": 379963444
 }

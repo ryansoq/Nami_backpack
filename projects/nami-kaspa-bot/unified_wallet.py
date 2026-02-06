@@ -39,11 +39,25 @@ def derive_private_key(user_id: int, pin: str, salt: str = "nami_wallet_v2") -> 
 
 def get_wallet(user_id: int, pin: str) -> tuple[str, str]:
     """
-    從 user_id + PIN 獲取錢包
+    從 user_id + PIN 獲取錢包（支援新舊系統）
     
     Returns:
         (private_key_hex, address_string)
     """
+    # 1. 先檢查舊的輪盤 PIN 系統（直接存私鑰）
+    roulette_pins_file = DATA_DIR / "roulette_pins.json"
+    if roulette_pins_file.exists():
+        with open(roulette_pins_file) as f:
+            roulette_pins = json.load(f)
+        user_pins = roulette_pins.get(str(user_id), {})
+        if pin in user_pins:
+            # 舊系統：PIN 直接對應私鑰
+            pk_hex = user_pins[pin]
+            pk = PrivateKey(pk_hex)
+            address = pk.to_address("testnet")
+            return pk_hex, address.to_string()
+    
+    # 2. 新系統：從 user_id + PIN 推導
     pk_hex = derive_private_key(user_id, pin)
     pk = PrivateKey(pk_hex)
     address = pk.to_address("testnet")
@@ -94,14 +108,25 @@ def set_pin(user_id: int, pin: str) -> str:
     return address
 
 def verify_pin(user_id: int, pin: str) -> bool:
-    """驗證 PIN 是否正確"""
+    """驗證 PIN 是否正確（支援新舊系統）"""
+    # 1. 先檢查新的統一 PIN 系統
     pins = load_pins()
     user_data = pins.get(str(user_id))
-    if not user_data:
-        return False
+    if user_data:
+        pin_hash = hashlib.sha256(pin.encode()).hexdigest()[:16]
+        if user_data.get("pin_hash") == pin_hash:
+            return True
     
-    pin_hash = hashlib.sha256(pin.encode()).hexdigest()[:16]
-    return user_data.get("pin_hash") == pin_hash
+    # 2. Fallback: 舊的輪盤 PIN 系統
+    roulette_pins_file = DATA_DIR / "roulette_pins.json"
+    if roulette_pins_file.exists():
+        with open(roulette_pins_file) as f:
+            roulette_pins = json.load(f)
+        user_pins = roulette_pins.get(str(user_id), {})
+        if pin in user_pins:
+            return True
+    
+    return False
 
 def has_wallet(user_id: int) -> bool:
     """檢查用戶是否有錢包"""

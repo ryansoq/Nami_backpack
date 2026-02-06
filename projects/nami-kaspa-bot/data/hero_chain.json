@@ -190,5 +190,20 @@
     "s": 71,
     "status": "alive",
     "tx_id": "509caf16102ea492dd90fd6902012531c148129c61c3ea6d79e6107f2831a00a"
+  },
+  {
+    "g": "nami_hero",
+    "type": "hero",
+    "daa": 379963444,
+    "pre_tx": "",
+    "card": 379963444,
+    "c": "warrior",
+    "r": "common",
+    "a": 75,
+    "d": 36,
+    "s": 81,
+    "status": "alive",
+    "tx_id": null,
+    "signer": "player"
   }
 ]
