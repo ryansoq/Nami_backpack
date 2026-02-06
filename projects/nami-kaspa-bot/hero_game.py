@@ -782,9 +782,9 @@ def format_hero_card(hero: Hero) -> str:
 
 📍 命運: DAA <code>{hero.card_id}</code>{explorer_link}
 
-快速指令（點擊複製）：
-<code>/nami_verify {hero.card_id}</code>
-<code>/nami_payload {hero.card_id}</code>"""
+快速指令：
+<pre>/nami_verify {hero.card_id}</pre>
+<pre>/nami_payload {hero.card_id}</pre>"""
 
 def format_hero_list(heroes: list[Hero]) -> str:
     """格式化英雄列表（Markdown 格式）"""
@@ -809,7 +809,10 @@ def format_hero_list(heroes: list[Hero]) -> str:
         class_emoji = get_class_emoji(h.hero_class)
         lines.append(f"☠️ `#{h.card_id}` {rarity} {class_name}{class_emoji}")
     
-    lines.append("\n查看詳情：`/nami_hero_info <ID>`")
+    lines.append("\n查看詳情：")
+    lines.append("```")
+    lines.append("/nami_hero_info <ID>")
+    lines.append("```")
     
     return "\n".join(lines)
 
@@ -887,9 +890,13 @@ def format_summon_result(hero: Hero) -> str:
 
 英雄 ID: `#{hero.card_id}`
 
-快速指令（點擊複製）：
-`/nami_verify {hero.card_id}`
-`/nami_hero_info {hero.card_id}`"""
+快速指令：
+```
+/nami_verify {hero.card_id}
+```
+```
+/nami_hero_info {hero.card_id}
+```"""
 
 def format_battle_result(attacker: Hero, defender: Hero, 
                          attacker_wins: bool, attacker_name: str, 
