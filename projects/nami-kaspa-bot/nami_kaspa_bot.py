@@ -626,9 +626,10 @@ async def faucet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ 格式錯誤！\n\n"
                 "用法：\n"
-                "• `/nami_faucet kaspatest:qq...`\n"
-                "• `/nami_faucet @username`\n"
-                "• `/nami_faucet`（發到自己地址）",
+                "```\n/nami_faucet kaspatest:qq...\n```\n"
+                "```\n/nami_faucet @username\n```\n"
+                "```\n/nami_faucet\n```\n"
+                "（無參數 = 發到自己地址）",
                 parse_mode='Markdown'
             )
             return
@@ -750,9 +751,9 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text(
                 "用法：\n"
-                "• `/nami_balance` — 水龍頭餘額\n"
-                "• `/nami_balance @username` — 查用戶餘額\n"
-                "• `/nami_balance kaspatest:...` — 查地址餘額",
+                "```\n/nami_balance\n```水龍頭餘額\n"
+                "```\n/nami_balance @username\n```查用戶餘額\n"
+                "```\n/nami_balance kaspatest:...\n```查地址餘額",
                 parse_mode='Markdown'
             )
             return
@@ -806,13 +807,13 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text(
                     "🌊 *娜米錢包*\n\n"
-                    "用法：`/nami_wallet <PIN>`\n\n"
-                    "PIN 為 4-6 位數字，例如：\n"
-                    "`/nami_wallet 1234`\n\n"
+                    "PIN 為 4-6 位數字\n\n"
                     "⚠️ *重要：*\n"
                     "• PIN 就是你的密碼\n"
                     "• 同一個 PIN = 同一個錢包\n"
-                    "• 記住 PIN 就能找回錢包！",
+                    "• 記住 PIN 就能找回錢包！\n\n"
+                    "用法：\n"
+                    "```\n/nami_wallet 1234\n```",
                     parse_mode='Markdown'
                 )
             return
@@ -918,8 +919,9 @@ async def recover(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 12:
         await update.message.reply_text(
             "🔐 *從助記詞恢復私鑰*\n\n"
-            "用法：`/recover word1 word2 ... word12`\n\n"
-            "請輸入你的 12 個助記詞（空格分隔）",
+            "請輸入你的 12 個助記詞（空格分隔）\n\n"
+            "用法：\n"
+            "```\n/recover word1 word2 ... word12\n```",
             parse_mode='Markdown'
         )
         return
@@ -972,9 +974,11 @@ async def setpin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if len(context.args) != 2:
         await update.message.reply_text(
-            "用法：`/setpin <PIN> <私鑰>`\n\n"
-            "例如：`/setpin 1234 abc123...`\n"
-            "PIN 為 4-6 位數字",
+            "PIN 為 4-6 位數字\n\n"
+            "用法：\n"
+            "```\n/setpin <PIN> <私鑰>\n```\n"
+            "例如：\n"
+            "```\n/setpin 1234 abc123...\n```",
             parse_mode='Markdown'
         )
         return
@@ -1023,7 +1027,6 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 3:
         await update.message.reply_text(
             "🎰 *輪盤下注*\n\n"
-            "用法：`/bet <類型> <金額> <PIN或私鑰>`\n\n"
             "*類型：*\n"
             "• `r` / `red` / `紅` — 紅色（1:1）\n"
             "• `b` / `black` / `黑` — 黑色（1:1）\n"
@@ -1032,9 +1035,9 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• `00` — 單押 00（35:1）\n"
             "• `1-36` — 單號（35:1）\n\n"
             "*範例：*\n"
-            "`/bet r 10 1234`\n"
-            "`/bet 17 5 abc123...`\n"
-            "`/bet 00 10 1234`",
+            "```\n/bet r 10 1234\n```\n"
+            "```\n/bet 17 5 1234\n```\n"
+            "```\n/bet 00 10 1234\n```",
             parse_mode='Markdown'
         )
         return

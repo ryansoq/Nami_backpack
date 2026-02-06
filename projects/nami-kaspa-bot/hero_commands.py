@@ -173,10 +173,10 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "🌲 *召喚英雄*\n\n"
-            "用法：`/nami_hero <PIN>`\n\n"
             "消耗 10 mana (tKAS) 召喚英雄\n"
             "命運由區塊 hash 決定！\n\n"
-            "範例：`/nami_hero 1234`",
+            "用法：\n"
+            "```\n/nami_hero <PIN>\n```",
             parse_mode='Markdown'
         )
         return
@@ -277,7 +277,7 @@ async def hero_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_hero_info <ID> - 查看英雄詳情
     """
     if not context.args:
-        await update.message.reply_text("用法：/nami_hero_info <英雄ID>")
+        await update.message.reply_text("用法：\n```\n/nami_hero_info <英雄ID>\n```", parse_mode='Markdown')
         return
     
     try:
@@ -306,8 +306,10 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 解析參數
     if not context.args:
         await update.message.reply_text(
-            "用法：/nami_attack @對手\n"
-            "或：/nami_attack @對手 <我的英雄ID>"
+            "用法：\n"
+            "```\n/nami_attack @對手\n```\n"
+            "或：\n"
+            "```\n/nami_attack @對手 <英雄ID>\n```"
         )
         return
     
@@ -409,7 +411,7 @@ async def hero_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_history <ID> - 查看英雄歷史
     """
     if not context.args:
-        await update.message.reply_text("用法：/nami_history <英雄ID>")
+        await update.message.reply_text("用法：\n```\n/nami_history <英雄ID>\n```", parse_mode='Markdown')
         return
     
     try:
@@ -497,7 +499,7 @@ async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
     if not context.args:
-        await update.message.reply_text("用法：/nami_burn <英雄ID>")
+        await update.message.reply_text("用法：\n```\n/nami_burn <英雄ID>\n```", parse_mode='Markdown')
         return
     
     try:
@@ -588,7 +590,7 @@ async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_verify <ID> - 驗證英雄（檢查鏈上資料）
     """
     if not context.args:
-        await update.message.reply_text("用法：/nami_verify <英雄ID>")
+        await update.message.reply_text("用法：\n```\n/nami_verify <英雄ID>\n```", parse_mode='Markdown')
         return
     
     try:
@@ -637,7 +639,7 @@ async def hero_payload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_payload <ID> - 查看英雄的鏈上 payload
     """
     if not context.args:
-        await update.message.reply_text("用法：/nami_payload <英雄ID>")
+        await update.message.reply_text("用法：\n```\n/nami_payload <英雄ID>\n```", parse_mode='Markdown')
         return
     
     try:
@@ -684,7 +686,7 @@ async def hero_decode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_decode <TX_ID> - 解碼鏈上交易的 payload
     """
     if not context.args:
-        await update.message.reply_text("用法：/nami_decode <TX_ID>")
+        await update.message.reply_text("用法：\n```\n/nami_decode <TX_ID>\n```", parse_mode='Markdown')
         return
     
     tx_id = context.args[0]
@@ -753,7 +755,7 @@ async def hero_decode_hex(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_decode_hex <payload_hex> - 直接解碼 hex payload
     """
     if not context.args:
-        await update.message.reply_text("用法：/nami_decode_hex <payload_hex>")
+        await update.message.reply_text("用法：\n```\n/nami_decode_hex <payload_hex>\n```", parse_mode='Markdown')
         return
     
     payload_hex = context.args[0]
@@ -813,11 +815,12 @@ async def hero_pin_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             msg = """🎴 英雄錢包設定
 
-用法：/nami_hero_pin <PIN>
-
 PIN 為 4-6 位數字，會產生你專屬的英雄錢包地址。
 
-⚠️ 重要：記住你的 PIN！忘記 PIN = 失去錢包！"""
+⚠️ 重要：記住你的 PIN！忘記 PIN = 失去錢包！
+
+用法：
+<pre>/nami_hero_pin 1234</pre>"""
         
         await update.message.reply_text(msg, parse_mode='HTML')
         return
