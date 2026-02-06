@@ -316,42 +316,127 @@ async def self_inscription(
 async def mint_hero_inscription(
     user_id: int,
     pin: str,
-    hero_payload: dict
-) -> tuple[str, str]:
+    hero_payload: dict,
+    mint_cost: int = None
+) -> str:
     """
-    鑄造英雄 Inscription（完整流程）
+    鑄造英雄 Inscription（一筆 TX 完成！）
     
-    步驟：
-    1. 玩家付費 10 mana 給大地之樹
-    2. 玩家自己打給自己 + 英雄 payload
+    一筆交易同時：
+    1. 自己 → 自己 + payload（inscription）
+    2. 自己 → 大地之樹 10 mana（付費證明）
+    
+    這樣鏈上可以驗證：
+    - 發送者 = 接收者之一 = 擁有者
+    - 同時付費給大地之樹 = 真正鑄造，不是無腦生
     
     Args:
         user_id: 用戶 ID
         pin: PIN 碼
         hero_payload: 英雄資料
+        mint_cost: 鑄造費用（sompi），預設 10 tKAS
     
     Returns:
-        (payment_tx_id, inscription_tx_id)
+        交易 ID（單一 TX 包含 inscription + 付費）
     """
     from hero_game import SUMMON_COST
     
-    # 計算需要的金額
-    summon_cost_sompi = int(SUMMON_COST * 1e8)  # 10 tKAS = 10億 sompi
+    # 驗證 PIN
+    if not verify_pin(user_id, pin):
+        raise ValueError("PIN 碼錯誤")
     
-    # 步驟 1：付費給大地之樹
+    pk_hex, address = get_wallet(user_id, pin)
+    pk = PrivateKey(pk_hex)
+    
+    # 準備 payload
+    import json as json_lib
+    payload_bytes = json_lib.dumps(hero_payload, separators=(',', ':')).encode('utf-8')
+    
+    if len(payload_bytes) > 1000:
+        raise ValueError(f"Payload 太大: {len(payload_bytes)} bytes (最大 1000)")
+    
+    # 計算費用
+    if mint_cost is None:
+        mint_cost = int(SUMMON_COST * 1e8)  # 10 tKAS = 10億 sompi
+    
+    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
+    await client.connect()
+    
+    try:
+        # 取得 UTXO
+        utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
+        entries = utxo_response.get("entries", [])
+        
+        if not entries:
+            raise ValueError("錢包沒有餘額")
+        
+        # 計算總餘額
+        total = sum(e["utxoEntry"]["amount"] for e in entries)
+        required = mint_cost + TX_FEE
+        if total < required:
+            raise ValueError(f"餘額不足：需要 {required / 1e8:.4f} tKAS，只有 {total / 1e8:.4f} tKAS")
+        
+        # 建立多輸出！
+        self_addr = Address(address)
+        tree_addr = Address(TREE_ADDRESS)
+        
+        outputs = [
+            # Output 1: 自己 → 自己（inscription marker，最小金額）
+            PaymentOutput(self_addr, 1000),  # 0.00001 tKAS 作為標記
+            # Output 2: 自己 → 大地之樹（付費證明）
+            PaymentOutput(tree_addr, mint_cost),
+        ]
+        
+        # 建立交易（帶 payload）
+        tx = create_transaction(
+            utxo_entry_source=entries,
+            outputs=outputs,
+            priority_fee=TX_FEE,
+            payload=payload_bytes  # inscription payload
+        )
+        
+        # 用玩家私鑰簽名
+        signed_tx = sign_transaction(tx, [pk], False)
+        
+        # 發送
+        result = await client.submit_transaction({
+            "transaction": signed_tx,
+            "allow_orphan": False
+        })
+        
+        tx_id = result.get("transactionId", str(result))
+        logger.info(f"Hero mint inscription: {tx_id} (self + tree payment in one TX!)")
+        
+        return tx_id
+        
+    finally:
+        await client.disconnect()
+
+
+async def mint_hero_inscription_v1(
+    user_id: int,
+    pin: str,
+    hero_payload: dict
+) -> tuple[str, str]:
+    """
+    [舊版] 鑄造英雄 - 兩筆交易
+    
+    保留供參考，新版請用 mint_hero_inscription()
+    """
+    from hero_game import SUMMON_COST
+    
+    summon_cost_sompi = int(SUMMON_COST * 1e8)
+    
     payment_tx = await send_to_tree(
         user_id, pin, 
         summon_cost_sompi,
         memo=f"hero_mint:{user_id}"
     )
-    logger.info(f"Hero mint payment: {payment_tx}")
     
-    # 步驟 2：自己刻入英雄（inscription）
     inscription_tx = await self_inscription(
         user_id, pin,
         payload=hero_payload
     )
-    logger.info(f"Hero inscription: {inscription_tx}")
     
     return payment_tx, inscription_tx
 

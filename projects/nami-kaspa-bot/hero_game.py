@@ -578,27 +578,28 @@ async def summon_hero(user_id: int, username: str, address: str,
     # 建立 birth payload
     birth_payload = create_birth_payload(daa, hero)
     
-    # 發送到鏈上（新架構：玩家自己打給自己）
+    # 發送到鏈上（新架構：一筆 TX = inscription + 付費證明）
     tx_id = None
     if pin:
         try:
-            # 使用玩家的錢包發 self-inscription
+            # 使用玩家的錢包發 mint inscription
+            # 一筆 TX 同時：自己→自己(payload) + 自己→大地之樹(10 mana)
             import unified_wallet
-            tx_id = await unified_wallet.self_inscription(
+            tx_id = await unified_wallet.mint_hero_inscription(
                 user_id=user_id,
                 pin=pin,
-                payload=birth_payload
+                hero_payload=birth_payload
             )
             hero.tx_id = tx_id
             hero.latest_tx = tx_id
-            logger.info(f"Hero self-inscription sent: {tx_id} (player signed!)")
+            logger.info(f"Hero mint inscription sent: {tx_id} (self + tree payment in one TX!)")
             
             # 更新資料庫中的 tx_id
             db["heroes"][str(daa)]["tx_id"] = tx_id
             db["heroes"][str(daa)]["latest_tx"] = tx_id
             save_heroes_db(db)
         except Exception as e:
-            logger.warning(f"Failed to send self-inscription (local record only): {e}")
+            logger.warning(f"Failed to send mint inscription (local record only): {e}")
     else:
         # 沒有 PIN，嘗試舊方式（大地之樹代發，向後兼容）
         try:
