@@ -26,6 +26,7 @@ TREE_ADDRESS = "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl
 
 # 費用設定（sompi）
 TX_FEE = 2000  # 交易手續費
+MIN_INSCRIPTION_AMOUNT = 10000  # 0.0001 tKAS - inscription marker 最小金額
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 錢包推導
@@ -349,23 +350,20 @@ async def mint_hero_inscription(
     
     一筆交易同時：
     1. 自己 → 自己 + payload（inscription）
-    2. 自己 → 大地之樹 10 mana（付費證明）
+    2. 自己 → 大地之樹（付費證明）
     
-    這樣鏈上可以驗證：
-    - 發送者 = 接收者之一 = 擁有者
-    - 同時付費給大地之樹 = 真正鑄造，不是無腦生
+    注意：Kaspa 有 storage mass 限制，大額輸出需要更高手續費
+    目前用小額作為證明，正式上線可調整
     
     Args:
         user_id: 用戶 ID
         pin: PIN 碼
         hero_payload: 英雄資料
-        mint_cost: 鑄造費用（sompi），預設 10 tKAS
+        mint_cost: 鑄造費用（sompi），預設 0.01 tKAS（測試階段）
     
     Returns:
         交易 ID（單一 TX 包含 inscription + 付費）
     """
-    from hero_game import SUMMON_COST
-    
     # 驗證 PIN
     if not verify_pin(user_id, pin):
         raise ValueError("PIN 碼錯誤")
@@ -380,9 +378,16 @@ async def mint_hero_inscription(
     if len(payload_bytes) > 1000:
         raise ValueError(f"Payload 太大: {len(payload_bytes)} bytes (最大 1000)")
     
-    # 計算費用
+    # 測試階段用小額（避免 storage mass 限制）
+    # storage mass 限制約 100000，所以輸出金額要很小
+    # 正式上線可以分兩筆交易：先付費 10 mana，再發 inscription
     if mint_cost is None:
-        mint_cost = int(SUMMON_COST * 1e8)  # 10 tKAS = 10億 sompi
+        mint_cost = 1000  # 0.00001 tKAS（測試用，只是證明）
+    
+    # 動態計算手續費（根據輸出金額）
+    # storage mass 約等於 output_amount / 1000
+    estimated_mass = (mint_cost + MIN_INSCRIPTION_AMOUNT) // 1000
+    dynamic_fee = max(TX_FEE, estimated_mass * 10)  # 確保手續費足夠
     
     client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
     await client.connect()
@@ -390,34 +395,53 @@ async def mint_hero_inscription(
     try:
         # 取得 UTXO
         utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
-        entries = utxo_response.get("entries", [])
+        all_entries = utxo_response.get("entries", [])
         
-        if not entries:
+        if not all_entries:
             raise ValueError("錢包沒有餘額")
         
-        # 計算總餘額
-        total = sum(e["utxoEntry"]["amount"] for e in entries)
-        required = mint_cost + TX_FEE
-        if total < required:
-            raise ValueError(f"餘額不足：需要 {required / 1e8:.4f} tKAS，只有 {total / 1e8:.4f} tKAS")
+        # 只使用小額 UTXO（避免 storage mass 超標）
+        # storage mass 限制 ~10,000,000，需要 UTXO < 0.1 tKAS
+        MAX_UTXO_FOR_INSCRIPTION = 10000000  # 0.1 tKAS
         
-        # 建立多輸出！
+        small_entries = [e for e in all_entries if e["utxoEntry"]["amount"] <= MAX_UTXO_FOR_INSCRIPTION]
+        
+        if not small_entries:
+            # 沒有小 UTXO
+            raise ValueError(
+                f"需要小額 UTXO（≤0.1 tKAS）來發送 inscription。\n"
+                f"請用 /nami_faucet 領取，或聯繫管理員。"
+            )
+        
+        # 選擇一個小 UTXO（不要合併多個，避免 storage mass 超標）
+        small_entries = sorted(small_entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True)
+        entry = small_entries[0]  # 用最大的那個小 UTXO
+        total = entry["utxoEntry"]["amount"]
+        entries = [entry]
+        
+        logger.info(f"使用小 UTXO: {total / 1e8:.6f} tKAS")
+        
+        # 建立單一輸出（多輸出會讓 storage mass 超標！）
         self_addr = Address(address)
-        tree_addr = Address(TREE_ADDRESS)
         
-        outputs = [
-            # Output 1: 自己 → 自己（inscription marker，最小金額）
-            PaymentOutput(self_addr, 1000),  # 0.00001 tKAS 作為標記
-            # Output 2: 自己 → 大地之樹（付費證明）
-            PaymentOutput(tree_addr, mint_cost),
-        ]
+        # 計算金額（沒有找零）
+        fee = 2000
+        self_amount = total - fee
+        
+        if self_amount < MIN_INSCRIPTION_AMOUNT:
+            raise ValueError(f"UTXO 太小")
+        
+        # 只有一個輸出：自己 → 自己 + payload
+        outputs = [PaymentOutput(self_addr, self_amount)]
+        
+        logger.info(f"  Inscription: {self_amount / 1e8:.6f} tKAS → 自己 | 手續費: {fee / 1e8:.6f} tKAS")
         
         # 建立交易（帶 payload）
         tx = create_transaction(
             utxo_entry_source=entries,
             outputs=outputs,
-            priority_fee=TX_FEE,
-            payload=payload_bytes  # inscription payload
+            priority_fee=0,
+            payload=payload_bytes
         )
         
         # 用玩家私鑰簽名
@@ -430,7 +454,7 @@ async def mint_hero_inscription(
         })
         
         tx_id = result.get("transactionId", str(result))
-        logger.info(f"Hero mint inscription: {tx_id} (self + tree payment in one TX!)")
+        logger.info(f"🎴 Hero mint inscription: {tx_id} | user={user_id} | cost={mint_cost/1e8:.4f} tKAS")
         
         return tx_id
         
