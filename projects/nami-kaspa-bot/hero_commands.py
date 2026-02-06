@@ -232,13 +232,14 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 取得下一個 DAA 的區塊
         daa, block_hash = await get_next_daa_block()
         
-        # 召喚英雄
+        # 召喚英雄（玩家自己簽名 inscription！）
         hero = await summon_hero(
             user_id=user.id,
             username=user.username or str(user.id),
             address=address,
             daa=daa,
-            block_hash=block_hash
+            block_hash=block_hash,
+            pin=pin  # 傳入 PIN 讓玩家自己簽名
         )
         
         last_summon_time = time.time()

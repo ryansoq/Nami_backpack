@@ -521,9 +521,13 @@ def create_state_payload(daa: int, pre_tx: str, hero: Hero) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def summon_hero(user_id: int, username: str, address: str, 
-                      daa: int, block_hash: str) -> Hero:
+                      daa: int, block_hash: str, pin: str = None) -> Hero:
     """
-    召喚英雄
+    召喚英雄（KRC-20/721 風格 Inscription）
+    
+    新架構：玩家自己打給自己 + payload
+    - 真正的 inscription
+    - 玩家簽名 = 玩家擁有
     
     Args:
         user_id: TG 用戶 ID
@@ -531,6 +535,7 @@ async def summon_hero(user_id: int, username: str, address: str,
         address: Kaspa 地址
         daa: 來源 DAA
         block_hash: 來源區塊 hash
+        pin: 玩家 PIN（用於簽名 inscription）
     
     Returns:
         新召喚的英雄
@@ -573,23 +578,45 @@ async def summon_hero(user_id: int, username: str, address: str,
     # 建立 birth payload
     birth_payload = create_birth_payload(daa, hero)
     
-    # 發送到鏈上
-    try:
-        tx_id = await send_hero_tx_simple(address, birth_payload)
-        hero.tx_id = tx_id
-        hero.latest_tx = tx_id  # 出生時，最後交易 = 出生交易
-        logger.info(f"Hero birth tx sent: {tx_id}")
-        
-        # 更新資料庫中的 tx_id
-        db["heroes"][str(daa)]["tx_id"] = tx_id
-        db["heroes"][str(daa)]["latest_tx"] = tx_id
-        save_heroes_db(db)
-    except Exception as e:
-        logger.warning(f"Failed to send birth tx (continuing anyway): {e}")
+    # 發送到鏈上（新架構：玩家自己打給自己）
+    tx_id = None
+    if pin:
+        try:
+            # 使用玩家的錢包發 self-inscription
+            import unified_wallet
+            tx_id = await unified_wallet.self_inscription(
+                user_id=user_id,
+                pin=pin,
+                payload=birth_payload
+            )
+            hero.tx_id = tx_id
+            hero.latest_tx = tx_id
+            logger.info(f"Hero self-inscription sent: {tx_id} (player signed!)")
+            
+            # 更新資料庫中的 tx_id
+            db["heroes"][str(daa)]["tx_id"] = tx_id
+            db["heroes"][str(daa)]["latest_tx"] = tx_id
+            save_heroes_db(db)
+        except Exception as e:
+            logger.warning(f"Failed to send self-inscription (local record only): {e}")
+    else:
+        # 沒有 PIN，嘗試舊方式（大地之樹代發，向後兼容）
+        try:
+            tx_id = await send_hero_tx_simple(address, birth_payload)
+            hero.tx_id = tx_id
+            hero.latest_tx = tx_id
+            logger.info(f"Hero birth tx sent (tree signed): {tx_id}")
+            
+            db["heroes"][str(daa)]["tx_id"] = tx_id
+            db["heroes"][str(daa)]["latest_tx"] = tx_id
+            save_heroes_db(db)
+        except Exception as e:
+            logger.warning(f"Failed to send birth tx: {e}")
     
     # 記錄到本地鏈條
     chain = load_hero_chain()
-    birth_payload["tx_id"] = getattr(hero, 'tx_id', None)
+    birth_payload["tx_id"] = tx_id
+    birth_payload["signer"] = "player" if pin else "tree"  # 標記簽名者
     chain.append(birth_payload)
     save_hero_chain(chain)
     
@@ -827,10 +854,13 @@ def format_summon_result(hero: Hero) -> str:
     
     # 公告 TX 連結（如果有）
     tx_link = ""
+    inscription_note = ""
     if hasattr(hero, 'tx_id') and hero.tx_id and not hero.tx_id.startswith('daa_'):
-        tx_link = f'🔗 鏈上公告:\nhttps://explorer-tn10.kaspa.org/txs/{hero.tx_id}'
+        tx_link = f'🔗 鏈上 Inscription:\nhttps://explorer-tn10.kaspa.org/txs/{hero.tx_id}'
+        inscription_note = "✨ *你自己簽名的 Inscription！*"
     else:
         tx_link = "🔗 (本地記錄)"
+        inscription_note = ""
     
     return f"""🎴 召喚成功！
 
@@ -841,8 +871,8 @@ def format_summon_result(hero: Hero) -> str:
 📍 命運: DAA {hero.card_id}
 {explorer_link}
 
-📦 公告 TX:
-{tx_link}
+📦 {tx_link}
+{inscription_note}
 
 英雄 ID: `#{hero.card_id}`
 
