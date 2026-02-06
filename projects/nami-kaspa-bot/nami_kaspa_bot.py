@@ -764,9 +764,11 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 查詢指定地址
         bal = await get_address_balance(address)
         if bal is not None:
+            # 轉義 Markdown 特殊字符
+            safe_label = label.replace('_', '\\_') if label else ""
             await update.message.reply_text(
                 f"💰 *錢包餘額*\n\n"
-                f"👤 {label}\n"
+                f"👤 {safe_label}\n"
                 f"🌊 {bal:,.2f} tKAS",
                 parse_mode='Markdown'
             )
@@ -1830,10 +1832,62 @@ def main():
             except Exception as e:
                 logger.error(f"Auto draw background error: {e}")
     
+    # 獎勵發放檢查背景任務
+    async def run_reward_check():
+        from reward_system import check_and_distribute, format_reward_announcement, should_trigger_reward
+        from hero_commands import tree_queue
+        import unified_wallet
+        from kaspa import RpcClient
+        
+        while True:
+            await asyncio.sleep(60)  # 每 60 秒檢查一次
+            try:
+                # 取得當前 DAA
+                client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
+                await client.connect()
+                try:
+                    info = await client.get_block_dag_info({})
+                    current_daa = info.get("virtualDaaScore", 0)
+                finally:
+                    await client.disconnect()
+                
+                # 檢查是否觸發（先檢查，避免不必要的鎖）
+                if not should_trigger_reward(current_daa):
+                    continue
+                
+                # 獲取排隊鎖（暫停服務）
+                logger.info(f"🌲 大地之樹關門發放獎勵！DAA: {current_daa}")
+                await tree_queue.acquire(0)  # 用 user_id=0 表示系統
+                
+                try:
+                    # 取得大地之樹餘額
+                    tree_balance = await unified_wallet.get_tree_balance()
+                    
+                    # 檢查並發放獎勵
+                    result = await check_and_distribute(current_daa, tree_balance)
+                    
+                    if result:
+                        # 發送公告
+                        announcement = format_reward_announcement(result)
+                        logger.info(f"🎉 獎勵發放完成！DAA: {current_daa}")
+                        logger.info(announcement)
+                        
+                        # 群組公告
+                        from hero_commands import announce_reward
+                        await announce_reward(app.bot, result)
+                finally:
+                    # 釋放鎖（恢復服務）
+                    tree_queue.release()
+                    logger.info("🌲 大地之樹重新開門服務！")
+                    
+            except Exception as e:
+                logger.error(f"Reward check error: {e}")
+    
     async def main_async():
         async with app:
             await app.start()
             asyncio.create_task(run_auto_draw())
+            asyncio.create_task(run_reward_check())  # 獎勵檢查
             await app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
             # 保持運行
             while True:

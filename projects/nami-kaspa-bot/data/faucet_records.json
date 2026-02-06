@@ -152,6 +152,96 @@
       "tx_id": "4428f52b23bb10f8f87aff566a2184fd66d32fb1528a1e9825e062d931190d2a",
       "date": "2026-02-05",
       "timestamp": "2026-02-05T16:49:07.886982"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qrxnjklj0mtwsnp2uzkyrrh09g7psgv9l4kzr0938jd92z9q5dw37sadvmzta",
+      "amount": 10,
+      "tx_id": "f56b9505d5be0ba4eadcd41119a896e4d9d1ab8f8f7905a6b8dfbe4e804bd24e",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:46:01.338024"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qrxnjklj0mtwsnp2uzkyrrh09g7psgv9l4kzr0938jd92z9q5dw37sadvmzta",
+      "amount": 10,
+      "tx_id": "e6037e18efba88984da35f51ad78af8a5424c07abdbf3026d7530c9e896052a3",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:46:03.838179"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qrxnjklj0mtwsnp2uzkyrrh09g7psgv9l4kzr0938jd92z9q5dw37sadvmzta",
+      "amount": 10,
+      "tx_id": "0baa9419dec2568b5996908468e56a4ef40786642686067810086512f0a7dae7",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:46:06.443812"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qrxnjklj0mtwsnp2uzkyrrh09g7psgv9l4kzr0938jd92z9q5dw37sadvmzta",
+      "amount": 10,
+      "tx_id": "d042ad1161154bf7891339382e35cad69702b1e08efd59f89e67573ed6fc9faa",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:46:09.173887"
+    },
+    {
+      "user_id": 339795705,
+      "username": "crazygraph",
+      "address": "kaspatest:qrxnjklj0mtwsnp2uzkyrrh09g7psgv9l4kzr0938jd92z9q5dw37sadvmzta",
+      "amount": 10,
+      "tx_id": "3f633d483d4641ca9759a059d4c58202f92bcc6fc6e3d9d0dc6ac9e4a876555d",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:46:11.778187"
+    },
+    {
+      "user_id": 684243833,
+      "username": "Yu_8888",
+      "address": "kaspatest:qp6nvekfv3ng3wlht470qrzqgtm4mcpppwujc06w9c8uakq9c5zdud5nq728g",
+      "amount": 10,
+      "tx_id": "6c863affe469fc21d1b3e132d1b11dad0ebb1a72310d7518526c9494bc2241f2",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:47:51.810717"
+    },
+    {
+      "user_id": 684243833,
+      "username": "Yu_8888",
+      "address": "kaspatest:qp6nvekfv3ng3wlht470qrzqgtm4mcpppwujc06w9c8uakq9c5zdud5nq728g",
+      "amount": 10,
+      "tx_id": "8f681f506282310c21c19c26e461c8acacfc6e3c74ce5eaaf4f78de3e146a815",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:48:02.231724"
+    },
+    {
+      "user_id": 684243833,
+      "username": "Yu_8888",
+      "address": "kaspatest:qp6nvekfv3ng3wlht470qrzqgtm4mcpppwujc06w9c8uakq9c5zdud5nq728g",
+      "amount": 10,
+      "tx_id": "b0f25de47af55726d969f7aedf3fcabd068f219988930bc6d05c98917dd8800b",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T16:56:28.894436"
+    },
+    {
+      "user_id": 684243833,
+      "username": "Yu_8888",
+      "address": "kaspatest:qp6nvekfv3ng3wlht470qrzqgtm4mcpppwujc06w9c8uakq9c5zdud5nq728g",
+      "amount": 10,
+      "tx_id": "063c8937eeab0237c1136c15703584af4305ce1e890a23ee6736aa24606a3ade",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T17:03:44.214896"
+    },
+    {
+      "user_id": 684243833,
+      "username": "Yu_8888",
+      "address": "kaspatest:qp6nvekfv3ng3wlht470qrzqgtm4mcpppwujc06w9c8uakq9c5zdud5nq728g",
+      "amount": 10,
+      "tx_id": "14a5cdc71624356ab202b047907cb7f39a5ba3a4a48ed2d34c9d6e54bad9b1d2",
+      "date": "2026-02-06",
+      "timestamp": "2026-02-06T17:04:04.703270"
     }
   ],
   "daily_stats": {
@@ -162,6 +252,10 @@
     "2026-02-05": {
       "count": 11,
       "total": 110
+    },
+    "2026-02-06": {
+      "count": 10,
+      "total": 100
     }
   }
 }

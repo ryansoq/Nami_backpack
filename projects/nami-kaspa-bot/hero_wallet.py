@@ -24,7 +24,7 @@ TREE_ADDRESS = "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl
 # 費用設定（sompi）
 SUMMON_COST = 1000000000  # 10 tKAS
 PVP_COST_BASE = 200000000  # 2 tKAS (基礎)
-TX_FEE = 2000  # 交易手續費
+TX_FEE = 5000  # 交易手續費（inscription 需要更多）
 
 def derive_private_key(user_id: int, pin: str, salt: str = "nami_hero_v1") -> str:
     """從 user_id + PIN 推導私鑰（確定性）"""

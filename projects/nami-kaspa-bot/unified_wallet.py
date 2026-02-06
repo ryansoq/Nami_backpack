@@ -25,7 +25,7 @@ UNIFIED_PINS_FILE = DATA_DIR / "unified_pins.json"
 TREE_ADDRESS = "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m"
 
 # 費用設定（sompi）
-TX_FEE = 3000  # 交易手續費（稍微多一點確保足夠）
+TX_FEE = 50000  # 交易手續費（大額 UTXO 需要更多 storage mass）
 MIN_INSCRIPTION_AMOUNT = 10000  # 0.0001 tKAS - inscription marker 最小金額
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -213,7 +213,14 @@ async def send_payment(
         
         # 建立輸出
         to_addr = Address(to_address)
+        from_addr = Address(from_address)
         outputs = [PaymentOutput(to_addr, amount)]
+        
+        # 計算找零
+        change = total - amount - TX_FEE
+        if change > 0:
+            outputs.append(PaymentOutput(from_addr, change))
+            logger.info(f"  找零: {change / 1e8:.4f} tKAS")
         
         # 建立交易
         tx = create_transaction(
@@ -248,6 +255,108 @@ async def send_to_tree(user_id: int, pin: str, amount: int, memo: str = "") -> s
     """
     payload = memo.encode('utf-8') if memo else None
     return await send_payment(user_id, pin, TREE_ADDRESS, amount, payload)
+
+
+async def send_from_tree(to_address: str, amount: int, memo: str = "") -> str:
+    """
+    從大地之樹發送（獎勵發放）
+    
+    Args:
+        to_address: 接收地址
+        amount: 金額（sompi）
+        memo: 備註
+    
+    Returns:
+        交易 ID
+    """
+    import json as json_lib
+    from pathlib import Path
+    
+    # 載入大地之樹私鑰（Nami testnet wallet）
+    secrets_path = Path(__file__).parent.parent.parent / "clawd" / ".secrets" / "testnet-wallet.json"
+    if not secrets_path.exists():
+        # 嘗試另一個路徑
+        secrets_path = Path.home() / "clawd" / ".secrets" / "testnet-wallet.json"
+    
+    if not secrets_path.exists():
+        raise ValueError("找不到大地之樹私鑰")
+    
+    with open(secrets_path) as f:
+        tree_wallet = json_lib.load(f)
+    
+    tree_pk_hex = tree_wallet.get("private_key", "")
+    if not tree_pk_hex:
+        raise ValueError("大地之樹私鑰無效")
+    
+    tree_pk = PrivateKey(tree_pk_hex)
+    
+    # 發送交易
+    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
+    await client.connect()
+    
+    try:
+        # 取得 UTXO
+        utxo_response = await client.get_utxos_by_addresses({"addresses": [TREE_ADDRESS]})
+        entries = utxo_response.get("entries", [])
+        
+        if not entries:
+            raise ValueError("大地之樹沒有餘額")
+        
+        # 選擇 UTXO
+        total_needed = amount + TX_FEE
+        selected = []
+        total = 0
+        
+        for e in sorted(entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True):
+            selected.append(e)
+            total += e["utxoEntry"]["amount"]
+            if total >= total_needed:
+                break
+        
+        if total < total_needed:
+            raise ValueError(f"大地之樹餘額不足：需要 {total_needed/1e8:.4f} tKAS")
+        
+        # 建立交易
+        to_addr = Address(to_address)
+        tree_addr = Address(TREE_ADDRESS)
+        
+        change = total - amount - TX_FEE
+        outputs = [PaymentOutput(to_addr, amount)]
+        if change > 0:
+            outputs.append(PaymentOutput(tree_addr, change))
+        
+        tx = create_transaction(
+            utxo_entry_source=selected,
+            outputs=outputs,
+            priority_fee=TX_FEE,
+            payload=memo.encode('utf-8') if memo else None
+        )
+        
+        signed_tx = sign_transaction(tx, [tree_pk], False)
+        result = await client.submit_transaction({"transaction": signed_tx, "allow_orphan": False})
+        tx_id = result.get("transactionId", str(result))
+        
+        logger.info(f"🌲 大地之樹發送 | {amount/1e8:.4f} tKAS → {to_address[:20]}... | TX: {tx_id[:16]}...")
+        
+        return tx_id
+        
+    finally:
+        await client.disconnect()
+
+
+async def get_tree_balance() -> int:
+    """取得大地之樹餘額"""
+    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
+    await client.connect()
+    
+    try:
+        utxo_response = await client.get_utxos_by_addresses({"addresses": [TREE_ADDRESS]})
+        entries = utxo_response.get("entries", [])
+        total = sum(e["utxoEntry"]["amount"] for e in entries)
+        return total
+    finally:
+        await client.disconnect()
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Inscription（符合 KRC-20/721 標準）
@@ -465,18 +574,17 @@ async def mint_hero_inscription(
         if not all_entries:
             raise ValueError("錢包沒有餘額（需要小額 UTXO 發 inscription）")
         
-        # 只使用小額 UTXO（< 0.1 tKAS）
+        # 優先使用小額 UTXO（< 0.1 tKAS），但如果沒有就用最小的
         MAX_UTXO = 10000000  # 0.1 tKAS
         small_entries = [e for e in all_entries if e["utxoEntry"]["amount"] <= MAX_UTXO]
         
         if not small_entries:
-            raise ValueError(
-                f"需要小額 UTXO（≤0.1 tKAS）來發送 inscription。\n"
-                f"請用 /nami_faucet 領取。"
-            )
+            # 沒有小額 UTXO，使用最小的 UTXO（remint 等情況）
+            logger.info("  沒有小額 UTXO，使用最小的 UTXO")
+            small_entries = all_entries  # 使用全部，下面會選最小的
         
-        # 選最大的小 UTXO
-        entry = max(small_entries, key=lambda x: x["utxoEntry"]["amount"])
+        # 選最小的 UTXO（節省大 UTXO）
+        entry = min(small_entries, key=lambda x: x["utxoEntry"]["amount"])
         amount = entry["utxoEntry"]["amount"]
         
         logger.info(f"  使用小 UTXO: {amount / 1e8:.6f} tKAS")

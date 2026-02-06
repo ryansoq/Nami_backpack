@@ -26,7 +26,7 @@ def load_wallet() -> dict:
     with open(WALLET_FILE) as f:
         return json.load(f)
 
-async def send_payload_tx(payload: dict | bytes, min_fee: int = 2000) -> str:
+async def send_payload_tx(payload: dict | bytes, min_fee: int = 5000) -> str:
     """
     發送帶 payload 的交易
     

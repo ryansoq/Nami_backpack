@@ -28,13 +28,8 @@ HERO_CHAIN_FILE = DATA_DIR / "hero_chain.json"
 
 # 費用設定
 SUMMON_COST = 10  # 召喚英雄消耗 10 mana
-PVP_COST = {
-    "common": 2,
-    "uncommon": 3,
-    "rare": 4,
-    "epic": 6,
-    "legendary": 8
-}
+# PvP 統一費用 10 mana
+PVP_COST = 10
 
 # 抽卡冷卻
 SUMMON_COOLDOWN = 5  # 秒
@@ -90,6 +85,7 @@ class Hero:
     kills: int = 0
     battles: int = 0
     created_at: str = ""
+    death_time: str = ""  # 死亡時間（計算生存時間用）
     source_hash: str = "" # 來源區塊 hash（用於驗證）
     tx_id: str = ""       # 出生公告交易 ID（固定）
     latest_tx: str = ""   # 最後事件交易 ID（每次事件更新）
@@ -121,6 +117,7 @@ class Hero:
             "kills": self.kills,
             "battles": self.battles,
             "created_at": self.created_at,
+            "death_time": self.death_time,
             "source_hash": self.source_hash,
             "tx_id": self.tx_id,
             "latest_tx": self.latest_tx
@@ -142,6 +139,7 @@ class Hero:
             kills=d.get("kills", 0),
             battles=d.get("battles", 0),
             created_at=d.get("created_at", ""),
+            death_time=d.get("death_time", ""),
             source_hash=d.get("source_hash", ""),
             tx_id=d.get("tx_id", ""),
             latest_tx=d.get("latest_tx", "")
@@ -395,9 +393,25 @@ def calculate_hero_from_hash(block_hash: str) -> Tuple[str, str, int, int, int]:
     
     return hero_class, rarity, atk, def_, spd
 
-def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> Tuple[bool, str]:
+def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> Tuple[bool, dict]:
     """
     計算戰鬥結果
+    
+    對決規則：
+    - 回合1: ⚔️攻擊 vs 🛡️防禦
+    - 回合2: 🛡️防禦 vs ⚡速度
+    - 回合3: ⚡速度 vs ⚔️攻擊
+    
+    稀有度加成：
+    - 普通: ×1.0
+    - 優秀: ×1.2
+    - 稀有: ×1.5
+    - 史詩: ×2.0
+    - 傳說: ×3.0
+    - 神話: ×5.0
+    
+    勝者：3 回合中贏 2 回合者
+    平手時用稀有度 + hash 決定
     
     Args:
         attacker: 攻擊方英雄
@@ -405,88 +419,178 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
         block_hash: 決定勝負的區塊 hash
     
     Returns:
-        (attacker_wins, description)
+        (attacker_wins, battle_detail)
     """
     h = block_hash.lower().replace("0x", "")
     
-    # 基礎勝率：根據稀有度
-    rarity_order = ["common", "uncommon", "rare", "epic", "legendary"]
-    atk_rarity_idx = rarity_order.index(attacker.rarity) if attacker.rarity in rarity_order else 0
-    def_rarity_idx = rarity_order.index(defender.rarity) if defender.rarity in rarity_order else 0
-    
-    # 翻盤率
-    upset_chances = {
-        (-3, ): 3,   # common vs legendary: 3%
-        (-2, ): 5,   # rare vs legendary: 5%
-        (-1, ): 10,  # epic vs legendary: 10%
-        (0, ): 50,   # 同級: 50%
-        (1, ): 90,   # 高一級: 90%
-        (2, ): 95,   # 高兩級: 95%
-        (3, ): 97,   # 高三級: 97%
+    # 稀有度加成倍率
+    RARITY_MULT = {
+        "common": 1.0,
+        "uncommon": 1.2,
+        "rare": 1.5,
+        "epic": 2.0,
+        "legendary": 3.0,
+        "mythic": 5.0
     }
     
-    rarity_diff = atk_rarity_idx - def_rarity_idx
+    atk_mult = RARITY_MULT.get(attacker.rarity, 1.0)
+    def_mult = RARITY_MULT.get(defender.rarity, 1.0)
     
-    # 決定勝率
-    if rarity_diff <= -3:
-        win_chance = 3
-    elif rarity_diff == -2:
-        win_chance = 5
-    elif rarity_diff == -1:
-        win_chance = 10
-    elif rarity_diff == 0:
-        # 同級比屬性
-        atk_power = attacker.atk + attacker.spd
-        def_power = defender.def_ + defender.spd
-        if atk_power > def_power:
-            win_chance = 60
-        elif atk_power < def_power:
-            win_chance = 40
+    # 三回合對決
+    rounds = []
+    atk_wins = 0
+    def_wins = 0
+    
+    # 回合1: 攻擊者的⚔️ vs 防守者的🛡️
+    r1_atk_base = attacker.atk
+    r1_def_base = defender.def_
+    r1_atk = int(r1_atk_base * atk_mult)
+    r1_def = int(r1_def_base * def_mult)
+    if r1_atk > r1_def:
+        r1_winner = "atk"
+        atk_wins += 1
+    elif r1_atk < r1_def:
+        r1_winner = "def"
+        def_wins += 1
+    else:
+        r1_winner = "tie"
+    rounds.append({
+        "name": "⚔️ vs 🛡️",
+        "atk_stat": f"⚔️{r1_atk_base}×{atk_mult}={r1_atk}",
+        "def_stat": f"🛡️{r1_def_base}×{def_mult}={r1_def}",
+        "atk_val": r1_atk,
+        "def_val": r1_def,
+        "winner": r1_winner
+    })
+    
+    # 回合2: 攻擊者的🛡️ vs 防守者的⚡
+    r2_atk_base = attacker.def_
+    r2_def_base = defender.spd
+    r2_atk = int(r2_atk_base * atk_mult)
+    r2_def = int(r2_def_base * def_mult)
+    if r2_atk > r2_def:
+        r2_winner = "atk"
+        atk_wins += 1
+    elif r2_atk < r2_def:
+        r2_winner = "def"
+        def_wins += 1
+    else:
+        r2_winner = "tie"
+    rounds.append({
+        "name": "🛡️ vs ⚡",
+        "atk_stat": f"🛡️{r2_atk_base}×{atk_mult}={r2_atk}",
+        "def_stat": f"⚡{r2_def_base}×{def_mult}={r2_def}",
+        "atk_val": r2_atk,
+        "def_val": r2_def,
+        "winner": r2_winner
+    })
+    
+    # 回合3: 攻擊者的⚡ vs 防守者的⚔️
+    r3_atk_base = attacker.spd
+    r3_def_base = defender.atk
+    r3_atk = int(r3_atk_base * atk_mult)
+    r3_def = int(r3_def_base * def_mult)
+    if r3_atk > r3_def:
+        r3_winner = "atk"
+        atk_wins += 1
+    elif r3_atk < r3_def:
+        r3_winner = "def"
+        def_wins += 1
+    else:
+        r3_winner = "tie"
+    rounds.append({
+        "name": "⚡ vs ⚔️",
+        "atk_stat": f"⚡{r3_atk_base}×{atk_mult}={r3_atk}",
+        "def_stat": f"⚔️{r3_def_base}×{def_mult}={r3_def}",
+        "atk_val": r3_atk,
+        "def_val": r3_def,
+        "winner": r3_winner
+    })
+    
+    # 決定最終勝負
+    if atk_wins > def_wins:
+        attacker_wins = True
+        final_reason = f"回合勝 {atk_wins}:{def_wins}"
+    elif def_wins > atk_wins:
+        attacker_wins = False
+        final_reason = f"回合勝 {atk_wins}:{def_wins}"
+    else:
+        # 平手：用稀有度 + hash 決定
+        rarity_order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
+        atk_rarity_idx = rarity_order.index(attacker.rarity) if attacker.rarity in rarity_order else 0
+        def_rarity_idx = rarity_order.index(defender.rarity) if defender.rarity in rarity_order else 0
+        
+        if atk_rarity_idx > def_rarity_idx:
+            attacker_wins = True
+            final_reason = "平手，稀有度較高"
+        elif def_rarity_idx > atk_rarity_idx:
+            attacker_wins = False
+            final_reason = "平手，稀有度較高"
         else:
-            win_chance = 50
-    elif rarity_diff == 1:
-        win_chance = 90
-    elif rarity_diff == 2:
-        win_chance = 95
-    else:
-        win_chance = 97
+            # 完全平手：用 hash 決定
+            roll = int(h[16:20], 16) % 100
+            attacker_wins = roll < 50
+            final_reason = f"完全平手，命運決定 (roll={roll})"
     
-    # 用 hash 決定
-    roll = int(h[16:20], 16) % 100
-    attacker_wins = roll < win_chance
+    battle_detail = {
+        "rounds": rounds,
+        "atk_wins": atk_wins,
+        "def_wins": def_wins,
+        "attacker_wins": attacker_wins,
+        "final_reason": final_reason,
+        "hash_used": h[16:20]
+    }
     
-    if attacker_wins:
-        desc = f"🎯 攻擊命中！{attacker.display_rarity()} vs {defender.display_rarity()}"
-    else:
-        desc = f"🛡️ 防守成功！{defender.display_rarity()} 逆轉 {attacker.display_rarity()}！"
+    return attacker_wins, battle_detail
+
+
+def format_battle_detail(detail: dict, attacker: Hero, defender: Hero) -> str:
+    """格式化戰鬥詳情"""
+    lines = ["🎴 *田忌賽馬對決*\n"]
     
-    return attacker_wins, desc
+    for i, r in enumerate(detail["rounds"], 1):
+        if r["winner"] == "atk":
+            result = "🔵 攻方勝"
+        elif r["winner"] == "def":
+            result = "🔴 守方勝"
+        else:
+            result = "⚪ 平手"
+        
+        lines.append(f"回合{i}: {r['name']}")
+        lines.append(f"  🔵 {r['atk_stat']} vs 🔴 {r['def_stat']} → {result}")
+    
+    lines.append(f"\n📊 *比分: {detail['atk_wins']}:{detail['def_wins']}*")
+    lines.append(f"📝 {detail['final_reason']}")
+    
+    return "\n".join(lines)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 鏈上記錄格式（Payload）
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def create_birth_payload(daa: int, hero: Hero) -> dict:
+def create_birth_payload(daa: int, hero: Hero, source_hash: str = "") -> dict:
     """
     建立出生 payload
     
     格式：
-    - daa: 英雄身份證（命運 DAA）
-    - pre_tx: 前一個 payload 的 TX ID（出生為空字串）
-    - 英雄資訊
+    - g: 遊戲標識 (nami_hero)
+    - type: birth（出生）
+    - daa: 英雄 ID（命運 DAA）
+    - src: 來源區塊 hash（用於驗證）
+    - c/r/a/d/s: 職業/稀有度/攻擊/防禦/速度
+    
+    注意：payment_tx 由 mint_hero_inscription 在發送前加入
     """
     return {
         "g": "nami_hero",
-        "type": "hero",
-        "daa": daa,           # 英雄身份證
-        "pre_tx": "",         # 出生沒有前置 TX
-        "card": hero.card_id,
+        "type": "birth",
+        "daa": daa,           # 英雄 ID
+        "src": source_hash,   # 來源區塊 hash（可驗證）
         "c": hero.hero_class,
         "r": hero.rarity,
         "a": hero.atk,
         "d": hero.def_,
-        "s": hero.spd,
-        "status": "alive"
+        "s": hero.spd
     }
 
 def create_event_payload(daa: int, pre_tx: str, action: str, 
@@ -516,9 +620,64 @@ def create_state_payload(daa: int, pre_tx: str, hero: Hero) -> dict:
         "battles": hero.battles
     }
 
+def create_death_payload(hero_id: int, pre_tx: str, reason: str = "burn",
+                         killer_id: int = None, battle_tx: str = None) -> dict:
+    """
+    建立死亡 payload
+    
+    Args:
+        hero_id: 英雄 ID (DAA)
+        pre_tx: 前一個狀態的 TX ID
+        reason: 死亡原因 (burn/pvp/pve)
+        killer_id: 擊殺者 ID（PvP 時）
+        battle_tx: 戰鬥事件 TX ID（PvP 時）
+    """
+    payload = {
+        "g": "nami_hero",
+        "type": "death",
+        "daa": hero_id,
+        "pre_tx": pre_tx,
+        "reason": reason
+    }
+    if killer_id:
+        payload["killer"] = killer_id
+    if battle_tx:
+        payload["battle_tx"] = battle_tx
+    return payload
+
+
+def create_pvp_win_payload(hero_id: int, pre_tx: str, target_id: int,
+                           payment_tx: str, source_hash: str) -> dict:
+    """
+    建立 PvP 勝利 payload
+    
+    Args:
+        hero_id: 勝利者 ID (DAA)
+        pre_tx: 前一個狀態的 TX ID
+        target_id: 被擊殺者 ID
+        payment_tx: 付費 TX ID
+        source_hash: 命運區塊 hash
+    
+    Note:
+        kills 固定為 1（每個 pvp_win 事件 = 1 次擊殺）
+        總擊殺數 = 追鏈後所有 pvp_win 事件的數量
+    """
+    return {
+        "g": "nami_hero",
+        "type": "pvp_win",
+        "daa": hero_id,
+        "pre_tx": pre_tx,
+        "target": target_id,
+        "payment_tx": payment_tx,
+        "src": source_hash,
+        "kills": 1  # 固定 1，追鏈加總
+    }
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 遊戲邏輯
 # ═══════════════════════════════════════════════════════════════════════════════
+
+MAX_HEROES_PER_USER = 10  # 每人最多英雄數
 
 async def summon_hero(user_id: int, username: str, address: str, 
                       daa: int, block_hash: str, pin: str = None) -> Hero:
@@ -539,7 +698,17 @@ async def summon_hero(user_id: int, username: str, address: str,
     
     Returns:
         新召喚的英雄
+    
+    Raises:
+        ValueError: 超過英雄上限
     """
+    # 檢查英雄上限
+    db = load_heroes_db()
+    user_heroes = [h for h in db.get("heroes", {}).values() 
+                   if h.get("owner_id") == user_id and h.get("status") == "alive"]
+    if len(user_heroes) >= MAX_HEROES_PER_USER:
+        raise ValueError(f"英雄數量已達上限（{MAX_HEROES_PER_USER}隻）！請先用 /nami_burn 燒掉不需要的英雄")
+    
     # 計算屬性
     hero_class, rarity, atk, def_, spd = calculate_hero_from_hash(block_hash)
     
@@ -575,12 +744,13 @@ async def summon_hero(user_id: int, username: str, address: str,
     
     save_heroes_db(db)
     
-    # 建立 birth payload
-    birth_payload = create_birth_payload(daa, hero)
+    # 建立 birth payload（source_hash 已知，payment_tx 稍後由 mint 填入）
+    birth_payload = create_birth_payload(daa, hero, source_hash=block_hash)
     
     # 發送到鏈上（方案 A：兩筆交易）
     payment_tx_id = None
     inscription_tx_id = None
+    tx_id = None  # 用於舊方式（大地之樹代發）
     
     if pin:
         try:
@@ -625,7 +795,8 @@ async def summon_hero(user_id: int, username: str, address: str,
     
     # 記錄到本地鏈條
     chain = load_hero_chain()
-    birth_payload["tx_id"] = tx_id
+    final_tx_id = inscription_tx_id if pin else tx_id
+    birth_payload["tx_id"] = final_tx_id or ""
     birth_payload["signer"] = "player" if pin else "tree"  # 標記簽名者
     chain.append(birth_payload)
     save_hero_chain(chain)
@@ -633,6 +804,95 @@ async def summon_hero(user_id: int, username: str, address: str,
     logger.info(f"Hero summoned: #{daa} {hero.display_class()} {hero.display_rarity()} for user {user_id}")
     
     return hero
+
+
+async def burn_hero(user_id: int, hero_id: int, pin: str) -> dict:
+    """
+    銷毀英雄（Burn）
+    
+    流程：
+    1. 驗證擁有權
+    2. 創造 death payload
+    3. 發送 inscription TX（付 10 mana）
+    4. 更新索引
+    
+    Args:
+        user_id: 用戶 ID
+        hero_id: 英雄 ID
+        pin: PIN 碼
+    
+    Returns:
+        結果 dict
+    """
+    result = {
+        "success": False,
+        "hero_id": hero_id,
+        "tx_id": None,
+        "error": None
+    }
+    
+    # 1. 取得英雄
+    hero = get_hero_by_id(hero_id)
+    if not hero:
+        result["error"] = "找不到此英雄"
+        return result
+    
+    # 2. 驗證擁有權
+    if hero.owner_id != user_id:
+        result["error"] = "這不是你的英雄"
+        return result
+    
+    # 3. 檢查是否已死亡
+    if hero.status == "dead":
+        result["error"] = "英雄已經死亡"
+        return result
+    
+    # 4. 取得 pre_tx（當前 latest_tx）
+    pre_tx = hero.latest_tx or hero.tx_id or ""
+    if not pre_tx:
+        result["error"] = "找不到英雄的鏈上記錄"
+        return result
+    
+    # 5. 創造 death payload
+    death_payload = create_death_payload(hero_id, pre_tx, reason="burn")
+    
+    # 6. 發送 inscription TX
+    try:
+        import unified_wallet
+        payment_tx_id, inscription_tx_id = await unified_wallet.mint_hero_inscription(
+            user_id=user_id,
+            pin=pin,
+            hero_payload=death_payload,
+            skip_payment=False
+        )
+        
+        result["tx_id"] = inscription_tx_id
+        result["payment_tx"] = payment_tx_id
+        
+    except Exception as e:
+        result["error"] = f"交易失敗：{e}"
+        return result
+    
+    # 7. 更新本地資料庫
+    db = load_heroes_db()
+    db["heroes"][str(hero_id)]["status"] = "dead"
+    db["heroes"][str(hero_id)]["latest_tx"] = inscription_tx_id
+    db["heroes"][str(hero_id)]["death_reason"] = "burn"
+    db["heroes"][str(hero_id)]["death_tx"] = inscription_tx_id
+    save_heroes_db(db)
+    
+    # 8. 記錄到本地鏈條
+    chain = load_hero_chain()
+    death_payload["tx_id"] = inscription_tx_id
+    death_payload["payment_tx"] = payment_tx_id
+    chain.append(death_payload)
+    save_hero_chain(chain)
+    
+    logger.info(f"🔥 Hero burned: #{hero_id} by user {user_id}, tx: {inscription_tx_id}")
+    
+    result["success"] = True
+    return result
+
 
 def get_user_heroes(user_id: int, alive_only: bool = False) -> list[Hero]:
     """取得用戶的英雄列表"""
@@ -677,19 +937,22 @@ async def process_battle(attacker: Hero, defender: Hero,
         (更新後的攻擊方, 更新後的防守方, 攻擊方是否獲勝)
     """
     # 計算勝負
-    attacker_wins, desc = calculate_battle_result(attacker, defender, block_hash)
+    attacker_wins, battle_detail = calculate_battle_result(attacker, defender, block_hash)
     
     # 更新狀態
     attacker.battles += 1
     defender.battles += 1
     
+    from datetime import datetime
     if attacker_wins:
         attacker.kills += 1
         defender.status = "dead"
+        defender.death_time = datetime.now().isoformat()
         result = "win"
     else:
         defender.kills += 1
         attacker.status = "dead"
+        attacker.death_time = datetime.now().isoformat()
         result = "lose"
     
     attacker.latest_daa = result_daa
@@ -701,7 +964,7 @@ async def process_battle(attacker: Hero, defender: Hero,
     db["heroes"][str(defender.card_id)] = defender.to_dict()
     
     # PvP 費用加入 mana 池
-    pvp_cost = PVP_COST.get(attacker.rarity, 2)
+    pvp_cost = PVP_COST
     db["total_mana_pool"] = db.get("total_mana_pool", 0) + pvp_cost
     
     save_heroes_db(db)
@@ -726,6 +989,161 @@ async def process_battle(attacker: Hero, defender: Hero,
     logger.info(f"Battle: #{attacker.card_id} vs #{defender.card_id} -> {'attacker wins' if attacker_wins else 'defender wins'}")
     
     return attacker, defender, attacker_wins
+
+
+async def process_pvp_onchain(
+    attacker: Hero,
+    defender: Hero,
+    attacker_user_id: int,
+    attacker_pin: str,
+    block_hash: str
+) -> dict:
+    """
+    處理鏈上 PvP 戰鬥
+    
+    流程：
+    1. 攻擊者付費給大地之樹
+    2. 計算戰鬥結果
+    3. 發送鏈上事件
+       - 攻擊者贏：攻擊者發 pvp_win，大地之樹發 death 給防守者
+       - 攻擊者輸：大地之樹發 death 給攻擊者
+    4. 更新本地資料庫
+    
+    Returns:
+        {
+            "attacker_wins": bool,
+            "winner": Hero,
+            "loser": Hero,
+            "payment_tx": str,
+            "win_tx": str (if attacker wins),
+            "death_tx": str
+        }
+    """
+    import unified_wallet
+    from datetime import datetime
+    
+    result = {
+        "attacker_wins": False,
+        "payment_tx": None,
+        "win_tx": None,
+        "death_tx": None
+    }
+    
+    # 1. 計算戰鬥結果
+    attacker_wins, battle_detail = calculate_battle_result(attacker, defender, block_hash)
+    result["attacker_wins"] = attacker_wins
+    result["battle_detail"] = battle_detail
+    
+    # 2. 取得 PvP 費用
+    pvp_cost = PVP_COST
+    pvp_cost_sompi = int(pvp_cost * 1e8)
+    
+    # 3. 攻擊者付費給大地之樹
+    logger.info(f"⚔️ PvP: #{attacker.card_id} vs #{defender.card_id}")
+    logger.info(f"   付費 {pvp_cost} mana 給大地之樹...")
+    
+    payment_tx = await unified_wallet.send_to_tree(
+        user_id=attacker_user_id,
+        pin=attacker_pin,
+        amount=pvp_cost_sompi
+    )
+    result["payment_tx"] = payment_tx
+    logger.info(f"   付費 TX: {payment_tx}")
+    
+    # 等待 UTXO 更新（避免 mempool 衝突）
+    import asyncio
+    logger.info(f"   ⏳ 等待 UTXO 確認...")
+    await asyncio.sleep(3)
+    
+    # 4. 更新狀態
+    attacker.battles += 1
+    defender.battles += 1
+    
+    if attacker_wins:
+        attacker.kills += 1
+        defender.status = "dead"
+        defender.death_time = datetime.now().isoformat()
+        result["winner"] = attacker
+        result["loser"] = defender
+        
+        # 5a. 攻擊者贏 - 發送 pvp_win 事件
+        logger.info(f"   ✅ 攻擊者勝利！發送 pvp_win 事件...")
+        
+        win_payload = create_pvp_win_payload(
+            hero_id=attacker.card_id,
+            pre_tx=attacker.latest_tx or "",
+            target_id=defender.card_id,
+            payment_tx=payment_tx,
+            source_hash=block_hash
+        )
+        
+        # 攻擊者簽名發送 win 事件
+        _, win_tx = await unified_wallet.mint_hero_inscription(
+            user_id=attacker_user_id,
+            pin=attacker_pin,
+            hero_payload=win_payload,
+            skip_payment=True
+        )
+        result["win_tx"] = win_tx
+        attacker.latest_tx = win_tx
+        logger.info(f"   Win TX: {win_tx}")
+        
+        # 等待 UTXO 確認
+        await asyncio.sleep(2)
+        
+        # 6a. 大地之樹發送死亡事件給防守者
+        logger.info(f"   🌲 大地之樹發送死亡事件給 #{defender.card_id}...")
+        
+        death_payload = create_death_payload(
+            hero_id=defender.card_id,
+            pre_tx=defender.latest_tx or "",
+            reason="pvp",
+            killer_id=attacker.card_id,
+            battle_tx=win_tx
+        )
+        
+        from kaspa_tx import send_payload_tx
+        death_tx = await send_payload_tx(death_payload)
+        result["death_tx"] = death_tx
+        defender.latest_tx = death_tx
+        logger.info(f"   Death TX: {death_tx}")
+        
+    else:
+        defender.kills += 1
+        attacker.status = "dead"
+        attacker.death_time = datetime.now().isoformat()
+        result["winner"] = defender
+        result["loser"] = attacker
+        
+        # 5b. 攻擊者輸 - 大地之樹發送死亡事件給攻擊者
+        logger.info(f"   ❌ 攻擊者落敗！🌲 大地之樹發送死亡事件...")
+        
+        death_payload = create_death_payload(
+            hero_id=attacker.card_id,
+            pre_tx=attacker.latest_tx or "",
+            reason="pvp",
+            killer_id=defender.card_id,
+            battle_tx=payment_tx  # 用付款 TX 作為戰鬥證明
+        )
+        death_payload["src"] = block_hash  # 加入命運區塊
+        
+        from kaspa_tx import send_payload_tx
+        death_tx = await send_payload_tx(death_payload)
+        result["death_tx"] = death_tx
+        attacker.latest_tx = death_tx
+        logger.info(f"   Death TX: {death_tx}")
+    
+    # 7. 更新本地資料庫
+    db = load_heroes_db()
+    db["heroes"][str(attacker.card_id)] = attacker.to_dict()
+    db["heroes"][str(defender.card_id)] = defender.to_dict()
+    db["total_mana_pool"] = db.get("total_mana_pool", 0) + pvp_cost
+    save_heroes_db(db)
+    
+    logger.info(f"⚔️ PvP 完成: #{attacker.card_id} vs #{defender.card_id} -> {'攻擊者勝' if attacker_wins else '防守者勝'}")
+    
+    return result
+
 
 def get_game_stats() -> dict:
     """取得遊戲統計"""
@@ -759,6 +1177,8 @@ def get_game_stats() -> dict:
 
 def format_hero_card(hero: Hero) -> str:
     """格式化英雄卡片顯示（HTML 格式）"""
+    from datetime import datetime
+    
     status_icon = "🟢" if hero.status == "alive" else "☠️"
     
     # 稀有度 - 職業 顯示
@@ -766,6 +1186,31 @@ def format_hero_card(hero: Hero) -> str:
     class_name = get_class_name(hero.hero_class)
     class_emoji = get_class_emoji(hero.hero_class)
     title_line = f"{rarity_display} - {class_name} {class_emoji}"
+    
+    # 計算生存時間
+    age_str = ""
+    if hero.created_at:
+        try:
+            created = datetime.fromisoformat(hero.created_at)
+            if hero.status == "alive":
+                age = datetime.now() - created
+            else:
+                # 死亡的英雄用 death_time 或現在
+                death_time = getattr(hero, 'death_time', None)
+                if death_time:
+                    age = datetime.fromisoformat(death_time) - created
+                else:
+                    age = datetime.now() - created
+            
+            days = age.days
+            hours = age.seconds // 3600
+            if days > 0:
+                age_str = f"⏳ {days}天{hours}時"
+            else:
+                minutes = (age.seconds % 3600) // 60
+                age_str = f"⏳ {hours}時{minutes}分"
+        except:
+            age_str = ""
     
     # Explorer link (HTML 格式)
     explorer_link = ""
@@ -778,7 +1223,7 @@ def format_hero_card(hero: Hero) -> str:
 
 ⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}
 
-{status_icon} {hero.status} | 戰績 {hero.battles}戰 {hero.kills}殺
+{status_icon} {hero.status} | ⚔️ {hero.battles}戰 {hero.kills}殺 {age_str}
 
 📍 命運: DAA <code>{hero.card_id}</code>{explorer_link}
 
@@ -788,26 +1233,52 @@ def format_hero_card(hero: Hero) -> str:
 
 def format_hero_list(heroes: list[Hero]) -> str:
     """格式化英雄列表（Markdown 格式）"""
+    from datetime import datetime
+    
     if not heroes:
         return "📜 你還沒有英雄\n\n使用 `/nami_hero` 召喚你的第一位英雄！"
     
     alive = [h for h in heroes if h.status == "alive"]
     dead = [h for h in heroes if h.status == "dead"]
     
-    lines = [f"📜 你的英雄 ({len(alive)} 存活 / {len(dead)} 陣亡)\n"]
+    def get_age_str(h):
+        """計算生存時間字串"""
+        if not h.created_at:
+            return ""
+        try:
+            created = datetime.fromisoformat(h.created_at)
+            if h.status == "alive":
+                age = datetime.now() - created
+            else:
+                if h.death_time:
+                    age = datetime.fromisoformat(h.death_time) - created
+                else:
+                    age = datetime.now() - created
+            days = age.days
+            hours = age.seconds // 3600
+            if days > 0:
+                return f"⏳{days}d"
+            else:
+                return f"⏳{hours}h"
+        except:
+            return ""
+    
+    lines = [f"📜 你的英雄 ({len(alive)}/10 存活 | {len(dead)} 陣亡)\n"]
     
     for h in alive:
         rarity = get_rarity_display(h.rarity)
         class_name = get_class_name(h.hero_class)
         class_emoji = get_class_emoji(h.hero_class)
+        age = get_age_str(h)
         # 用 ` ` 包住 ID，點擊可複製
-        lines.append(f"🟢 `#{h.card_id}` {rarity} {class_name}{class_emoji} - {h.kills}殺")
+        lines.append(f"🟢 `#{h.card_id}` {rarity} {class_name}{class_emoji} {h.kills}殺 {age}")
     
     for h in dead:
         rarity = get_rarity_display(h.rarity)
         class_name = get_class_name(h.hero_class)
         class_emoji = get_class_emoji(h.hero_class)
-        lines.append(f"☠️ `#{h.card_id}` {rarity} {class_name}{class_emoji}")
+        age = get_age_str(h)
+        lines.append(f"☠️ `#{h.card_id}` {rarity} {class_name}{class_emoji} {age}")
     
     lines.append("\n查看詳情：")
     lines.append("```")
@@ -870,11 +1341,11 @@ def format_summon_result(hero: Hero) -> str:
     inscription_note = ""
     
     if hasattr(hero, 'tx_id') and hero.tx_id and not hero.tx_id.startswith('daa_'):
-        tx_links = f'📝 Inscription:\nhttps://explorer-tn10.kaspa.org/txs/{hero.tx_id}'
-        inscription_note = "✨ *你自己簽名的 Inscription！*"
-    else:
-        tx_links = "📦 (本地記錄)"
+        tx_links = f'📝 銘文:\nhttps://explorer-tn10.kaspa.org/txs/{hero.tx_id}'
         inscription_note = ""
+    else:
+        tx_links = "⚠️ *鏈上銘文發送失敗*"
+        inscription_note = f"💡 使用 `/nami_remint {hero.card_id} <PIN>` 補發"
     
     return f"""🎴 召喚成功！
 
@@ -892,10 +1363,7 @@ def format_summon_result(hero: Hero) -> str:
 
 快速指令：
 ```
-/nami_verify {hero.card_id}
-```
-```
-/nami_hero_info {hero.card_id}
+/nami_verify {hero.tx_id if hasattr(hero, 'tx_id') and hero.tx_id and not hero.tx_id.startswith('daa_') else hero.card_id}
 ```"""
 
 def format_battle_result(attacker: Hero, defender: Hero, 
@@ -1039,3 +1507,427 @@ Block: `{chain['block_hash'][:16]}...`
 ❌ *驗證失敗*
 
 {errors}"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 鏈上完整驗證
+# ═══════════════════════════════════════════════════════════════════════════════
+
+TREE_ADDRESS = "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m"
+
+async def verify_from_tx(tx_id: str) -> dict:
+    """
+    從鏈上 TX 完整驗證英雄
+    
+    流程：
+    1. 從 TX 取得 payload
+    2. 解析 payload 取得 src（來源區塊 hash）
+    3. 用 src 重算屬性
+    4. 比對 payload 中的 c/r/a/d/s
+    5. 如果有 payment_tx，驗證付款給大地之樹
+    
+    Args:
+        tx_id: 銘文交易 ID
+    
+    Returns:
+        驗證結果 dict
+    """
+    import aiohttp
+    import json as json_lib
+    
+    result = {
+        "tx_id": tx_id,
+        "verified": False,
+        "payload": None,
+        "calculated": None,
+        "payment_verified": None,
+        "errors": [],
+        "checks": []
+    }
+    
+    # 1. 從 API 取得 TX
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api-tn10.kaspa.org/transactions/{tx_id}"
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    result["errors"].append(f"找不到交易：{tx_id[:16]}...")
+                    return result
+                tx_data = await resp.json()
+    except Exception as e:
+        result["errors"].append(f"查詢交易失敗：{e}")
+        return result
+    
+    # 2. 解碼 payload
+    payload_hex = tx_data.get("payload", "")
+    if not payload_hex:
+        result["errors"].append("交易沒有 payload")
+        return result
+    
+    try:
+        payload_bytes = bytes.fromhex(payload_hex)
+        payload = json_lib.loads(payload_bytes.decode('utf-8'))
+        result["payload"] = payload
+    except Exception as e:
+        result["errors"].append(f"Payload 解碼失敗：{e}")
+        return result
+    
+    # 3. 檢查是否為 nami_hero
+    if payload.get("g") != "nami_hero":
+        result["errors"].append("不是 Nami Hero 銘文")
+        return result
+    
+    result["checks"].append("✓ Nami Hero 銘文")
+    
+    # 4. 取得來源 hash 並驗證屬性
+    source_hash = payload.get("src", "")
+    if source_hash:
+        try:
+            hero_class, rarity, atk, def_, spd = calculate_hero_from_hash(source_hash)
+            result["calculated"] = {
+                "hero_class": hero_class,
+                "rarity": rarity,
+                "atk": atk,
+                "def": def_,
+                "spd": spd
+            }
+            
+            # 比對（c 可能是 int 或 string）
+            p_class = payload.get("c")
+            p_rarity = payload.get("r")
+            
+            # 轉換為一致格式比對
+            if (str(p_class) == str(hero_class) and 
+                str(p_rarity) == str(rarity) and
+                payload.get("a") == atk and
+                payload.get("d") == def_ and
+                payload.get("s") == spd):
+                result["checks"].append("✓ 屬性驗證通過")
+            else:
+                result["errors"].append(f"屬性不匹配！payload: {p_class}/{p_rarity}/{payload.get('a')}/{payload.get('d')}/{payload.get('s')}, 計算: {hero_class}/{rarity}/{atk}/{def_}/{spd}")
+                return result
+        except Exception as e:
+            result["errors"].append(f"屬性驗證失敗：{e}")
+            return result
+    else:
+        result["checks"].append("⚠ 舊版格式，無來源 hash（無法重算驗證）")
+    
+    # 5. 驗證付款
+    payment_tx = payload.get("payment_tx", "")
+    if payment_tx:
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"https://api-tn10.kaspa.org/transactions/{payment_tx}"
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        pay_data = await resp.json()
+                        
+                        # 檢查是否有付給大地之樹
+                        outputs = pay_data.get("outputs", [])
+                        paid_to_tree = False
+                        paid_amount = 0
+                        
+                        for out in outputs:
+                            addr = out.get("script_public_key_address", "")
+                            if addr == TREE_ADDRESS:
+                                paid_to_tree = True
+                                paid_amount = out.get("amount", 0)
+                                break
+                        
+                        if paid_to_tree:
+                            result["payment_verified"] = True
+                            result["payment_amount"] = paid_amount / 1e8
+                            result["checks"].append(f"✓ 付款驗證通過（{paid_amount / 1e8:.2f} tKAS → 大地之樹）")
+                        else:
+                            result["payment_verified"] = False
+                            result["checks"].append("✗ 付款交易未付給大地之樹")
+                    else:
+                        result["checks"].append("⚠ 付款交易查詢失敗")
+        except Exception as e:
+            result["checks"].append(f"⚠ 付款驗證失敗：{e}")
+    else:
+        result["checks"].append("⚠ 無付款記錄")
+    
+    # 判斷最終結果
+    if not result["errors"]:
+        if source_hash and result.get("payment_verified"):
+            result["verified"] = True
+            result["verdict"] = "🎉 正卡"
+        elif source_hash:
+            result["verdict"] = "⚠️ 屬性正確，但付款未驗證"
+        elif result.get("payment_verified"):
+            result["verdict"] = "⚠️ 已付款，但舊版格式無法驗證屬性"
+        else:
+            result["verdict"] = "⚠️ 舊版格式，無法完整驗證"
+    
+    return result
+
+
+def format_tx_verify_result(result: dict) -> str:
+    """格式化 TX 驗證結果"""
+    tx_id = result["tx_id"]
+    
+    if result.get("errors"):
+        errors = "\n".join(f"• {e}" for e in result["errors"])
+        return f"""🔍 驗證銘文
+
+TX: `{tx_id[:32]}...`
+
+❌ *驗證失敗*
+
+{errors}"""
+    
+    payload = result.get("payload", {})
+    checks = "\n".join(result.get("checks", []))
+    verdict = result.get("verdict", "")
+    
+    # 英雄資訊
+    daa = payload.get("daa", "?")
+    hero_class = payload.get("c", "?")
+    rarity = payload.get("r", "?")
+    atk = payload.get("a", "?")
+    def_ = payload.get("d", "?")
+    spd = payload.get("s", "?")
+    
+    # 翻譯對照
+    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+    rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                    "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
+    class_zh = class_names.get(hero_class, hero_class)
+    rarity_zh = rarity_names.get(rarity, rarity)
+    
+    return f"""🔍 驗證銘文
+
+TX: `{tx_id[:32]}...`
+
+📦 *Payload 內容：*
+• 英雄 ID: #{daa}
+• 職業: {class_zh}
+• 稀有度: {rarity_zh}
+• 屬性: ⚔️{atk} 🛡️{def_} ⚡{spd}
+
+🔬 *驗證項目：*
+{checks}
+
+{verdict}
+
+🔗 [區塊瀏覽器](https://explorer-tn10.kaspa.org/txs/{tx_id})"""
+
+
+async def verify_hero_by_id(hero_id: int) -> dict:
+    """
+    從英雄 ID 完整驗證（追蹤整條鏈）
+    
+    流程：
+    1. 從本地索引拿 latest_tx
+    2. 從 latest_tx 往回追 pre_tx
+    3. 追到 birth（pre_tx 為空）
+    4. 每層都驗證 payment_tx
+    5. 驗證 birth 的屬性
+    
+    Returns:
+        完整驗證結果
+    """
+    import aiohttp
+    import json as json_lib
+    
+    result = {
+        "hero_id": hero_id,
+        "verified": False,
+        "is_dead": False,
+        "death_reason": None,
+        "chain": [],  # 所有 TX 的 payload
+        "birth_payload": None,
+        "checks": [],
+        "errors": []
+    }
+    
+    # 1. 從本地索引拿 latest_tx
+    hero = get_hero_by_id(hero_id)
+    if not hero:
+        result["errors"].append("找不到此英雄")
+        return result
+    
+    latest_tx = hero.latest_tx or hero.tx_id
+    if not latest_tx or latest_tx.startswith('daa_'):
+        result["errors"].append("此英雄沒有鏈上記錄")
+        return result
+    
+    result["latest_tx"] = latest_tx
+    result["local_status"] = hero.status
+    
+    # 2. 從 latest_tx 往回追蹤
+    current_tx = latest_tx
+    visited = set()
+    
+    async with aiohttp.ClientSession() as session:
+        while current_tx and current_tx not in visited:
+            visited.add(current_tx)
+            
+            # 讀取 TX
+            try:
+                url = f"https://api-tn10.kaspa.org/transactions/{current_tx}"
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        result["errors"].append(f"查詢交易失敗：{current_tx[:16]}...")
+                        break
+                    tx_data = await resp.json()
+            except Exception as e:
+                result["errors"].append(f"網路錯誤：{e}")
+                break
+            
+            # 解碼 payload
+            payload_hex = tx_data.get("payload", "")
+            if not payload_hex:
+                result["errors"].append(f"交易 {current_tx[:16]}... 沒有 payload")
+                break
+            
+            try:
+                payload = json_lib.loads(bytes.fromhex(payload_hex).decode('utf-8'))
+                payload["_tx_id"] = current_tx
+                result["chain"].append(payload)
+            except Exception as e:
+                result["errors"].append(f"Payload 解碼失敗：{e}")
+                break
+            
+            # 檢查類型
+            tx_type = payload.get("type", "")
+            
+            if tx_type == "death":
+                result["is_dead"] = True
+                result["death_reason"] = payload.get("reason", "unknown")
+                result["checks"].append(f"☠️ 死亡事件：{payload.get('reason', 'unknown')}")
+            elif tx_type == "birth":
+                result["birth_payload"] = payload
+                result["checks"].append("🎒 找到出生記錄")
+            elif tx_type == "event":
+                result["checks"].append(f"⚔️ 事件：{payload.get('action', 'unknown')}")
+            
+            # 驗證 payment_tx
+            payment_tx = payload.get("payment_tx", "")
+            if payment_tx:
+                try:
+                    pay_url = f"https://api-tn10.kaspa.org/transactions/{payment_tx}"
+                    async with session.get(pay_url) as pay_resp:
+                        if pay_resp.status == 200:
+                            pay_data = await pay_resp.json()
+                            outputs = pay_data.get("outputs", [])
+                            paid_to_tree = any(
+                                out.get("script_public_key_address") == TREE_ADDRESS
+                                for out in outputs
+                            )
+                            if paid_to_tree:
+                                result["checks"].append(f"✓ 付款驗證通過")
+                            else:
+                                result["checks"].append(f"✗ 付款未付給大地之樹")
+                except:
+                    result["checks"].append(f"⚠ 付款驗證失敗")
+            
+            # 往回追
+            pre_tx = payload.get("pre_tx", "")
+            if not pre_tx:
+                # 到達源頭
+                break
+            current_tx = pre_tx
+    
+    # 3. 驗證 birth 的屬性
+    if result["birth_payload"]:
+        birth = result["birth_payload"]
+        source_hash = birth.get("src", "")
+        
+        if source_hash:
+            try:
+                hero_class, rarity, atk, def_, spd = calculate_hero_from_hash(source_hash)
+                
+                # 比對
+                if (str(birth.get("c")) == str(hero_class) and
+                    str(birth.get("r")) == str(rarity) and
+                    birth.get("a") == atk and
+                    birth.get("d") == def_ and
+                    birth.get("s") == spd):
+                    result["checks"].append("✓ 屬性驗證通過")
+                    result["verified"] = True
+                else:
+                    result["checks"].append("✗ 屬性不匹配")
+            except Exception as e:
+                result["checks"].append(f"⚠ 屬性驗證失敗：{e}")
+        else:
+            result["checks"].append("⚠ 舊版格式，無 src")
+    else:
+        # 沒有出生記錄，但如果有死亡事件也是有效的
+        if result["is_dead"]:
+            result["checks"].append("⚠️ 出生銘文缺失（本地記錄）")
+            # 從本地資料補充資訊
+            if hero:
+                result["local_hero"] = {
+                    "hero_class": hero.hero_class,
+                    "rarity": hero.rarity,
+                    "atk": hero.atk,
+                    "def": hero.def_,
+                    "spd": hero.spd
+                }
+        else:
+            result["errors"].append("未找到出生記錄")
+    
+    return result
+
+
+def format_hero_verify_result(result: dict) -> str:
+    """格式化英雄 ID 驗證結果"""
+    hero_id = result["hero_id"]
+    
+    if result.get("errors"):
+        errors = "\n".join(f"• {e}" for e in result["errors"])
+        return f"""🔍 驗證英雄 #{hero_id}
+
+❌ *驗證失敗*
+
+{errors}"""
+    
+    checks = "\n".join(result.get("checks", []))
+    chain_len = len(result.get("chain", []))
+    
+    # 判斷結果
+    if result["verified"]:
+        if result["is_dead"]:
+            verdict = f"🎉 正卡（☠️ 已死亡 - {result.get('death_reason', 'unknown')}）"
+        else:
+            verdict = "🎉 正卡"
+    elif result["is_dead"]:
+        # 死亡但沒有出生銘文
+        verdict = f"☠️ 已死亡 - {result.get('death_reason', 'unknown')}（出生銘文缺失）"
+    else:
+        verdict = "⚠️ 驗證未完成"
+    
+    # 英雄資訊（優先用 birth_payload，沒有就用 local_hero）
+    birth = result.get("birth_payload") or {}
+    local_hero = result.get("local_hero") or {}
+    
+    hero_class = birth.get("c") or local_hero.get("hero_class", "?")
+    rarity = birth.get("r") or local_hero.get("rarity", "?")
+    atk = birth.get("a") or local_hero.get("atk", "?")
+    def_ = birth.get("d") or local_hero.get("def", "?")
+    spd = birth.get("s") or local_hero.get("spd", "?")
+    
+    # 翻譯對照
+    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+    rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                    "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
+    class_zh = class_names.get(hero_class, hero_class)
+    rarity_zh = rarity_names.get(rarity, rarity)
+    
+    latest_tx = result.get("latest_tx", "")[:32]
+    
+    return f"""🔍 驗證英雄 #{hero_id}
+
+📦 *英雄資訊：*
+• 職業: {class_zh}
+• 稀有度: {rarity_zh}
+• 屬性: ⚔️{atk} 🛡️{def_} ⚡{spd}
+
+🔗 *鏈上追蹤（{chain_len} 筆）：*
+{checks}
+
+{verdict}
+
+📝 Latest TX: `{latest_tx}...`"""

@@ -6,8 +6,253 @@
 
 import asyncio
 import logging
+import time
 from telegram import Update
 from telegram.ext import ContextTypes
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🙏 大地之樹排隊系統
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TreeQueue:
+    """大地之樹服務排隊系統"""
+    
+    def __init__(self):
+        self._lock = asyncio.Lock()
+        self._queue = []  # [(user_id, timestamp)]
+        self._current_user = None
+    
+    def queue_size(self) -> int:
+        """目前排隊人數"""
+        return len(self._queue)
+    
+    def add_to_queue(self, user_id: int):
+        """加入排隊"""
+        if user_id not in [u for u, _ in self._queue]:
+            self._queue.append((user_id, time.time()))
+    
+    def remove_from_queue(self, user_id: int):
+        """離開排隊"""
+        self._queue = [(u, t) for u, t in self._queue if u != user_id]
+    
+    async def acquire(self, user_id: int) -> bool:
+        """嘗試獲取服務"""
+        self.add_to_queue(user_id)
+        await self._lock.acquire()
+        self._current_user = user_id
+        self.remove_from_queue(user_id)
+        return True
+    
+    def release(self):
+        """釋放服務"""
+        self._current_user = None
+        if self._lock.locked():
+            self._lock.release()
+    
+    def get_queue_message(self, user_id: int) -> str:
+        """取得排隊訊息"""
+        pos = next((i for i, (u, _) in enumerate(self._queue) if u == user_id), -1)
+        if pos > 0:
+            return f"⏳ 排隊等候 {pos} 人..."
+        return ""
+
+
+# 全局排隊實例
+tree_queue = TreeQueue()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 📢 公告系統
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_announcement_chat_id() -> int | None:
+    """從檔案載入公告群組 ID"""
+    announce_file = DATA_DIR / "announce_group.json"
+    if announce_file.exists():
+        with open(announce_file, 'r') as f:
+            data = json.load(f)
+            return data.get("chat_id")
+    return None
+
+async def send_announcement(bot, message: str, parse_mode: str = 'Markdown'):
+    """發送公告到群組"""
+    chat_id = get_announcement_chat_id()
+    if not chat_id:
+        return
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=message,
+            parse_mode=parse_mode
+        )
+    except Exception as e:
+        logger.error(f"公告發送失敗: {e}")
+
+async def announce_hero_birth(bot, hero, username: str):
+    """公告英雄誕生"""
+    rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", 
+                    "epic": "🟣", "legendary": "🟡", "mythic": "🔴"}.get(hero.rarity, "⚪")
+    rarity_name = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                   "epic": "史詩", "legendary": "傳說", "mythic": "神話"}.get(hero.rarity, "普通")
+    class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
+    class_emoji = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
+    
+    # 取得區塊和銘文連結
+    block_link = ""
+    if hero.source_hash:
+        block_link = f"🔗 命運區塊:\nhttps://explorer-tn10.kaspa.org/blocks/{hero.source_hash}"
+    
+    tx_link = ""
+    if hero.tx_id and not hero.tx_id.startswith('daa_'):
+        tx_link = f"📝 銘文:\nhttps://explorer-tn10.kaspa.org/txs/{hero.tx_id}"
+    
+    msg = f"""🎴 <b>召喚成功！</b>
+
+{rarity_emoji} {rarity_name} - {class_name} {class_emoji}
+⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}
+
+📍 命運: DAA <code>{hero.card_id}</code>
+{block_link}
+{tx_link}
+
+👤 召喚者: @{username}
+英雄 ID: <code>#{hero.card_id}</code>
+
+快速指令：
+<code>/nami_verify {hero.card_id}</code>"""
+    
+    await send_announcement(bot, msg, parse_mode='HTML')
+
+async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, death_tx: str = None):
+    """公告英雄死亡"""
+    rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵",
+                    "epic": "🟣", "legendary": "🟡", "mythic": "🔴"}.get(hero.rarity, "⚪")
+    rarity_name = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                   "epic": "史詩", "legendary": "傳說", "mythic": "神話"}.get(hero.rarity, "普通")
+    class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
+    class_emoji = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
+    
+    if reason == "burn":
+        cause = "🔥 自焚銷毀"
+    elif reason == "pvp_loss" and killer_name:
+        cause = f"⚔️ 被 @{killer_name} 擊殺"
+    else:
+        cause = f"☠️ {reason}"
+    
+    tx_link = ""
+    if death_tx:
+        tx_link = f"📝 死亡銘文:\nhttps://explorer-tn10.kaspa.org/txs/{death_tx}"
+    
+    msg = f"""☠️ <b>英雄陣亡</b>
+
+{rarity_emoji} {rarity_name} - {class_name} {class_emoji}
+⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}
+
+💀 死因: {cause}
+⚔️ 戰績: {hero.battles}戰 {hero.kills}殺
+{tx_link}
+
+英雄 ID: <code>#{hero.card_id}</code>
+
+快速指令：
+<code>/nami_verify {hero.card_id}</code>
+
+<i>願靈魂回歸大地之樹...</i> 🌲"""
+    
+    await send_announcement(bot, msg, parse_mode='HTML')
+
+async def announce_pvp_result(bot, result: dict, my_hero, target_hero, 
+                               attacker_name: str, defender_name: str):
+    """公告完整 PvP 戰報到群聊"""
+    
+    # 稀有度名稱
+    rarity_names = {
+        "common": "普通", "uncommon": "優秀", "rare": "稀有",
+        "epic": "史詩", "legendary": "傳說", "mythic": "神話"
+    }
+    class_names = {
+        "warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"
+    }
+    rarity_mult = {
+        "common": "x1.0", "uncommon": "x1.2", "rare": "x1.5",
+        "epic": "x2.0", "legendary": "x3.0", "mythic": "x5.0"
+    }
+    
+    my_rarity = rarity_names.get(my_hero.rarity, "普通")
+    target_rarity = rarity_names.get(target_hero.rarity, "普通")
+    my_mult = rarity_mult.get(my_hero.rarity, "x1.0")
+    target_mult = rarity_mult.get(target_hero.rarity, "x1.0")
+    
+    # 確定勝負
+    if result["attacker_wins"]:
+        result_emoji = "🏆"
+        result_text = "攻方獲勝！"
+        winner = my_hero
+        loser = target_hero
+        winner_name = attacker_name
+        loser_name = defender_name
+    else:
+        result_emoji = "🛡️"
+        result_text = "守方反殺！"
+        winner = target_hero
+        loser = my_hero
+        winner_name = defender_name
+        loser_name = attacker_name
+    
+    winner_class = class_names.get(winner.hero_class, winner.hero_class)
+    loser_class = class_names.get(loser.hero_class, loser.hero_class)
+    
+    # 格式化戰鬥詳情
+    detail = result.get("battle_detail", {})
+    rounds_text = ""
+    for i, r in enumerate(detail.get("rounds", []), 1):
+        if r["winner"] == "atk":
+            r_result = "🔵"
+        elif r["winner"] == "def":
+            r_result = "🔴"
+        else:
+            r_result = "⚪"
+        rounds_text += f"R{i} {r['name']}: {r['atk_val']} vs {r['def_val']} {r_result}\n"
+    
+    score = f"{detail.get('atk_wins', 0)}:{detail.get('def_wins', 0)}"
+    
+    msg = f"""{result_emoji} <b>PvP 結果：{result_text}</b>
+
+🔵 <b>攻方</b> #{my_hero.card_id} ({my_rarity} {my_mult})
+⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
+
+🔴 <b>守方</b> #{target_hero.card_id} ({target_rarity} {target_mult})
+⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
+
+📊 <b>對決</b> (數值已含加成)
+{rounds_text}
+<b>比分: {score}</b> → {detail.get('final_reason', '')}
+
+---
+
+🏆 <b>勝者</b>：#{winner.card_id} {winner_class}
+   @{winner_name} | 擊殺：{winner.kills}
+
+☠️ <b>敗者</b>：#{loser.card_id} {loser_class}
+   @{loser_name} | 永久死亡
+
+📝 <b>鏈上記錄</b>：
+付費: <code>{result['payment_tx'][:16]}...</code>"""
+    
+    if result.get("win_tx"):
+        msg += f"\n勝利: <code>{result['win_tx'][:20]}...</code>"
+    msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
+    
+    msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
+    
+    msg += "\n\n<i>願靈魂回歸大地之樹...</i> 🌲"
+    
+    await send_announcement(bot, msg, parse_mode='HTML')
+
+async def announce_reward(bot, result: dict):
+    """公告獎勵發放"""
+    from reward_system import format_reward_announcement
+    msg = format_reward_announcement(result)
+    await send_announcement(bot, msg)
 
 from hero_game import (
     summon_hero, get_user_heroes, get_hero_by_id, process_battle,
@@ -142,9 +387,15 @@ async def get_next_daa_block() -> tuple[int, str]:
                     logger.info(f"Found block at DAA {target_daa}: {first_block['hash'][:16]}...")
                     return target_daa, first_block['hash']
                 
-                # 如果沒找到精確匹配，用第一個 tip
+                # 如果沒找到精確匹配，用第一個 tip 並取其實際 DAA
                 if tips:
-                    return target_daa, tips[0]
+                    try:
+                        block_resp = await client.get_block({"hash": tips[0], "includeTransactions": False})
+                        actual_daa = block_resp.get("block", {}).get("header", {}).get("daaScore", new_daa)
+                        logger.warning(f"No block at target DAA {target_daa}, using tip with DAA {actual_daa}")
+                        return actual_daa, tips[0]
+                    except:
+                        return new_daa, tips[0]
         
         raise TimeoutError("等待區塊超時")
         
@@ -231,7 +482,54 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # TODO: 發送 10 mana 到大地之樹（啟用付費後取消註解）
     # await unified_wallet.send_to_tree(user.id, pin, SUMMON_COST, f"summon:{user.id}")
     
-    await update.message.reply_text("🌲 正在向大地之樹祈禱...\n⏳ 等待下一個區塊...")
+    # 檢查英雄上限（在排隊前檢查，避免浪費等待時間）
+    from hero_game import MAX_HEROES_PER_USER, load_heroes_db
+    db = load_heroes_db()
+    user_alive_heroes = [h for h in db.get("heroes", {}).values() 
+                         if h.get("owner_id") == user.id and h.get("status") == "alive"]
+    
+    if len(user_alive_heroes) >= MAX_HEROES_PER_USER:
+        # 列出玩家的英雄，引導燒掉
+        rarity_names = {"common": "⚪普通", "uncommon": "🟢優秀", "rare": "🔵稀有",
+                        "epic": "🟣史詩", "legendary": "🟡傳說", "mythic": "🔴神話"}
+        class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+        
+        hero_list = []
+        for h in user_alive_heroes:
+            r = rarity_names.get(h["rarity"], h["rarity"])
+            c = class_names.get(h["hero_class"], h["hero_class"])
+            hero_list.append(f"  `#{h['card_id']}` {r} {c} - {h.get('kills', 0)}殺")
+        
+        msg = f"""⚠️ <b>英雄數量已達上限！</b>
+
+你目前有 <b>{len(user_alive_heroes)}/{MAX_HEROES_PER_USER}</b> 隻存活英雄。
+
+📜 <b>你的英雄：</b>
+{chr(10).join(hero_list)}
+
+💡 請先燒掉不需要的英雄再召喚：
+<pre>/nami_burn &lt;英雄ID&gt; &lt;PIN&gt;</pre>
+
+例如：
+<code>/nami_burn {user_alive_heroes[0]['card_id']} {pin}</code>
+
+🔥 燒掉英雄會退還 5 mana！"""
+        
+        await update.message.reply_text(msg, parse_mode='HTML')
+        return
+    
+    # 排隊系統
+    queue_size = tree_queue.queue_size()
+    if queue_size > 0:
+        await update.message.reply_text(
+            f"🙏 正在向大地之樹祈禱...\n"
+            f"⏳ 排隊等候 {queue_size} 人..."
+        )
+    else:
+        await update.message.reply_text("🙏 正在向大地之樹祈禱...\n⏳ 等待下一個區塊...")
+    
+    # 等待輪到自己
+    await tree_queue.acquire(user.id)
     
     try:
         # 取得下一個 DAA 的區塊
@@ -257,12 +555,18 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 回覆結果
         await update.message.reply_text(format_summon_result(hero), parse_mode='Markdown')
         
+        # 群組公告
+        await announce_hero_birth(context.bot, hero, user.username or str(user.id))
+        
     except TimeoutError:
         logger.warning(f"⏰ 召喚超時 | @{user.username or user.id}")
         await update.message.reply_text("❌ 等待區塊超時，請稍後再試")
     except Exception as e:
         logger.error(f"❌ 召喚失敗 | @{user.username or user.id} | {e}")
         await update.message.reply_text(f"❌ 召喚失敗：{e}")
+    finally:
+        # 釋放排隊
+        tree_queue.release()
 
 async def hero_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -295,116 +599,261 @@ async def hero_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /nami_attack @對手 [我的英雄ID] - 發起攻擊
+    /nami_pvp <我的ID> <對手ID> <PIN> - 發起 PvP 攻擊
+    
+    鏈上 PvP 流程：
+    1. 驗證雙方英雄存活
+    2. 付費給大地之樹
+    3. 等待命運區塊決定勝負
+    4. 發送鏈上事件
     """
     user = update.effective_user
     chat = update.effective_chat
     
     chat_info = f"[{chat.type}:{chat.id}]" if chat.type != "private" else "[私聊]"
-    logger.info(f"⚔️ 戰鬥請求 | {chat_info} @{user.username or user.id} | args: {context.args}")
+    logger.info(f"⚔️ PvP 請求 | {chat_info} @{user.username or user.id} | args: {len(context.args or [])}")
     
     # 解析參數
-    if not context.args:
+    if not context.args or len(context.args) < 3:
         await update.message.reply_text(
+            "⚔️ *PvP 攻擊*\n\n"
             "用法：\n"
-            "```\n/nami_attack @對手\n```\n"
-            "或：\n"
-            "```\n/nami_attack @對手 <英雄ID>\n```"
+            "```\n/nami_pvp <我的英雄ID> <對手英雄ID> <PIN>\n```\n\n"
+            "例如：\n"
+            "`/nami_pvp 380079718 380067645 1234`\n\n"
+            "⚠️ 敗者永久死亡！",
+            parse_mode='Markdown'
         )
         return
     
-    # 解析對手
-    target_str = context.args[0]
-    if not target_str.startswith("@"):
-        await update.message.reply_text("❌ 請指定對手 @username")
+    try:
+        my_hero_id = int(context.args[0])
+        target_hero_id = int(context.args[1])
+        pin = context.args[2]
+    except (ValueError, IndexError):
+        await update.message.reply_text("❌ 用法：`/nami_pvp <我的ID> <對手ID> <PIN>`", parse_mode='Markdown')
         return
     
-    target_username = target_str[1:]
-    
-    # 找到對手
-    from nami_kaspa_bot import load_users
-    users = load_users()
-    
-    target_user_id = None
-    for uid, data in users.items():
-        if data.get("username", "").lower() == target_username.lower():
-            target_user_id = int(uid)
-            break
-    
-    if not target_user_id:
-        await update.message.reply_text(f"❌ 找不到玩家 @{target_username}")
+    # 不能攻擊自己的英雄
+    if my_hero_id == target_hero_id:
+        await update.message.reply_text("❌ 不能攻擊自己的英雄！")
         return
     
-    if target_user_id == user.id:
-        await update.message.reply_text("❌ 不能攻擊自己！")
+    # 取得雙方英雄
+    from hero_game import load_heroes_db, Hero, PVP_COST, process_pvp_onchain, format_battle_result
+    
+    db = load_heroes_db()
+    my_hero_data = db.get("heroes", {}).get(str(my_hero_id))
+    target_hero_data = db.get("heroes", {}).get(str(target_hero_id))
+    
+    if not my_hero_data:
+        await update.message.reply_text(f"❌ 找不到英雄 #{my_hero_id}")
+        return
+    if not target_hero_data:
+        await update.message.reply_text(f"❌ 找不到英雄 #{target_hero_id}")
         return
     
-    # 取得攻擊方的英雄
-    my_heroes = get_user_heroes(user.id, alive_only=True)
-    if not my_heroes:
-        await update.message.reply_text("❌ 你沒有存活的英雄！")
+    # 驗證擁有權
+    if my_hero_data.get("owner_id") != user.id:
+        await update.message.reply_text(f"❌ #{my_hero_id} 不是你的英雄！")
         return
     
-    # 選擇英雄
-    if len(context.args) > 1:
-        try:
-            my_hero_id = int(context.args[1])
-            my_hero = next((h for h in my_heroes if h.card_id == my_hero_id), None)
-            if not my_hero:
-                await update.message.reply_text(f"❌ 找不到你的英雄 #{my_hero_id}")
-                return
-        except ValueError:
-            await update.message.reply_text("❌ 無效的英雄 ID")
-            return
-    else:
-        # 預設使用第一個存活英雄
-        my_hero = my_heroes[0]
-    
-    # 取得防守方的英雄
-    target_heroes = get_user_heroes(target_user_id, alive_only=True)
-    if not target_heroes:
-        await update.message.reply_text(f"❌ @{target_username} 沒有存活的英雄！")
+    # 不能攻擊自己的英雄
+    if target_hero_data.get("owner_id") == user.id:
+        await update.message.reply_text("❌ 不能攻擊自己的英雄！")
         return
     
-    # 預設攻擊第一個
-    target_hero = target_heroes[0]
+    # 驗證雙方都活著
+    if my_hero_data.get("status") != "alive":
+        await update.message.reply_text(f"❌ 你的英雄 #{my_hero_id} 已死亡！")
+        return
+    if target_hero_data.get("status") != "alive":
+        await update.message.reply_text(f"❌ 對手英雄 #{target_hero_id} 已死亡！")
+        return
+    
+    # 驗證 PIN
+    import unified_wallet
+    if not unified_wallet.verify_pin(user.id, pin):
+        await update.message.reply_text("❌ PIN 錯誤")
+        return
+    
+    # 建立 Hero 物件
+    my_hero = Hero(
+        card_id=my_hero_data["card_id"],
+        owner_id=my_hero_data["owner_id"],
+        owner_address=my_hero_data["owner_address"],
+        hero_class=my_hero_data["hero_class"],
+        rarity=my_hero_data["rarity"],
+        atk=my_hero_data["atk"],
+        def_=my_hero_data["def"],
+        spd=my_hero_data["spd"],
+        status=my_hero_data["status"],
+        latest_daa=my_hero_data.get("latest_daa", my_hero_data["card_id"]),
+        kills=my_hero_data.get("kills", 0),
+        battles=my_hero_data.get("battles", 0),
+        tx_id=my_hero_data.get("tx_id", ""),
+        latest_tx=my_hero_data.get("latest_tx", "")
+    )
+    
+    target_hero = Hero(
+        card_id=target_hero_data["card_id"],
+        owner_id=target_hero_data["owner_id"],
+        owner_address=target_hero_data["owner_address"],
+        hero_class=target_hero_data["hero_class"],
+        rarity=target_hero_data["rarity"],
+        atk=target_hero_data["atk"],
+        def_=target_hero_data["def"],
+        spd=target_hero_data["spd"],
+        status=target_hero_data["status"],
+        latest_daa=target_hero_data.get("latest_daa", target_hero_data["card_id"]),
+        kills=target_hero_data.get("kills", 0),
+        battles=target_hero_data.get("battles", 0),
+        tx_id=target_hero_data.get("tx_id", ""),
+        latest_tx=target_hero_data.get("latest_tx", "")
+    )
     
     # 計算費用
-    pvp_cost = PVP_COST.get(my_hero.rarity, 2)
+    pvp_cost = PVP_COST
+    
+    # 中文翻譯
+    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+    rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                    "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
+    
+    my_class = class_names.get(my_hero.hero_class, my_hero.hero_class)
+    my_rarity = rarity_names.get(my_hero.rarity, my_hero.rarity)
+    target_class = class_names.get(target_hero.hero_class, target_hero.hero_class)
+    target_rarity = rarity_names.get(target_hero.rarity, target_hero.rarity)
     
     await update.message.reply_text(
-        f"⚔️ 發起攻擊！\n\n"
-        f"你的英雄：#{my_hero.card_id} {my_hero.display_class()} {my_hero.display_rarity()}\n"
-        f"對手英雄：#{target_hero.card_id} {target_hero.display_class()} {target_hero.display_rarity()}\n\n"
-        f"消耗：{pvp_cost} mana\n\n"
-        f"⏳ 等待命運的裁決..."
+        f"⚔️ *發起 PvP 攻擊！*\n\n"
+        f"🔵 你的英雄：#{my_hero.card_id}\n"
+        f"   {my_rarity} {my_class}\n"
+        f"   ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}\n\n"
+        f"🔴 對手英雄：#{target_hero.card_id}\n"
+        f"   {target_rarity} {target_class}\n"
+        f"   ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}\n\n"
+        f"💰 消耗：{pvp_cost} mana\n\n"
+        f"⏳ 付費中...",
+        parse_mode='Markdown'
     )
     
     try:
         # 取得下一個 DAA 決定勝負
+        from hero_commands import get_next_daa_block
         event_daa, block_hash = await get_next_daa_block()
-        result_daa = event_daa + 1
         
-        # 處理戰鬥
-        updated_attacker, updated_defender, attacker_wins = await process_battle(
+        await update.message.reply_text(
+            f"🎲 命運區塊：`{block_hash[:16]}...`\n"
+            f"📍 DAA: {event_daa}\n\n"
+            f"⏳ 計算結果並發送鏈上事件...",
+            parse_mode='Markdown'
+        )
+        
+        # 處理鏈上 PvP
+        result = await process_pvp_onchain(
             attacker=my_hero,
             defender=target_hero,
-            event_daa=event_daa,
-            result_daa=result_daa,
+            attacker_user_id=user.id,
+            attacker_pin=pin,
             block_hash=block_hash
         )
         
-        # 回覆結果
-        result_msg = format_battle_result(
-            updated_attacker, updated_defender, attacker_wins,
-            user.username or str(user.id),
-            target_username
+        # 取得對手用戶名
+        from nami_kaspa_bot import load_users
+        users = load_users()
+        target_username = users.get(str(target_hero_data["owner_id"]), {}).get("username", "???")
+        
+        # 格式化結果
+        if result["attacker_wins"]:
+            result_emoji = "🏆"
+            result_text = "勝利！"
+            winner = my_hero
+            loser = target_hero
+            winner_name = user.username or str(user.id)
+            loser_name = target_username
+        else:
+            result_emoji = "☠️"
+            result_text = "落敗..."
+            winner = target_hero
+            loser = my_hero
+            winner_name = target_username
+            loser_name = user.username or str(user.id)
+        
+        winner_class = class_names.get(winner.hero_class, winner.hero_class)
+        loser_class = class_names.get(loser.hero_class, loser.hero_class)
+        
+        # 格式化戰鬥詳情
+        detail = result.get("battle_detail", {})
+        
+        # 稀有度加成說明
+        rarity_mult = {
+            "common": "x1.0", "uncommon": "x1.2", "rare": "x1.5",
+            "epic": "x2.0", "legendary": "x3.0", "mythic": "x5.0"
+        }
+        my_mult = rarity_mult.get(my_hero.rarity, "x1.0")
+        target_mult = rarity_mult.get(target_hero.rarity, "x1.0")
+        
+        rounds_text = ""
+        for i, r in enumerate(detail.get("rounds", []), 1):
+            if r["winner"] == "atk":
+                r_result = "🔵"
+            elif r["winner"] == "def":
+                r_result = "🔴"
+            else:
+                r_result = "⚪"
+            rounds_text += f"R{i} {r['name']}: {r['atk_val']} vs {r['def_val']} {r_result}\n"
+        
+        score = f"{detail.get('atk_wins', 0)}:{detail.get('def_wins', 0)}"
+        
+        msg = f"""{result_emoji} <b>PvP 結果：{result_text}</b>
+
+🔵 <b>攻方</b> #{my_hero.card_id} ({my_rarity} {my_mult})
+⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
+
+🔴 <b>守方</b> #{target_hero.card_id} ({target_rarity} {target_mult})
+⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
+
+📊 <b>對決</b> (數值已含加成)
+{rounds_text}
+<b>比分: {score}</b> → {detail.get('final_reason', '')}
+
+---
+
+🏆 <b>勝者</b>：#{winner.card_id} {winner_class}
+   @{winner_name} | 擊殺：{winner.kills}
+
+☠️ <b>敗者</b>：#{loser.card_id} {loser_class}
+   @{loser_name} | 永久死亡
+
+📝 <b>鏈上記錄</b>：
+付費: <code>{result['payment_tx'][:16]}...</code>"""
+        
+        if result.get("win_tx"):
+            msg += f"\n勝利: <code>{result['win_tx'][:20]}...</code>"
+        msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
+        
+        msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
+        
+        await update.message.reply_text(msg, parse_mode='HTML')
+        
+        # 群組公告（完整戰報）
+        await announce_pvp_result(
+            context.bot,
+            result,
+            my_hero,
+            target_hero,
+            attacker_name=user.username or str(user.id),
+            defender_name=target_username
         )
-        await update.message.reply_text(result_msg)
+        
+        logger.info(f"⚔️ PvP 完成 | @{user.username} #{my_hero.card_id} vs #{target_hero.card_id} | {'勝利' if result['attacker_wins'] else '落敗'}")
         
     except Exception as e:
-        logger.error(f"Battle error: {e}")
-        await update.message.reply_text(f"❌ 戰鬥失敗：{e}")
+        logger.error(f"PvP error: {e}")
+        import traceback
+        traceback.print_exc()
+        await update.message.reply_text(f"❌ PvP 失敗：{e}")
 
 async def hero_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -585,31 +1034,337 @@ async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /nami_verify <ID> - 驗證英雄（檢查鏈上資料）
+    /nami_burn <ID> <PIN> - 銷毀英雄（不可逆！）
     """
-    if not context.args:
-        await update.message.reply_text("用法：\n```\n/nami_verify <英雄ID>\n```", parse_mode='Markdown')
+    user = update.effective_user
+    
+    if len(context.args) < 2:
+        await update.message.reply_text(
+            "🔥 *銷毀英雄*\n\n"
+            "⚠️ 注意：銷毀不可逆！\n\n"
+            "用法：\n"
+            "```\n/nami_burn <英雄ID> <PIN>\n```",
+            parse_mode='Markdown'
+        )
         return
     
     try:
-        card_id = int(context.args[0])
+        hero_id = int(context.args[0])
+        pin = context.args[1]
     except ValueError:
         await update.message.reply_text("❌ 無效的英雄 ID")
         return
     
-    await update.message.reply_text(f"🔍 正在驗證英雄 #{card_id}...")
+    # 確認擁有權
+    hero = get_hero_by_id(hero_id)
+    if not hero:
+        await update.message.reply_text("❌ 找不到此英雄")
+        return
+    
+    if hero.owner_id != user.id:
+        await update.message.reply_text("❌ 這不是你的英雄")
+        return
+    
+    if hero.status == "dead":
+        await update.message.reply_text("❌ 英雄已經死亡")
+        return
+    
+    # 排隊系統
+    queue_size = tree_queue.queue_size()
+    if queue_size > 0:
+        await update.message.reply_text(
+            f"🔥 正在銷毀英雄 #{hero_id}...\n"
+            f"⏳ 排隊等候 {queue_size} 人..."
+        )
+    else:
+        await update.message.reply_text(
+            f"🔥 正在銷毀英雄 #{hero_id}...\n"
+            f"📝 建立死亡銘文中..."
+        )
+    
+    await tree_queue.acquire(user.id)
     
     try:
-        result = await verify_hero(card_id)
+        from hero_game import burn_hero
+        result = await burn_hero(user.id, hero_id, pin)
+        
+        if result["success"]:
+            tx_id = result["tx_id"]
+            await update.message.reply_text(
+                f"🔥 *英雄已銷毀*\n\n"
+                f"英雄 ID: `#{hero_id}`\n"
+                f"狀態: ☠️ 已死亡\n"
+                f"原因: 銷毀 (burn)\n\n"
+                f"📝 死亡銘文:\n"
+                f"https://explorer-tn10.kaspa.org/txs/{tx_id}\n\n"
+                f"驗證指令：\n"
+                f"```\n/nami_verify {tx_id}\n```",
+                parse_mode='Markdown'
+            )
+            logger.info(f"🔥 Burn 成功 | @{user.username or user.id} | #{hero_id}")
+            
+            # 群組公告
+            await announce_hero_death(context.bot, hero, "burn", death_tx=tx_id)
+        else:
+            await update.message.reply_text(f"❌ 銷毀失敗：{result['error']}")
+            
+    except Exception as e:
+        logger.error(f"Burn error: {e}")
+        await update.message.reply_text(f"❌ 銷毀失敗：{e}")
+    finally:
+        tree_queue.release()
+
+
+async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nami_verify <ID|TX> - 驗證英雄
+    
+    支援：
+    - 英雄 ID (數字) → 本地驗證
+    - TX ID (64 hex) → 鏈上完整驗證
+    """
+    if not context.args:
         await update.message.reply_text(
-            format_verify_result(result),
+            "用法：\n"
+            "```\n"
+            "/nami_verify <英雄ID>  # 本地驗證\n"
+            "/nami_verify <TX_ID>   # 鏈上完整驗證\n"
+            "```",
             parse_mode='Markdown'
         )
+        return
+    
+    arg = context.args[0]
+    
+    # 判斷是 TX ID 還是英雄 ID
+    is_tx_id = len(arg) == 64 and all(c in '0123456789abcdef' for c in arg.lower())
+    
+    if is_tx_id:
+        # 鏈上完整驗證
+        await update.message.reply_text(f"🔍 正在從鏈上驗證...")
+        
+        try:
+            from hero_game import verify_from_tx, format_tx_verify_result
+            result = await verify_from_tx(arg.lower())
+            await update.message.reply_text(
+                format_tx_verify_result(result),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"TX verify error: {e}")
+            await update.message.reply_text(f"❌ 驗證失敗：{e}")
+    else:
+        # 本地驗證（用英雄 ID）
+        try:
+            card_id = int(arg)
+        except ValueError:
+            await update.message.reply_text("❌ 無效的 ID（數字 = 英雄 ID，64 hex = TX ID）")
+            return
+        
+        await update.message.reply_text(f"🔍 正在驗證英雄 #{card_id}...\n⏳ 追蹤鏈上記錄中...")
+        
+        try:
+            from hero_game import verify_hero_by_id, format_hero_verify_result
+            result = await verify_hero_by_id(card_id)
+            await update.message.reply_text(
+                format_hero_verify_result(result),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"Verify error: {e}")
+            await update.message.reply_text(f"❌ 驗證失敗：{e}")
+
+
+async def hero_remint(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nami_remint <ID> <PIN> - 補發鏈上銘文（給沒上鏈的英雄）
+    
+    只有卡主可以 remint 自己的卡
+    """
+    user = update.effective_user
+    args = context.args
+    
+    if not args or len(args) < 2:
+        await update.message.reply_text(
+            "❌ 用法：`/nami_remint <英雄ID> <PIN>`\n\n"
+            "為沒有鏈上記錄的英雄補發銘文",
+            parse_mode='Markdown'
+        )
+        return
+    
+    try:
+        hero_id = int(args[0])
+        pin = args[1]
+    except ValueError:
+        await update.message.reply_text("❌ 英雄 ID 必須是數字")
+        return
+    
+    try:
+        from hero_game import load_heroes_db, save_heroes_db, create_birth_payload, Hero
+        import unified_wallet
+        
+        db = load_heroes_db()
+        hero_data = db.get("heroes", {}).get(str(hero_id))
+        
+        if not hero_data:
+            await update.message.reply_text(f"❌ 找不到英雄 #{hero_id}")
+            return
+        
+        # 檢查是否為卡主
+        if hero_data.get("owner_id") != user.id:
+            await update.message.reply_text("❌ 只有卡主可以 remint 自己的英雄")
+            return
+        
+        # 檢查是否已有鏈上記錄
+        if hero_data.get("tx_id") and hero_data.get("latest_tx"):
+            await update.message.reply_text(
+                f"✅ 英雄 #{hero_id} 已經有鏈上記錄了！\n"
+                f"TX: `{hero_data['tx_id'][:32]}...`",
+                parse_mode='Markdown'
+            )
+            return
+        
+        # 驗證 PIN
+        if not unified_wallet.verify_pin(user.id, pin):
+            await update.message.reply_text("❌ PIN 錯誤")
+            return
+        
+        await update.message.reply_text(f"🔄 正在為英雄 #{hero_id} 補發鏈上銘文...")
+        
+        # 重建 Hero 物件
+        hero = Hero(
+            card_id=hero_data["card_id"],
+            owner_id=hero_data["owner_id"],
+            owner_address=hero_data["owner_address"],
+            hero_class=hero_data["hero_class"],
+            rarity=hero_data["rarity"],
+            atk=hero_data["atk"],
+            def_=hero_data["def"],
+            spd=hero_data["spd"],
+            status=hero_data.get("status", "alive"),
+            latest_daa=hero_data.get("latest_daa", hero_data["card_id"])
+        )
+        
+        # 建立 birth payload
+        birth_payload = create_birth_payload(
+            daa=hero_id,
+            hero=hero,
+            source_hash=hero_data.get("source_hash", "")
+        )
+        
+        # 發送 inscription（不需要再付款，用 skip_payment）
+        payment_tx_id, inscription_tx_id = await unified_wallet.mint_hero_inscription(
+            user_id=user.id,
+            pin=pin,
+            hero_payload=birth_payload,
+            skip_payment=True  # 已經付過了
+        )
+        
+        # 更新資料庫
+        db["heroes"][str(hero_id)]["tx_id"] = inscription_tx_id
+        db["heroes"][str(hero_id)]["latest_tx"] = inscription_tx_id
+        if payment_tx_id:
+            db["heroes"][str(hero_id)]["payment_tx"] = payment_tx_id
+        save_heroes_db(db)
+        
+        # 中文翻譯
+        class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+        rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                        "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
+        class_zh = class_names.get(hero.hero_class, hero.hero_class)
+        rarity_zh = rarity_names.get(hero.rarity, hero.rarity)
+        
+        await update.message.reply_text(
+            f"✅ *Remint 成功！*\n\n"
+            f"🎴 英雄 #{hero_id}\n"
+            f"• 職業: {class_zh}\n"
+            f"• 稀有度: {rarity_zh}\n\n"
+            f"📝 Inscription TX:\n`{inscription_tx_id}`\n\n"
+            f"現在可以用 `/nami_verify {hero_id}` 驗證了！",
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"✅ Remint 成功 | @{user.username} | #{hero_id} | TX: {inscription_tx_id[:16]}...")
+        
     except Exception as e:
-        logger.error(f"Verify error: {e}")
-        await update.message.reply_text(f"❌ 驗證失敗：{e}")
+        logger.error(f"Remint error: {e}")
+        await update.message.reply_text(f"❌ Remint 失敗：{e}")
+
+
+async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nami_next_reward - 查看下次獎勵發放時間
+    """
+    try:
+        from kaspa import RpcClient
+        import unified_wallet
+        from hero_game import load_heroes_db
+        
+        # 取得當前 DAA
+        client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
+        await client.connect()
+        try:
+            info = await client.get_block_dag_info({})
+            current_daa = info.get("virtualDaaScore", 0)
+        finally:
+            await client.disconnect()
+        
+        # 計算下一個 66666
+        current_suffix = current_daa % 100000
+        if current_suffix < 66666:
+            next_trigger = current_daa - current_suffix + 66666
+        else:
+            next_trigger = current_daa - current_suffix + 166666
+        
+        remaining_daa = next_trigger - current_daa
+        remaining_seconds = remaining_daa // 10  # ~10 DAA/秒
+        remaining_minutes = remaining_seconds // 60
+        remaining_hours = remaining_minutes // 60
+        
+        # 取得資料
+        db = load_heroes_db()
+        
+        # 🌲 大地的祝福（召喚、PvP 等費用累積）
+        mana_pool = db.get("total_mana_pool", 0)
+        
+        # 取得存活英雄數
+        alive_count = sum(1 for h in db.get("heroes", {}).values() if h.get("status") == "alive")
+        
+        # 上次發放
+        last_reward_daa = db.get("last_reward_daa", 0)
+        
+        if remaining_hours > 0:
+            time_str = f"{remaining_hours}h {remaining_minutes % 60}m"
+        else:
+            time_str = f"{remaining_minutes}m"
+        
+        # 預估每位英雄獎勵
+        per_hero = mana_pool / alive_count if alive_count > 0 else 0
+        
+        msg = f"""🌲 *下次獎勵發放*
+
+📍 目前 DAA: `{current_daa}`
+🎯 下次觸發: `{next_trigger}`
+⏳ 剩餘: ~{time_str} ({remaining_daa:,} DAA)
+
+💰 *🌲 大地的祝福*
+累積: {mana_pool} mana
+預估每位: ~{per_hero:.1f} mana
+
+👥 存活英雄: {alive_count} 位
+📊 上次發放: #{last_reward_daa or '尚未發放'}
+
+*獎勵按積分分配給存活英雄！*
+積分 = 存活天數 + 稀有度 + 擊殺×2"""
+
+        await update.message.reply_text(msg, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"Next reward error: {e}")
+        await update.message.reply_text(f"❌ 查詢失敗：{e}")
+
 
 async def hero_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -898,15 +1653,17 @@ def register_hero_commands(app):
     # 主要指令
     app.add_handler(CommandHandler("nami_hero", hero_summon))
     app.add_handler(CommandHandler("nami_heroes", hero_list))
-    app.add_handler(CommandHandler("nami_attack", hero_attack))
+    app.add_handler(CommandHandler("nami_pvp", hero_attack))
     app.add_handler(CommandHandler("nami_burn", hero_burn))
     
     # 輔助指令
     app.add_handler(CommandHandler("nami_hero_info", hero_info))
     app.add_handler(CommandHandler("nami_history", hero_history))
     app.add_handler(CommandHandler("nami_verify", hero_verify))
+    app.add_handler(CommandHandler("nami_remint", hero_remint))
     app.add_handler(CommandHandler("nami_rules", hero_rules))
     app.add_handler(CommandHandler("nami_game_status", hero_stats))
+    app.add_handler(CommandHandler("nami_next_reward", next_reward))
     app.add_handler(CommandHandler("nami_payload", hero_payload))
     app.add_handler(CommandHandler("nami_decode", hero_decode))
     app.add_handler(CommandHandler("nami_decode_hex", hero_decode_hex))
