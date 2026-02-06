@@ -214,3 +214,83 @@ hashlib.blake2b(digest_size=32, key=b"BlockHash")
 - `"HeavyHash"` - HeavyHash 最終計算
 
 參考：`rusty-kaspa/crypto/hashes/src/hashers.rs`
+
+## DAA (Difficulty Adjustment Algorithm)
+
+### DAA 是什麼？
+
+**DAA Score** = 全網難度調整分數，是 Kaspa 的「邏輯時鐘」。
+
+特性：
+- **連續遞增的整數**（100, 101, 102...）
+- 每個區塊都有一個 `daaScore` 屬性
+- 同一 DAA 可能有多個區塊（BlockDAG 特性）
+- 某個 DAA 可能沒有區塊（罕見但可能）
+
+### DAA 怎麼算的？
+
+```
+區塊的 daaScore = max(所有 parent 的 daaScore) + 1
+```
+
+實際計算由 GHOSTDAG 協議處理，目的是維持穩定出塊率：
+- Mainnet: ~1 BPS
+- Testnet: ~10 BPS
+
+### DAA / Block / TX 層級結構
+
+```
+全網 DAA 時鐘（連續遞增）
+    │
+    ├── DAA 100
+    │   ├── Block A ──┬── TX 1
+    │   │             └── TX 2
+    │   └── Block B ──── TX 3    ← 同 DAA 多個 block！
+    │
+    ├── DAA 101
+    │   └── Block C ──── TX 4
+    │
+    ├── DAA 102
+    │   (沒有 block)              ← 空 DAA（罕見）
+    │
+    └── DAA 103
+        ├── Block D
+        └── Block E
+```
+
+### 為什麼會有空 DAA？
+
+理論上：所有礦工的區塊恰好都跳過某個 daaScore。
+
+實際上：非常罕見，因為 Kaspa 出塊非常快。
+
+### 瀏覽器能看空 DAA 嗎？
+
+**不能。** 區塊瀏覽器是「區塊/交易導向」：
+- 沒有「按 DAA 瀏覽」功能
+- 空 DAA 沒有實體可展示
+
+要查詢某 DAA 的區塊，只能用 RPC：
+```python
+# 查詢 DAA 100 的區塊
+blocks = await client.get_blocks(low_hash=None, include_blocks=True)
+daa_100_blocks = [b for b in blocks if b['header']['daaScore'] == 100]
+```
+
+### 選擇 DAA 的「第一個 block」
+
+用官方排序規則（blueWork 降序 + hash 升序）：
+```python
+first_block = sorted(blocks, key=lambda b: (-int(b['blueWork'], 16), b['hash']))[0]
+```
+
+這確保了確定性選擇，用於輪盤遊戲等需要公平隨機性的場景。
+
+### 相關屬性對照
+
+| 屬性 | 說明 |
+|------|------|
+| daaScore | 難度調整分數，連續遞增 |
+| blueScore | 藍色祖先區塊數量 |
+| blueWork | 累積工作量（用於排序） |
+| timestamp | 區塊時間戳（毫秒） |

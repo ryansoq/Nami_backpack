@@ -66,5 +66,77 @@
     "timestamp": "2026-02-05T00:26:00.707464",
     "bets_count": 1,
     "total_pool": 10.0
+  },
+  {
+    "target_block": 378616666,
+    "block_hash": "e0a34c8cf18c4ede074c427e6768f1fe696a1f4543b80638a1d660b3570dbeaf",
+    "blocks_at_height": 1,
+    "blueWork": "000000000000000000000000000000000005bb6b5d9148b7",
+    "result": 1,
+    "result_display": "1",
+    "color": "\ud83d\udd34 \u7d05",
+    "timestamp": "2026-02-05T00:42:34.773386",
+    "bets_count": 1,
+    "total_pool": 10.0
+  },
+  {
+    "target_block": 378626666,
+    "block_hash": "57d92de040f7ef6542e93935cd8ccb24f1dfc920ca810ab9cbeaa9eca05429dd",
+    "blocks_at_height": 1,
+    "blueWork": "000000000000000000000000000000000005bb6ce1c3ea95",
+    "result": 7,
+    "result_display": "7",
+    "color": "\ud83d\udd34 \u7d05",
+    "timestamp": "2026-02-05T00:59:07.185735",
+    "bets_count": 1,
+    "total_pool": 10.0
+  },
+  {
+    "target_block": 378636666,
+    "block_hash": "70be8d0f01fd127cf08f1f37268184ae70da95928f97615be804d4be60f090d9",
+    "blocks_at_height": 1,
+    "blueWork": "000000000000000000000000000000000005bb6e6b48d7bf",
+    "result": 1,
+    "result_display": "1",
+    "color": "\ud83d\udd34 \u7d05",
+    "timestamp": "2026-02-05T01:16:31.551311",
+    "bets_count": 6,
+    "total_pool": 25.0
+  },
+  {
+    "target_block": 378646666,
+    "block_hash": "f8b9c112fe5181402cfc097c0c5d94579e588629c0930004d913036d545279ea",
+    "blocks_at_height": 1,
+    "blueWork": "000000000000000000000000000000000005bb700505e64b",
+    "result": 24,
+    "result_display": "24",
+    "color": "\u26ab \u9ed1",
+    "timestamp": "2026-02-05T01:32:08.354566",
+    "bets_count": 6,
+    "total_pool": 25.0
+  },
+  {
+    "target_block": 378686666,
+    "block_hash": "5c52b8b69266d64ee400b6a3f82ad18c6b35f179316402ea5c786e92e9ce072e",
+    "blocks_at_height": 1,
+    "blueWork": "000000000000000000000000000000000005bb76b5bf3f50",
+    "result": 10,
+    "result_display": "10",
+    "color": "\u26ab \u9ed1",
+    "timestamp": "2026-02-05T02:38:41.405305",
+    "bets_count": 1,
+    "total_pool": 20.0
+  },
+  {
+    "target_block": 378696666,
+    "block_hash": "74f2bd3bdc92f14cc5e69b992fd1a71ee381f80ce35cd62eed6fccf7d61230d6",
+    "blocks_at_height": 1,
+    "blueWork": "000000000000000000000000000000000005bb7867ab8ab7",
+    "result": 26,
+    "result_display": "26",
+    "color": "\u26ab \u9ed1",
+    "timestamp": "2026-02-05T02:55:13.909982",
+    "bets_count": 1,
+    "total_pool": 20.0
   }
 ]

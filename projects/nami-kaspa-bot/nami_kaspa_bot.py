@@ -23,6 +23,20 @@ from pathlib import Path
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+# 英雄遊戲模組
+try:
+    from hero_commands import register_hero_commands
+    HERO_GAME_ENABLED = True
+except ImportError:
+    HERO_GAME_ENABLED = False
+
+# 統一錢包系統
+try:
+    import unified_wallet
+    UNIFIED_WALLET_ENABLED = True
+except ImportError:
+    UNIFIED_WALLET_ENABLED = False
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 設定
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -166,6 +180,11 @@ def get_private_key_from_pin_or_hex(user_id: int, pin_or_key: str) -> str | None
     """從 PIN 或私鑰字串取得私鑰"""
     # 如果是 PIN（4-6 位數字）
     if pin_or_key.isdigit() and 4 <= len(pin_or_key) <= 6:
+        # 優先檢查統一錢包
+        if UNIFIED_WALLET_ENABLED and unified_wallet.verify_pin(user_id, pin_or_key):
+            pk_hex, _ = unified_wallet.get_wallet(user_id, pin_or_key)
+            return pk_hex
+        # 再檢查舊的輪盤 PIN
         pins = load_roulette_pins()
         user_pins = pins.get(str(user_id), {})
         return user_pins.get(pin_or_key)
@@ -374,27 +393,45 @@ def get_bet_color(number: int) -> str:
         return "🟢 綠"
 
 def calculate_winnings(bet_type: str, bet_amount: float, result: int) -> float:
-    """計算獎金"""
+    """計算獎金
+    
+    美式輪盤賠率：
+    - 紅/黑 (r/b): 1:1
+    - 綠色組合 (g): 17:1（0 或 00 都算中）
+    - 單號 0-36, 00: 35:1
+    
+    result: 0-36 為一般數字，37 代表 00
+    """
     bet_type = bet_type.lower()
     
-    # 顏色下注
-    if bet_type in ['red', '紅', '红']:
+    # 紅色 (r, red, 紅)
+    if bet_type in ['r', 'red', '紅', '红']:
         if result in RED_NUMBERS:
-            return bet_amount * 2  # 1:1 賠率，返還本金+獎金
+            return bet_amount * 2  # 1:1 賠率
         return 0
-    elif bet_type in ['black', '黑']:
+    
+    # 黑色 (b, black, 黑)
+    elif bet_type in ['b', 'black', '黑']:
         if result in BLACK_NUMBERS:
-            return bet_amount * 2
+            return bet_amount * 2  # 1:1 賠率
         return 0
-    elif bet_type in ['green', '綠', '绿', '0', '00']:
-        if result in GREEN_NUMBERS:
+    
+    # 綠色組合 (g, green, 綠) - 0 或 00 都算中
+    elif bet_type in ['g', 'green', '綠', '绿']:
+        if result in GREEN_NUMBERS:  # 0 或 37(00)
             return bet_amount * 18  # 17:1 賠率
         return 0
     
-    # 數字下注
+    # 單押 00 (特殊處理，因為不是數字)
+    elif bet_type == '00':
+        if result == 37:  # 37 代表 00
+            return bet_amount * 36  # 35:1 賠率
+        return 0
+    
+    # 單號 0-36
     try:
         bet_num = int(bet_type)
-        if bet_num == result or (bet_type == '00' and result == 37):
+        if 0 <= bet_num <= 36 and bet_num == result:
             return bet_amount * 36  # 35:1 賠率
         return 0
     except ValueError:
@@ -744,73 +781,121 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ 查詢失敗，請稍後再試")
 
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """處理 /nami_wallet 指令 - 創建 testnet 錢包"""
+    """處理 /nami_wallet 指令 - 創建統一錢包"""
     user = update.effective_user
     user_id = user.id
     
+    # 新版：統一錢包系統（PIN 推導）
+    if UNIFIED_WALLET_ENABLED:
+        # 用法：/nami_wallet <PIN>
+        if len(context.args) < 1:
+            # 檢查是否已有錢包
+            existing_addr = unified_wallet.get_user_address(user_id)
+            if existing_addr:
+                await update.message.reply_text(
+                    f"📍 *你已有錢包*\n\n"
+                    f"地址：`{existing_addr}`\n\n"
+                    f"🎰 輪盤：`/bet r 5 <PIN>`\n"
+                    f"🌲 英雄：`/nami_hero <PIN>`",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text(
+                    "🌊 *娜米錢包*\n\n"
+                    "用法：`/nami_wallet <PIN>`\n\n"
+                    "PIN 為 4-6 位數字，例如：\n"
+                    "`/nami_wallet 1234`\n\n"
+                    "⚠️ *重要：*\n"
+                    "• PIN 就是你的密碼\n"
+                    "• 同一個 PIN = 同一個錢包\n"
+                    "• 記住 PIN 就能找回錢包！",
+                    parse_mode='Markdown'
+                )
+            return
+        
+        pin = context.args[0]
+        
+        # 驗證 PIN 格式
+        if not pin.isdigit() or not (4 <= len(pin) <= 6):
+            await update.message.reply_text("❌ PIN 需為 4-6 位數字")
+            return
+        
+        try:
+            # 設定 PIN 並取得地址
+            address = unified_wallet.set_pin(user_id, pin)
+            
+            # 註冊用戶
+            register_user(user_id, user.username or user.first_name, address)
+            logger.info(f"Unified wallet created for {user.username} ({user_id}): {address}")
+            
+            await update.message.reply_text(
+                f"✅ *錢包已創建！*\n\n"
+                f"📍 地址：\n`{address}`\n\n"
+                f"🔑 PIN：`{pin}`\n\n"
+                f"🎰 *輪盤下注：*\n"
+                f"`/bet r 5 {pin}` — 紅色\n"
+                f"`/bet b 5 {pin}` — 黑色\n"
+                f"`/bet g 5 {pin}` — 綠色\n\n"
+                f"🌲 *英雄召喚：*\n"
+                f"`/nami_hero {pin}`\n\n"
+                f"💧 用 `/nami_faucet` 領 tKAS！",
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Unified wallet creation error: {e}")
+            await update.message.reply_text(
+                f"❌ 創建失敗：{e}"
+            )
+        return
+    
+    # 舊版：隨機助記詞（fallback）
     try:
         from kaspa import Mnemonic, XPrv, PrivateKeyGenerator
         
-        # 生成 12 字助記詞
         mnemonic = Mnemonic.random(12)
         seed = mnemonic.to_seed()
         xprv = XPrv(seed)
         xprv_str = xprv.to_string()
         
-        # 生成地址
         key_gen = PrivateKeyGenerator(xprv_str, False, 0)
         private_key = key_gen.receive_key(0)
         address = private_key.to_address("testnet")
-        
-        # 取得私鑰字串（用於輪盤下注）
         private_key_hex = private_key.to_string()
         
-        # 嘗試私訊用戶助記詞和私鑰
         try:
             await context.bot.send_message(
                 chat_id=user_id,
                 text=f"🔐 *你的 Testnet 錢包*\n\n"
                      f"📍 *地址：*\n`{address.to_string()}`\n\n"
-                     f"🔑 *私鑰（輪盤下注用）：*\n`{private_key_hex}`\n\n"
+                     f"🔑 *私鑰：*\n`{private_key_hex}`\n\n"
                      f"📝 *助記詞：*\n```\n{mnemonic.phrase}\n```\n\n"
-                     f"⚠️ *重要：*\n"
-                     f"• 私鑰用於 `/bet` 下注\n"
-                     f"• 可用 `/setpin` 設定 PIN 碼簡化\n"
-                     f"• 這是 TESTNET，不要存真的 KAS！\n\n"
-                     f"🎰 輪盤指令：`/bet red 10 私鑰`",
+                     f"⚠️ TESTNET 專用！",
                 parse_mode='Markdown'
             )
             
-            # 先註冊用戶地址（確保即使後續失敗也有記錄）
             register_user(user_id, user.username or user.first_name, address.to_string())
-            logger.info(f"Wallet created for {user.username} ({user_id}): {address.to_string()}")
+            logger.info(f"Legacy wallet created for {user.username} ({user_id})")
             
-            # 在原聊天室回覆（不顯示助記詞）
             await update.message.reply_text(
-                f"✅ *Testnet 錢包已創建！*\n\n"
-                f"📍 地址：\n`{address.to_string()}`\n\n"
-                f"🔐 助記詞已私訊給你，請查收！\n\n"
-                f"提示：用 `/nami_faucet` 領取 tKAS",
+                f"✅ *錢包已創建！*\n\n"
+                f"📍 地址：`{address.to_string()}`\n\n"
+                f"🔐 詳細資訊已私訊！",
                 parse_mode='Markdown'
             )
             
         except Exception as e:
-            # 無法私訊（用戶沒有先私聊過 Bot）
             logger.warning(f"Cannot DM user {user_id}: {e}")
             await update.message.reply_text(
-                f"⚠️ *無法私訊你！*\n\n"
-                f"請先私聊我一下 @Nami_Kaspa_Bot\n"
-                f"然後再輸入 `/nami_wallet`\n\n"
-                f"_（這樣我才能安全地把助記詞發給你）_",
+                f"⚠️ *無法私訊！*\n\n"
+                f"請先私聊 @Nami_Kaspa_Bot\n"
+                f"然後再輸入 `/nami_wallet`",
                 parse_mode='Markdown'
             )
             
     except Exception as e:
         logger.error(f"Wallet creation error: {e}")
-        await update.message.reply_text(
-            "❌ 創建錢包失敗，請稍後再試\n"
-            "如果持續失敗，請聯繫 @NamiElf"
-        )
+        await update.message.reply_text("❌ 創建失敗，請稍後再試")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 輪盤指令
@@ -936,13 +1021,16 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎰 *輪盤下注*\n\n"
             "用法：`/bet <類型> <金額> <PIN或私鑰>`\n\n"
             "*類型：*\n"
-            "• `red` / `紅` — 紅色（賠率 1:1）\n"
-            "• `black` / `黑` — 黑色（賠率 1:1）\n"
-            "• `green` / `綠` / `0` — 綠色（賠率 17:1）\n"
-            "• `1-36` — 單一數字（賠率 35:1）\n\n"
+            "• `r` / `red` / `紅` — 紅色（1:1）\n"
+            "• `b` / `black` / `黑` — 黑色（1:1）\n"
+            "• `g` / `green` / `綠` — 綠色 0+00（17:1）\n"
+            "• `0` — 單押 0（35:1）\n"
+            "• `00` — 單押 00（35:1）\n"
+            "• `1-36` — 單號（35:1）\n\n"
             "*範例：*\n"
-            "`/bet red 10 1234`\n"
-            "`/bet 17 5 abc123...`",
+            "`/bet r 10 1234`\n"
+            "`/bet 17 5 abc123...`\n"
+            "`/bet 00 10 1234`",
             parse_mode='Markdown'
         )
         return
@@ -1057,12 +1145,16 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 格式化下注類型
         bet_display = bet_type.upper()
-        if bet_type.lower() in ['red', '紅', '红']:
+        if bet_type.lower() in ['r', 'red', '紅', '红']:
             bet_display = "🔴 紅"
-        elif bet_type.lower() in ['black', '黑']:
+        elif bet_type.lower() in ['b', 'black', '黑']:
             bet_display = "⚫ 黑"
-        elif bet_type.lower() in ['green', '綠', '绿', '0', '00']:
-            bet_display = "🟢 綠"
+        elif bet_type.lower() in ['g', 'green', '綠', '绿']:
+            bet_display = "🟢 綠 (0+00)"
+        elif bet_type.lower() == '0':
+            bet_display = "🟢 0"
+        elif bet_type.lower() == '00':
+            bet_display = "🟢 00"
         else:
             bet_display = f"🔢 {bet_type}"
         
@@ -1113,14 +1205,18 @@ async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 bets_list = ""
                 for b in all_bets:
                     bt = b.get("bet_type", "?").lower()
-                    if bt in ['red', '紅', '红']:
-                        bd = "🔴"
-                    elif bt in ['black', '黑']:
-                        bd = "⚫"
-                    elif bt in ['green', '綠', '绿', '0', '00']:
-                        bd = "🟢"
+                    if bt in ['r', 'red', '紅', '红']:
+                        bd = "🔴 紅"
+                    elif bt in ['b', 'black', '黑']:
+                        bd = "⚫ 黑"
+                    elif bt in ['g', 'green', '綠', '绿']:
+                        bd = "🟢 綠"
+                    elif bt == '0':
+                        bd = "🟢 0"
+                    elif bt == '00':
+                        bd = "🟢 00"
                     else:
-                        bd = f"#{bt}"
+                        bd = f"🔢 {bt}"
                     bets_list += f"  • @{b.get('username', '?')} {bd} {b.get('amount', 0)} tKAS\n"
                 
                 await context.bot.send_message(
@@ -1708,6 +1804,11 @@ def main():
     app.add_handler(CommandHandler("bets", bets))
     app.add_handler(CommandHandler("roulette", roulette_status))
     app.add_handler(CommandHandler("draw", draw))
+    
+    # 英雄遊戲指令
+    if HERO_GAME_ENABLED:
+        register_hero_commands(app)
+        logger.info("🌲 娜米的英雄奇幻冒險已載入！")
     
     # 啟動
     logger.info("🌊 Nami Kaspa Bot 啟動中...")
