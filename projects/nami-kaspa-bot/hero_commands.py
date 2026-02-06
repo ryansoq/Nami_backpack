@@ -163,6 +163,11 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import time
     
     user = update.effective_user
+    chat = update.effective_chat
+    
+    # Log: 誰在哪裡做了什麼
+    chat_info = f"[{chat.type}:{chat.id}]" if chat.type != "private" else "[私聊]"
+    logger.info(f"🎮 召喚請求 | {chat_info} @{user.username or user.id}")
     
     # 需要 PIN 參數
     if not context.args:
@@ -244,13 +249,19 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         last_summon_time = time.time()
         
+        # Log: 召喚成功
+        logger.info(f"✅ 召喚成功 | @{user.username or user.id} | #{hero.card_id} {hero.display_rarity()} {hero.display_class()}")
+        if hero.tx_id:
+            logger.info(f"   📦 TX: {hero.tx_id}")
+        
         # 回覆結果
         await update.message.reply_text(format_summon_result(hero), parse_mode='Markdown')
         
     except TimeoutError:
+        logger.warning(f"⏰ 召喚超時 | @{user.username or user.id}")
         await update.message.reply_text("❌ 等待區塊超時，請稍後再試")
     except Exception as e:
-        logger.error(f"Hero summon error: {e}")
+        logger.error(f"❌ 召喚失敗 | @{user.username or user.id} | {e}")
         await update.message.reply_text(f"❌ 召喚失敗：{e}")
 
 async def hero_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -287,6 +298,10 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_attack @對手 [我的英雄ID] - 發起攻擊
     """
     user = update.effective_user
+    chat = update.effective_chat
+    
+    chat_info = f"[{chat.type}:{chat.id}]" if chat.type != "private" else "[私聊]"
+    logger.info(f"⚔️ 戰鬥請求 | {chat_info} @{user.username or user.id} | args: {context.args}")
     
     # 解析參數
     if not context.args:

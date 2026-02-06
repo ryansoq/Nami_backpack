@@ -595,8 +595,12 @@ tKAS 是 Kaspa 測試網代幣，沒有實際價值。
 async def faucet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """處理 /faucet 指令"""
     user = update.effective_user
+    chat = update.effective_chat
     user_id = user.id
     username = user.username or user.first_name
+    
+    chat_info = f"[{chat.type}:{chat.id}]" if chat.type != "private" else "[私聊]"
+    logger.info(f"💧 水龍頭請求 | {chat_info} @{username} | args: {context.args}")
     
     address = None
     target_name = None  # 用於顯示

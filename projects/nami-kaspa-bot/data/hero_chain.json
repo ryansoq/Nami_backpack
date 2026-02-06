@@ -205,5 +205,20 @@
     "status": "alive",
     "tx_id": null,
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "hero",
+    "daa": 379967170,
+    "pre_tx": "",
+    "card": 379967170,
+    "c": "archer",
+    "r": "common",
+    "a": 69,
+    "d": 11,
+    "s": 36,
+    "status": "alive",
+    "tx_id": null,
+    "signer": "player"
   }
 ]
