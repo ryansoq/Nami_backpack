@@ -578,26 +578,35 @@ async def summon_hero(user_id: int, username: str, address: str,
     # 建立 birth payload
     birth_payload = create_birth_payload(daa, hero)
     
-    # 發送到鏈上（新架構：一筆 TX = inscription + 付費證明）
-    tx_id = None
+    # 發送到鏈上（方案 A：兩筆交易）
+    payment_tx_id = None
+    inscription_tx_id = None
+    
     if pin:
         try:
-            # 使用玩家的錢包發 mint inscription
-            # 一筆 TX 同時：自己→自己(payload) + 自己→大地之樹(10 mana)
+            # TX1: 付費給大地之樹
+            # TX2: 自己→自己 + payload（包含 payment_tx 證明）
             import unified_wallet
-            tx_id = await unified_wallet.mint_hero_inscription(
+            payment_tx_id, inscription_tx_id = await unified_wallet.mint_hero_inscription(
                 user_id=user_id,
                 pin=pin,
-                hero_payload=birth_payload
+                hero_payload=birth_payload,
+                skip_payment=False  # 正式版要付費
             )
-            hero.tx_id = tx_id
-            hero.latest_tx = tx_id
-            logger.info(f"Hero mint inscription sent: {tx_id} (self + tree payment in one TX!)")
             
-            # 更新資料庫中的 tx_id
-            db["heroes"][str(daa)]["tx_id"] = tx_id
-            db["heroes"][str(daa)]["latest_tx"] = tx_id
+            hero.tx_id = inscription_tx_id
+            hero.latest_tx = inscription_tx_id
+            
+            logger.info(f"🎴 Hero mint 完成!")
+            logger.info(f"   📤 付費 TX: {payment_tx_id}")
+            logger.info(f"   📝 Inscription TX: {inscription_tx_id}")
+            
+            # 更新資料庫
+            db["heroes"][str(daa)]["tx_id"] = inscription_tx_id
+            db["heroes"][str(daa)]["latest_tx"] = inscription_tx_id
+            db["heroes"][str(daa)]["payment_tx"] = payment_tx_id
             save_heroes_db(db)
+            
         except Exception as e:
             logger.warning(f"Failed to send mint inscription (local record only): {e}")
     else:
@@ -853,14 +862,15 @@ def format_summon_result(hero: Hero) -> str:
     # 構建簡化版 payload 顯示
     payload_preview = f'{{"g":"nami_hero","daa":{hero.card_id},"c":"{hero.hero_class[:3]}","r":"{hero.rarity[:3]}","a":{hero.atk},"d":{hero.def_},"s":{hero.spd}}}'
     
-    # 公告 TX 連結（如果有）
-    tx_link = ""
+    # 鏈上交易連結
+    tx_links = ""
     inscription_note = ""
+    
     if hasattr(hero, 'tx_id') and hero.tx_id and not hero.tx_id.startswith('daa_'):
-        tx_link = f'🔗 鏈上 Inscription:\nhttps://explorer-tn10.kaspa.org/txs/{hero.tx_id}'
+        tx_links = f'📝 Inscription:\nhttps://explorer-tn10.kaspa.org/txs/{hero.tx_id}'
         inscription_note = "✨ *你自己簽名的 Inscription！*"
     else:
-        tx_link = "🔗 (本地記錄)"
+        tx_links = "📦 (本地記錄)"
         inscription_note = ""
     
     return f"""🎴 召喚成功！
@@ -872,7 +882,7 @@ def format_summon_result(hero: Hero) -> str:
 📍 命運: DAA {hero.card_id}
 {explorer_link}
 
-📦 {tx_link}
+{tx_links}
 {inscription_note}
 
 英雄 ID: `#{hero.card_id}`

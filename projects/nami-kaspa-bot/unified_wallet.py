@@ -25,7 +25,7 @@ UNIFIED_PINS_FILE = DATA_DIR / "unified_pins.json"
 TREE_ADDRESS = "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m"
 
 # 費用設定（sompi）
-TX_FEE = 2000  # 交易手續費
+TX_FEE = 3000  # 交易手續費（稍微多一點確保足夠）
 MIN_INSCRIPTION_AMOUNT = 10000  # 0.0001 tKAS - inscription marker 最小金額
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -343,27 +343,31 @@ async def mint_hero_inscription(
     user_id: int,
     pin: str,
     hero_payload: dict,
-    mint_cost: int = None
-) -> str:
+    mint_cost: int = None,
+    skip_payment: bool = False
+) -> tuple[str, str]:
     """
-    鑄造英雄 Inscription（一筆 TX 完成！）
+    鑄造英雄 Inscription（方案 A：兩筆交易）
     
-    一筆交易同時：
-    1. 自己 → 自己 + payload（inscription）
-    2. 自己 → 大地之樹（付費證明）
+    流程：
+    1. TX1: 玩家 → 大地之樹（驅動費）
+    2. TX2: 玩家 → 玩家 + payload（inscription，包含 TX1 證明）
     
-    注意：Kaspa 有 storage mass 限制，大額輸出需要更高手續費
-    目前用小額作為證明，正式上線可調整
+    注意：Kaspa storage mass 限制，TX2 只能單一輸出
     
     Args:
         user_id: 用戶 ID
         pin: PIN 碼
-        hero_payload: 英雄資料
-        mint_cost: 鑄造費用（sompi），預設 0.01 tKAS（測試階段）
+        hero_payload: 英雄資料（會自動加入 payment_tx）
+        mint_cost: 鑄造費用（sompi），預設 10 tKAS
+        skip_payment: 跳過付費（測試用）
     
     Returns:
-        交易 ID（單一 TX 包含 inscription + 付費）
+        (payment_tx_id, inscription_tx_id)
     """
+    import json as json_lib
+    from hero_game import SUMMON_COST
+    
     # 驗證 PIN
     if not verify_pin(user_id, pin):
         raise ValueError("PIN 碼錯誤")
@@ -371,123 +375,137 @@ async def mint_hero_inscription(
     pk_hex, address = get_wallet(user_id, pin)
     pk = PrivateKey(pk_hex)
     
-    # 準備 payload
-    import json as json_lib
+    # 計算費用
+    if mint_cost is None:
+        mint_cost = int(SUMMON_COST * 1e8)  # 10 tKAS
+    
+    payment_tx_id = None
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # TX1: 付費給大地之樹（驅動費）
+    # ═══════════════════════════════════════════════════════════════════════
+    if not skip_payment:
+        logger.info(f"📤 TX1: 付費 {mint_cost / 1e8:.2f} tKAS 給大地之樹...")
+        
+        client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
+        await client.connect()
+        
+        try:
+            # 取得 UTXO（用大額的來付費）
+            utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
+            entries = utxo_response.get("entries", [])
+            
+            if not entries:
+                raise ValueError("錢包沒有餘額")
+            
+            # 找足夠支付的 UTXO
+            total_needed = mint_cost + TX_FEE
+            selected = []
+            total = 0
+            
+            for e in sorted(entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True):
+                selected.append(e)
+                total += e["utxoEntry"]["amount"]
+                if total >= total_needed:
+                    break
+            
+            if total < total_needed:
+                raise ValueError(f"餘額不足：需要 {total_needed / 1e8:.4f} tKAS")
+            
+            # 建立付費交易
+            tree_addr = Address(TREE_ADDRESS)
+            self_addr = Address(address)
+            
+            change = total - mint_cost - TX_FEE
+            outputs = [PaymentOutput(tree_addr, mint_cost)]
+            if change > 0:
+                outputs.append(PaymentOutput(self_addr, change))
+            
+            tx = create_transaction(
+                utxo_entry_source=selected,
+                outputs=outputs,
+                priority_fee=TX_FEE
+            )
+            
+            signed_tx = sign_transaction(tx, [pk], False)
+            result = await client.submit_transaction({"transaction": signed_tx, "allow_orphan": False})
+            payment_tx_id = result.get("transactionId", str(result))
+            
+            logger.info(f"✅ TX1 成功: {payment_tx_id}")
+            
+        finally:
+            await client.disconnect()
+        
+        # 等待一下讓 UTXO 更新
+        import asyncio
+        await asyncio.sleep(1)
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # TX2: Inscription（自己 → 自己 + payload）
+    # ═══════════════════════════════════════════════════════════════════════
+    logger.info(f"📝 TX2: 發送 inscription...")
+    
+    # 加入付費證明到 payload
+    if payment_tx_id:
+        hero_payload["payment_tx"] = payment_tx_id
+    
     payload_bytes = json_lib.dumps(hero_payload, separators=(',', ':')).encode('utf-8')
     
     if len(payload_bytes) > 1000:
         raise ValueError(f"Payload 太大: {len(payload_bytes)} bytes (最大 1000)")
     
-    # 測試階段用小額（避免 storage mass 限制）
-    # storage mass 限制約 100000，所以輸出金額要很小
-    # 正式上線可以分兩筆交易：先付費 10 mana，再發 inscription
-    if mint_cost is None:
-        mint_cost = 1000  # 0.00001 tKAS（測試用，只是證明）
-    
-    # 動態計算手續費（根據輸出金額）
-    # storage mass 約等於 output_amount / 1000
-    estimated_mass = (mint_cost + MIN_INSCRIPTION_AMOUNT) // 1000
-    dynamic_fee = max(TX_FEE, estimated_mass * 10)  # 確保手續費足夠
-    
     client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
     await client.connect()
     
     try:
-        # 取得 UTXO
+        # 取得 UTXO（需要小額的來發 inscription）
         utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
         all_entries = utxo_response.get("entries", [])
         
         if not all_entries:
-            raise ValueError("錢包沒有餘額")
+            raise ValueError("錢包沒有餘額（需要小額 UTXO 發 inscription）")
         
-        # 只使用小額 UTXO（避免 storage mass 超標）
-        # storage mass 限制 ~10,000,000，需要 UTXO < 0.1 tKAS
-        MAX_UTXO_FOR_INSCRIPTION = 10000000  # 0.1 tKAS
-        
-        small_entries = [e for e in all_entries if e["utxoEntry"]["amount"] <= MAX_UTXO_FOR_INSCRIPTION]
+        # 只使用小額 UTXO（< 0.1 tKAS）
+        MAX_UTXO = 10000000  # 0.1 tKAS
+        small_entries = [e for e in all_entries if e["utxoEntry"]["amount"] <= MAX_UTXO]
         
         if not small_entries:
-            # 沒有小 UTXO
             raise ValueError(
                 f"需要小額 UTXO（≤0.1 tKAS）來發送 inscription。\n"
-                f"請用 /nami_faucet 領取，或聯繫管理員。"
+                f"請用 /nami_faucet 領取。"
             )
         
-        # 選擇一個小 UTXO（不要合併多個，避免 storage mass 超標）
-        small_entries = sorted(small_entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True)
-        entry = small_entries[0]  # 用最大的那個小 UTXO
-        total = entry["utxoEntry"]["amount"]
-        entries = [entry]
+        # 選最大的小 UTXO
+        entry = max(small_entries, key=lambda x: x["utxoEntry"]["amount"])
+        amount = entry["utxoEntry"]["amount"]
         
-        logger.info(f"使用小 UTXO: {total / 1e8:.6f} tKAS")
+        logger.info(f"  使用小 UTXO: {amount / 1e8:.6f} tKAS")
         
-        # 建立單一輸出（多輸出會讓 storage mass 超標！）
+        # 單一輸出（自己 → 自己）
         self_addr = Address(address)
-        
-        # 計算金額（沒有找零）
         fee = 2000
-        self_amount = total - fee
+        self_amount = amount - fee
         
-        if self_amount < MIN_INSCRIPTION_AMOUNT:
-            raise ValueError(f"UTXO 太小")
-        
-        # 只有一個輸出：自己 → 自己 + payload
         outputs = [PaymentOutput(self_addr, self_amount)]
         
-        logger.info(f"  Inscription: {self_amount / 1e8:.6f} tKAS → 自己 | 手續費: {fee / 1e8:.6f} tKAS")
-        
-        # 建立交易（帶 payload）
         tx = create_transaction(
-            utxo_entry_source=entries,
+            utxo_entry_source=[entry],
             outputs=outputs,
             priority_fee=0,
             payload=payload_bytes
         )
         
-        # 用玩家私鑰簽名
         signed_tx = sign_transaction(tx, [pk], False)
+        result = await client.submit_transaction({"transaction": signed_tx, "allow_orphan": False})
+        inscription_tx_id = result.get("transactionId", str(result))
         
-        # 發送
-        result = await client.submit_transaction({
-            "transaction": signed_tx,
-            "allow_orphan": False
-        })
+        logger.info(f"✅ TX2 成功: {inscription_tx_id}")
+        logger.info(f"🎴 Hero mint 完成 | user={user_id} | payment={payment_tx_id} | inscription={inscription_tx_id}")
         
-        tx_id = result.get("transactionId", str(result))
-        logger.info(f"🎴 Hero mint inscription: {tx_id} | user={user_id} | cost={mint_cost/1e8:.4f} tKAS")
-        
-        return tx_id
+        return payment_tx_id, inscription_tx_id
         
     finally:
         await client.disconnect()
-
-
-async def mint_hero_inscription_v1(
-    user_id: int,
-    pin: str,
-    hero_payload: dict
-) -> tuple[str, str]:
-    """
-    [舊版] 鑄造英雄 - 兩筆交易
-    
-    保留供參考，新版請用 mint_hero_inscription()
-    """
-    from hero_game import SUMMON_COST
-    
-    summon_cost_sompi = int(SUMMON_COST * 1e8)
-    
-    payment_tx = await send_to_tree(
-        user_id, pin, 
-        summon_cost_sompi,
-        memo=f"hero_mint:{user_id}"
-    )
-    
-    inscription_tx = await self_inscription(
-        user_id, pin,
-        payload=hero_payload
-    )
-    
-    return payment_tx, inscription_tx
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 遷移工具
