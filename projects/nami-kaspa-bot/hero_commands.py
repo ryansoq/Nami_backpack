@@ -90,7 +90,7 @@ async def send_announcement(bot, message: str, parse_mode: str = 'Markdown'):
 async def announce_hero_birth(bot, hero, username: str):
     """公告英雄誕生"""
     rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", 
-                    "epic": "🟣", "legendary": "🟡", "mythic": "🔴"}.get(hero.rarity, "⚪")
+                    "epic": "🟣👑", "legendary": "🟡✨", "mythic": "🔴🔱"}.get(hero.rarity, "⚪")
     rarity_name = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
                    "epic": "史詩", "legendary": "傳說", "mythic": "神話"}.get(hero.rarity, "普通")
     class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
@@ -125,7 +125,7 @@ async def announce_hero_birth(bot, hero, username: str):
 async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, death_tx: str = None):
     """公告英雄死亡"""
     rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵",
-                    "epic": "🟣", "legendary": "🟡", "mythic": "🔴"}.get(hero.rarity, "⚪")
+                    "epic": "🟣👑", "legendary": "🟡✨", "mythic": "🔴🔱"}.get(hero.rarity, "⚪")
     rarity_name = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
                    "epic": "史詩", "legendary": "傳說", "mythic": "神話"}.get(hero.rarity, "普通")
     class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
@@ -174,7 +174,7 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
     }
     rarity_mult = {
         "common": "x1.0", "uncommon": "x1.2", "rare": "x1.5",
-        "epic": "x2.0", "legendary": "x3.0", "mythic": "x5.0"
+        "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0"
     }
     
     my_rarity = rarity_names.get(my_hero.rarity, "普通")
@@ -182,10 +182,18 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
     my_mult = rarity_mult.get(my_hero.rarity, "x1.0")
     target_mult = rarity_mult.get(target_hero.rarity, "x1.0")
     
+    # 檢查是否命運逆轉
+    detail = result.get("battle_detail", {})
+    is_reversal = detail.get("reversal", False)
+    
     # 確定勝負
     if result["attacker_wins"]:
-        result_emoji = "🏆"
-        result_text = "攻方獲勝！"
+        if is_reversal:
+            result_emoji = "⚡"
+            result_text = "命運逆轉！！！"
+        else:
+            result_emoji = "🏆"
+            result_text = "攻方獲勝！"
         winner = my_hero
         loser = target_hero
         winner_name = attacker_name
@@ -576,12 +584,26 @@ async def hero_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     heroes = get_user_heroes(user.id)
     await update.message.reply_text(format_hero_list(heroes), parse_mode='Markdown')
 
+SCOUT_COST = 10_00000000  # 偵查費用 10 mana
+
 async def hero_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /nami_hero_info <ID> - 查看英雄詳情
+    /nami_hero_info <ID> [PIN] - 查看英雄詳情
+    
+    - 查看自己的英雄：免費
+    - 查看別人的英雄：需要 10 mana + PIN（偵查費）
     """
+    user = update.effective_user
+    
     if not context.args:
-        await update.message.reply_text("用法：\n```\n/nami_hero_info <英雄ID>\n```", parse_mode='Markdown')
+        await update.message.reply_text(
+            "📜 *查看英雄詳情*\n\n"
+            "查看自己的英雄（免費）：\n"
+            "```\n/nami_hero_info <ID>\n```\n\n"
+            "偵查敵方英雄（10 mana）：\n"
+            "```\n/nami_hero_info <ID> <PIN>\n```",
+            parse_mode='Markdown'
+        )
         return
     
     try:
@@ -595,7 +617,185 @@ async def hero_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 找不到英雄 #{card_id}")
         return
     
-    await update.message.reply_text(format_hero_card(hero), parse_mode='HTML')
+    # 檢查是否為自己的英雄
+    is_own_hero = hero.owner_id == user.id
+    
+    if is_own_hero:
+        # 自己的英雄：免費查看
+        await update.message.reply_text(format_hero_card(hero), parse_mode='HTML')
+    else:
+        # 別人的英雄：需要付費偵查
+        if len(context.args) < 2:
+            await update.message.reply_text(
+                f"🔍 *偵查敵方英雄*\n\n"
+                f"英雄 `#{card_id}` 屬於其他玩家\n"
+                f"偵查需要消耗 *10 mana*\n\n"
+                f"確認偵查：\n"
+                f"```\n/nami_hero_info {card_id} <你的PIN>\n```",
+                parse_mode='Markdown'
+            )
+            return
+        
+        pin = context.args[1]
+        
+        # 驗證 PIN 並取得地址
+        if not verify_hero_pin(user.id, pin):
+            await update.message.reply_text("❌ PIN 錯誤")
+            return
+        
+        # 取得使用者地址
+        try:
+            _, address = get_hero_wallet(user.id, pin)
+        except Exception as e:
+            await update.message.reply_text(f"❌ 錢包錯誤：{e}")
+            return
+        
+        # 檢查餘額
+        try:
+            balance = await get_hero_balance(address)
+            if balance < SCOUT_COST:
+                need = (SCOUT_COST - balance) / 1e8
+                await update.message.reply_text(f"❌ 餘額不足！需要 10 mana，還差 {need:.2f}")
+                return
+        except Exception as e:
+            await update.message.reply_text(f"❌ 餘額查詢失敗：{e}")
+            return
+        
+        # 扣款
+        try:
+            import unified_wallet
+            tx_id = await unified_wallet.send_to_tree(user.id, pin, SCOUT_COST, f"scout:{card_id}")
+            await update.message.reply_text(
+                f"🔍 *偵查成功！*\n\n"
+                f"💰 消耗 10 mana\n"
+                f"📝 TX: `{tx_id[:16]}...`\n\n"
+                f"──────────────\n",
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            await update.message.reply_text(f"❌ 付款失敗：{e}")
+            return
+        
+        # 顯示英雄資訊
+        await update.message.reply_text(format_hero_card(hero), parse_mode='HTML')
+
+async def hero_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nami_search <@username> [PIN] - 搜尋玩家的英雄
+    
+    - 免費看存活數量
+    - 10 mana 看詳細列表
+    """
+    user = update.effective_user
+    
+    if not context.args:
+        await update.message.reply_text(
+            "🔍 *搜尋玩家英雄*\n\n"
+            "查看玩家英雄數量（免費）：\n"
+            "```\n/nami_search @username\n```\n\n"
+            "查看詳細列表（10 mana）：\n"
+            "```\n/nami_search @username <PIN>\n```",
+            parse_mode='Markdown'
+        )
+        return
+    
+    target_username = context.args[0].lstrip('@').lower()
+    
+    # 從 users.json 找 user_id
+    import json
+    with open(DATA_DIR / "users.json", 'r') as f:
+        users = json.load(f)
+    
+    target_user_id = None
+    for uid, udata in users.items():
+        if udata.get("username", "").lower() == target_username:
+            target_user_id = int(uid)
+            break
+    
+    if not target_user_id:
+        await update.message.reply_text(f"❌ 找不到玩家 @{target_username}")
+        return
+    
+    # 取得該玩家的英雄
+    from hero_game import load_heroes_db
+    db = load_heroes_db()
+    
+    target_heroes = [h for h in db.get("heroes", {}).values() 
+                     if h.get("owner_id") == target_user_id]
+    alive_heroes = [h for h in target_heroes if h.get("status") == "alive"]
+    dead_heroes = [h for h in target_heroes if h.get("status") == "dead"]
+    
+    # 免費資訊：只顯示數量
+    if len(context.args) < 2:
+        await update.message.reply_text(
+            f"🔍 *玩家偵查：@{target_username}*\n\n"
+            f"🟢 存活英雄：{len(alive_heroes)} 隻\n"
+            f"☠️ 陣亡英雄：{len(dead_heroes)} 隻\n\n"
+            f"💡 查看詳細列表需要 10 mana：\n"
+            f"```\n/nami_search @{target_username} <PIN>\n```",
+            parse_mode='Markdown'
+        )
+        return
+    
+    # 付費偵查：顯示詳細列表
+    pin = context.args[1]
+    
+    # 驗證 PIN 並取得地址
+    if not verify_hero_pin(user.id, pin):
+        await update.message.reply_text("❌ PIN 錯誤")
+        return
+    
+    # 取得使用者地址
+    try:
+        _, address = get_hero_wallet(user.id, pin)
+    except Exception as e:
+        await update.message.reply_text(f"❌ 錢包錯誤：{e}")
+        return
+    
+    # 檢查餘額
+    try:
+        balance = await get_hero_balance(address)
+        if balance < SCOUT_COST:
+            need = (SCOUT_COST - balance) / 1e8
+            await update.message.reply_text(f"❌ 餘額不足！需要 10 mana，還差 {need:.2f}")
+            return
+    except Exception as e:
+        await update.message.reply_text(f"❌ 餘額查詢失敗：{e}")
+        return
+    
+    # 扣款
+    try:
+        import unified_wallet
+        tx_id = await unified_wallet.send_to_tree(user.id, pin, SCOUT_COST, f"search:{target_username}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ 付款失敗：{e}")
+        return
+    
+    # 格式化英雄列表
+    rarity_names = {"common": "⚪", "uncommon": "🟢", "rare": "🔵",
+                    "epic": "🟣👑", "legendary": "🟡✨", "mythic": "🔴🔱"}
+    class_emojis = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
+    
+    lines = [f"🔍 *@{target_username} 的英雄*\n"]
+    lines.append(f"💰 偵查費：10 mana | TX: `{tx_id[:12]}...`\n")
+    
+    if alive_heroes:
+        lines.append("🟢 *存活：*")
+        for h in alive_heroes:
+            r = rarity_names.get(h["rarity"], "⚪")
+            c = class_emojis.get(h["hero_class"], "")
+            lines.append(f"  `#{h['card_id']}` {r}{c} ⚔️{h['atk']} 🛡️{h['def']} ⚡{h['spd']}")
+    
+    if dead_heroes:
+        lines.append("\n☠️ *陣亡：*")
+        for h in dead_heroes[:5]:  # 最多顯示 5 隻
+            r = rarity_names.get(h["rarity"], "⚪")
+            c = class_emojis.get(h["hero_class"], "")
+            lines.append(f"  `#{h['card_id']}` {r}{c}")
+        if len(dead_heroes) > 5:
+            lines.append(f"  _...還有 {len(dead_heroes)-5} 隻_")
+    
+    await update.message.reply_text("\n".join(lines), parse_mode='Markdown')
 
 async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -789,7 +989,7 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 稀有度加成說明
         rarity_mult = {
             "common": "x1.0", "uncommon": "x1.2", "rare": "x1.5",
-            "epic": "x2.0", "legendary": "x3.0", "mythic": "x5.0"
+            "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0"
         }
         my_mult = rarity_mult.get(my_hero.rarity, "x1.0")
         target_mult = rarity_mult.get(target_hero.rarity, "x1.0")
@@ -1658,6 +1858,7 @@ def register_hero_commands(app):
     
     # 輔助指令
     app.add_handler(CommandHandler("nami_hero_info", hero_info))
+    app.add_handler(CommandHandler("nami_search", hero_search))
     app.add_handler(CommandHandler("nami_history", hero_history))
     app.add_handler(CommandHandler("nami_verify", hero_verify))
     app.add_handler(CommandHandler("nami_remint", hero_remint))

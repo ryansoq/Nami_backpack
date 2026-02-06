@@ -1540,9 +1540,82 @@ _(請先私聊 Bot 一次)_
 `/nami_status` — 發放統計
 
 ━━━━━━━━━━━━━━━━━━━━
+🌲 *娜米的英雄奇幻冒險*
+━━━━━━━━━━━━━━━━━━━━
+🎴 `召喚` `/nami_hero <PIN>`
+📜 `我的英雄` `/nami_heroes`
+🔍 `查看` `/nami_hero_info <ID>`
+🔎 `搜尋` `/nami_search @user`
+⚔️ `PvP` `/nami_pvp <我ID> <敵ID> <PIN>`
+🔥 `燒毀` `/nami_burn <ID> <PIN>`
+✅ `驗證` `/nami_verify <ID>`
+
+💡 _PvP 請私聊 Bot（保護 PIN）_
+
+━━━━━━━━━━━━━━━━━━━━
 🌊 Nami Kaspa Bot ✨
 """
     await update.message.reply_text(help_msg, parse_mode='Markdown')
+
+async def gate_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """處理 /nami_gate 指令 - 密語入口"""
+    gate_msg = """🌲 *大地之樹的密語*
+
+_歡迎來到娜米的英雄奇幻冒險..._
+
+━━━━━━━━━━━━━━━━━━━━
+⚔️ *英雄指令*
+━━━━━━━━━━━━━━━━━━━━
+
+🎴 *召喚英雄* (10 mana)
+```
+/nami_hero <PIN>
+```
+
+📜 *我的英雄*
+```
+/nami_heroes
+```
+
+🔍 *查看英雄*
+```
+/nami_hero_info <ID>
+```
+_(查別人的需 10 mana + PIN)_
+
+🔎 *搜尋玩家*
+```
+/nami_search @username
+/nami_search @username <PIN>
+```
+_(詳細列表需 10 mana)_
+
+⚔️ *PvP 戰鬥* (2 mana)
+```
+/nami_pvp <我的ID> <對手ID> <PIN>
+```
+
+🔥 *燒毀英雄* (退還 5 mana)
+```
+/nami_burn <ID> <PIN>
+```
+
+✅ *驗證英雄*
+```
+/nami_verify <ID>
+```
+
+━━━━━━━━━━━━━━━━━━━━
+📊 *遊戲資訊*
+━━━━━━━━━━━━━━━━━━━━
+
+`/nami_game` — 遊戲規則
+`/nami_stats` — 戰場統計
+
+━━━━━━━━━━━━━━━━━━━━
+_願大地之樹保佑你的英雄！_ 🌲✨
+"""
+    await update.message.reply_text(gate_msg, parse_mode='Markdown')
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """處理 /status 指令"""
@@ -1795,6 +1868,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("nami", start))  # /nami 也能用
     app.add_handler(CommandHandler("nami_help", help_cmd))
+    app.add_handler(CommandHandler("nami_gate", gate_cmd))
     app.add_handler(CommandHandler("nami_wallet", wallet))
     app.add_handler(CommandHandler("nami_faucet", faucet))
     app.add_handler(CommandHandler("nami_balance", balance))

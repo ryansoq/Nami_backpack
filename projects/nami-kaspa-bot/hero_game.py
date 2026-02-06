@@ -362,10 +362,13 @@ def calculate_hero_from_hash(block_hash: str) -> Tuple[str, str, int, int, int]:
     classes = ["warrior", "mage", "archer", "rogue"]
     hero_class = classes[class_val]
     
-    # 稀有度: hash[2:6] % 1000（千分比）
-    # 🟠✨ 傳說 0.5% | 🟣👑 史詩 3.5% | 🔵 稀有 13% | 🟢 優秀 28% | ⚪ 普通 55%
+    # 稀有度: hash[2:6] % 1000（千分比）WoW 風格
+    # 🔱 神話 0.1% | 🟡 傳說 0.4% | 🟣 史詩 3.5% | 🔵 稀有 13% | 🟢 優秀 28% | ⚪ 普通 55%
     rarity_val = int(h[2:6], 16) % 1000
-    if rarity_val < 5:           # 0-4 = 0.5%
+    if rarity_val < 1:           # 0 = 0.1%
+        rarity = "mythic"
+        multiplier = 3.0
+    elif rarity_val < 5:         # 1-4 = 0.4%
         rarity = "legendary"
         multiplier = 2.0
     elif rarity_val < 40:        # 5-39 = 3.5%
@@ -404,11 +407,16 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
     
     稀有度加成：
     - 普通: ×1.0
-    - 優秀: ×1.2
-    - 稀有: ×1.5
-    - 史詩: ×2.0
-    - 傳說: ×3.0
-    - 神話: ×5.0
+    - 優秀: ×1.1
+    - 稀有: ×1.2
+    - 史詩: ×1.5
+    - 傳說: ×2.0
+    - 神話: ×3.0
+    
+    反殺機制（命運逆轉）：
+    - 弱者攻擊強者時有機率直接獲勝
+    - 機率根據稀有度差距遞減
+    - 由區塊 hash 決定是否觸發
     
     勝者：3 回合中贏 2 回合者
     平手時用稀有度 + hash 決定
@@ -423,14 +431,43 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
     """
     h = block_hash.lower().replace("0x", "")
     
+    # 稀有度等級
+    RARITY_RANK = {
+        "common": 0, "uncommon": 1, "rare": 2,
+        "epic": 3, "legendary": 4, "mythic": 5
+    }
+    
+    # 反殺機率（千分比）根據稀有度差距
+    # 差距越大，反殺機率越低
+    REVERSAL_CHANCE = {
+        0: 0,      # 同級：無反殺
+        1: 100,    # 1級差：10%
+        2: 50,     # 2級差：5%
+        3: 20,     # 3級差：2%
+        4: 5,      # 4級差：0.5%
+        5: 1       # 5級差：0.1% (普通→神話)
+    }
+    
+    atk_rank = RARITY_RANK.get(attacker.rarity, 0)
+    def_rank = RARITY_RANK.get(defender.rarity, 0)
+    rank_diff = def_rank - atk_rank  # 正數表示防守方稀有度更高
+    
+    # 檢查命運逆轉（弱者反殺強者）
+    reversal_triggered = False
+    if rank_diff > 0:  # 攻擊方是弱者
+        reversal_roll = int(h[20:24], 16) % 1000  # 用 hash 的一部分
+        reversal_threshold = REVERSAL_CHANCE.get(rank_diff, 0)
+        if reversal_roll < reversal_threshold:
+            reversal_triggered = True
+    
     # 稀有度加成倍率
     RARITY_MULT = {
         "common": 1.0,
-        "uncommon": 1.2,
-        "rare": 1.5,
-        "epic": 2.0,
-        "legendary": 3.0,
-        "mythic": 5.0
+        "uncommon": 1.1,
+        "rare": 1.2,
+        "epic": 1.5,
+        "legendary": 2.0,
+        "mythic": 3.0
     }
     
     atk_mult = RARITY_MULT.get(attacker.rarity, 1.0)
@@ -508,7 +545,12 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
     })
     
     # 決定最終勝負
-    if atk_wins > def_wins:
+    if reversal_triggered:
+        # 命運逆轉！弱者反殺強者！
+        attacker_wins = True
+        reversal_chance = REVERSAL_CHANCE.get(rank_diff, 0) / 10
+        final_reason = f"⚡命運逆轉！ ({reversal_chance}%機率)"
+    elif atk_wins > def_wins:
         attacker_wins = True
         final_reason = f"回合勝 {atk_wins}:{def_wins}"
     elif def_wins > atk_wins:
@@ -535,6 +577,7 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
     battle_detail = {
         "rounds": rounds,
         "atk_wins": atk_wins,
+        "reversal": reversal_triggered,
         "def_wins": def_wins,
         "attacker_wins": attacker_wins,
         "final_reason": final_reason,
@@ -778,7 +821,16 @@ async def summon_hero(user_id: int, username: str, address: str,
             save_heroes_db(db)
             
         except Exception as e:
-            logger.warning(f"Failed to send mint inscription (local record only): {e}")
+            # 嚴格模式：birth_tx 失敗則刪除英雄記錄
+            logger.error(f"Failed to send mint inscription: {e}")
+            # 刪除剛創建的本地記錄
+            if str(daa) in db["heroes"]:
+                del db["heroes"][str(daa)]
+            user_key = str(user_id)
+            if user_key in db["user_heroes"] and daa in db["user_heroes"][user_key]:
+                db["user_heroes"][user_key].remove(daa)
+            save_heroes_db(db)
+            raise Exception(f"鏈上 birth_tx 發送失敗，英雄未創建: {e}")
     else:
         # 沒有 PIN，嘗試舊方式（大地之樹代發，向後兼容）
         try:
@@ -791,7 +843,15 @@ async def summon_hero(user_id: int, username: str, address: str,
             db["heroes"][str(daa)]["latest_tx"] = tx_id
             save_heroes_db(db)
         except Exception as e:
-            logger.warning(f"Failed to send birth tx: {e}")
+            # 嚴格模式：birth_tx 失敗則刪除英雄記錄
+            logger.error(f"Failed to send birth tx: {e}")
+            if str(daa) in db["heroes"]:
+                del db["heroes"][str(daa)]
+            user_key = str(user_id)
+            if user_key in db["user_heroes"] and daa in db["user_heroes"][user_key]:
+                db["user_heroes"][user_key].remove(daa)
+            save_heroes_db(db)
+            raise Exception(f"鏈上 birth_tx 發送失敗，英雄未創建: {e}")
     
     # 記錄到本地鏈條
     chain = load_hero_chain()
@@ -1053,7 +1113,7 @@ async def process_pvp_onchain(
     # 等待 UTXO 更新（避免 mempool 衝突）
     import asyncio
     logger.info(f"   ⏳ 等待 UTXO 確認...")
-    await asyncio.sleep(3)
+    await asyncio.sleep(10)  # 增加等待時間確保 UTXO 更新
     
     # 4. 更新狀態
     attacker.battles += 1
@@ -1088,8 +1148,9 @@ async def process_pvp_onchain(
         attacker.latest_tx = win_tx
         logger.info(f"   Win TX: {win_tx}")
         
-        # 等待 UTXO 確認
-        await asyncio.sleep(2)
+        # 等待 UTXO 確認（大地之樹需要發死亡交易）
+        logger.info(f"   ⏳ 等待 UTXO 確認...")
+        await asyncio.sleep(5)
         
         # 6a. 大地之樹發送死亡事件給防守者
         logger.info(f"   🌲 大地之樹發送死亡事件給 #{defender.card_id}...")
@@ -1300,19 +1361,22 @@ def get_class_name(hero_class: str) -> str:
 def get_rarity_display(rarity: str) -> str:
     """獲取稀有度顯示（WoW 風格）"""
     display_map = {
-        "common": "⚪ 普通",
-        "uncommon": "🟢 優秀",
-        "rare": "🔵 稀有", 
-        "epic": "🟣👑 史詩",
-        "legendary": "🟠✨ 傳說"
+        "common": "⚪普通",
+        "uncommon": "🟢優秀",
+        "rare": "🔵稀有", 
+        "epic": "🟣👑史詩",
+        "legendary": "🟡✨傳說",
+        "mythic": "🔴🔱神話"
     }
     return display_map.get(rarity, rarity)
 
 def format_summon_result(hero: Hero) -> str:
     """格式化召喚結果"""
     # 特效標題（WoW 風格）
-    if hero.rarity == "legendary":
-        header = "🟠🟠🟠 ✨ 傳說降臨！✨ 🟠🟠🟠\n\n"
+    if hero.rarity == "mythic":
+        header = "🔱🔱🔱 ⚡ 神話降世！！！ ⚡ 🔱🔱🔱\n\n🌊 大地之樹震動！海神三叉戟現世！\n\n"
+    elif hero.rarity == "legendary":
+        header = "🟡🟡🟡 ✨ 傳說降臨！✨ 🟡🟡🟡\n\n"
     elif hero.rarity == "epic":
         header = "🟣🟣 👑 史詩級！👑 🟣🟣\n\n"
     elif hero.rarity == "rare":
