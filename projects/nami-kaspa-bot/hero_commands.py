@@ -244,7 +244,7 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_summon_time = time.time()
         
         # 回覆結果
-        await update.message.reply_text(format_summon_result(hero))
+        await update.message.reply_text(format_summon_result(hero), parse_mode='Markdown')
         
     except TimeoutError:
         await update.message.reply_text("❌ 等待區塊超時，請稍後再試")
@@ -258,7 +258,7 @@ async def hero_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     user = update.effective_user
     heroes = get_user_heroes(user.id)
-    await update.message.reply_text(format_hero_list(heroes))
+    await update.message.reply_text(format_hero_list(heroes), parse_mode='Markdown')
 
 async def hero_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """

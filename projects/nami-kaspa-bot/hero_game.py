@@ -743,14 +743,16 @@ def format_hero_card(hero: Hero) -> str:
 
 {status_icon} {hero.status} | 戰績 {hero.battles}戰 {hero.kills}殺
 
-📍 命運: DAA {hero.card_id}{explorer_link}
+📍 命運: DAA <code>{hero.card_id}</code>{explorer_link}
 
-/nami_payload {hero.card_id} 查看鏈上資料"""
+快速指令（點擊複製）：
+<code>/nami_verify {hero.card_id}</code>
+<code>/nami_payload {hero.card_id}</code>"""
 
 def format_hero_list(heroes: list[Hero]) -> str:
-    """格式化英雄列表"""
+    """格式化英雄列表（Markdown 格式）"""
     if not heroes:
-        return "📜 你還沒有英雄\n\n使用 /nami_hero 召喚你的第一位英雄！"
+        return "📜 你還沒有英雄\n\n使用 `/nami_hero` 召喚你的第一位英雄！"
     
     alive = [h for h in heroes if h.status == "alive"]
     dead = [h for h in heroes if h.status == "dead"]
@@ -761,13 +763,16 @@ def format_hero_list(heroes: list[Hero]) -> str:
         rarity = get_rarity_display(h.rarity)
         class_name = get_class_name(h.hero_class)
         class_emoji = get_class_emoji(h.hero_class)
-        lines.append(f"🟢 #{h.card_id} {rarity} {class_name}{class_emoji} - {h.kills}殺")
+        # 用 ` ` 包住 ID，點擊可複製
+        lines.append(f"🟢 `#{h.card_id}` {rarity} {class_name}{class_emoji} - {h.kills}殺")
     
     for h in dead:
         rarity = get_rarity_display(h.rarity)
         class_name = get_class_name(h.hero_class)
         class_emoji = get_class_emoji(h.hero_class)
-        lines.append(f"☠️ #{h.card_id} {rarity} {class_name}{class_emoji}")
+        lines.append(f"☠️ `#{h.card_id}` {rarity} {class_name}{class_emoji}")
+    
+    lines.append("\n查看詳情：`/nami_hero_info <ID>`")
     
     return "\n".join(lines)
 
@@ -839,8 +844,11 @@ def format_summon_result(hero: Hero) -> str:
 📦 公告 TX:
 {tx_link}
 
-英雄 ID: #{hero.card_id}
-/nami_verify {hero.card_id} 驗證"""
+英雄 ID: `#{hero.card_id}`
+
+快速指令（點擊複製）：
+`/nami_verify {hero.card_id}`
+`/nami_hero_info {hero.card_id}`"""
 
 def format_battle_result(attacker: Hero, defender: Hero, 
                          attacker_wins: bool, attacker_name: str, 
