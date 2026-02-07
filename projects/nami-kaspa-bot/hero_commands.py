@@ -1174,50 +1174,77 @@ async def hero_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 錢包錯誤：{e}")
         return
     
-    # 檢查餘額
+    # v0.3: 排隊機制
+    queue_size = tree_queue.queue_size()
+    if queue_size > 0:
+        await update.message.reply_text(f"⏳ 大地之樹忙碌中，排隊等候 {queue_size} 人...")
+    
+    await tree_queue.acquire(user.id)
+    
     try:
+        # 檢查餘額
         balance = await get_hero_balance(address)
         if balance < SCOUT_COST:
             need = (SCOUT_COST - balance) / 1e8
             await update.message.reply_text(f"❌ 餘額不足！需要 10 mana，還差 {need:.2f}")
             return
-    except Exception as e:
-        await update.message.reply_text(f"❌ 餘額查詢失敗：{e}")
-        return
-    
-    # 扣款
-    try:
+        
+        # 扣款
         import unified_wallet
         tx_id = await unified_wallet.send_to_tree(user.id, pin, SCOUT_COST, f"search:{target_username}")
+        
+        # 格式化英雄列表
+        rank_emojis = {"N": "⚪", "R": "🔵", "SR": "🟣", "SSR": "🟡"}
+        class_emojis = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
+        
+        lines = [f"🔍 *@{target_username} 的英雄*\n"]
+        lines.append(f"💰 偵查費：10 mana | TX: `{tx_id[:12]}...`\n")
+        
+        if alive_heroes:
+            lines.append("🟢 *存活：*")
+            # 按戰力排序（ATK+DEF+SPD）
+            alive_heroes.sort(key=lambda x: x['atk'] + x['def'] + x['spd'], reverse=True)
+            for h in alive_heroes:
+                rank = h.get("rank", "N")
+                rank_emoji = rank_emojis.get(rank, "⚪")
+                c = class_emojis.get(h["hero_class"], "")
+                total_power = h['atk'] + h['def'] + h['spd']
+                
+                # 保護狀態
+                protect_mark = "🛡️" if h.get("protected") else ""
+                
+                # 戰力評估
+                if total_power < 100:
+                    power_hint = "💀"  # 弱雞
+                elif total_power < 150:
+                    power_hint = ""
+                elif total_power < 200:
+                    power_hint = "💪"  # 強
+                else:
+                    power_hint = "👑"  # 超強
+                
+                name_str = f'「{h["name"]}」' if h.get("name") else ""
+                lines.append(f"  `#{h['card_id']}` {rank_emoji}{rank}{c} {protect_mark}⚔️{h['atk']} 🛡️{h['def']} ⚡{h['spd']} {power_hint}{name_str}")
+        
+        if dead_heroes:
+            lines.append("\n☠️ *陣亡：*")
+            for h in dead_heroes[:5]:  # 最多顯示 5 隻
+                rank = h.get("rank", "N")
+                rank_emoji = rank_emojis.get(rank, "⚪")
+                c = class_emojis.get(h["hero_class"], "")
+                lines.append(f"  `#{h['card_id']}` {rank_emoji}{rank}{c}")
+            if len(dead_heroes) > 5:
+                lines.append(f"  _...還有 {len(dead_heroes)-5} 隻_")
+        
+        # 戰術提示
+        lines.append("\n📊 *圖例：* 💀弱 💪強 👑超強 🛡️保護中")
+        
+        await update.message.reply_text("\n".join(lines), parse_mode='Markdown')
+    
     except Exception as e:
-        await update.message.reply_text(f"❌ 付款失敗：{e}")
-        return
-    
-    # 格式化英雄列表
-    rarity_names = {"common": "⚪", "uncommon": "🟢", "rare": "🔵",
-                    "epic": "🟣👑", "legendary": "🟡✨", "mythic": "🔴🔱"}
-    class_emojis = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
-    
-    lines = [f"🔍 *@{target_username} 的英雄*\n"]
-    lines.append(f"💰 偵查費：10 mana | TX: `{tx_id[:12]}...`\n")
-    
-    if alive_heroes:
-        lines.append("🟢 *存活：*")
-        for h in alive_heroes:
-            r = rarity_names.get(h["rarity"], "⚪")
-            c = class_emojis.get(h["hero_class"], "")
-            lines.append(f"  `#{h['card_id']}` {r}{c} ⚔️{h['atk']} 🛡️{h['def']} ⚡{h['spd']}")
-    
-    if dead_heroes:
-        lines.append("\n☠️ *陣亡：*")
-        for h in dead_heroes[:5]:  # 最多顯示 5 隻
-            r = rarity_names.get(h["rarity"], "⚪")
-            c = class_emojis.get(h["hero_class"], "")
-            lines.append(f"  `#{h['card_id']}` {r}{c}")
-        if len(dead_heroes) > 5:
-            lines.append(f"  _...還有 {len(dead_heroes)-5} 隻_")
-    
-    await update.message.reply_text("\n".join(lines), parse_mode='Markdown')
+        await update.message.reply_text(f"❌ 偵查失敗：{e}")
+    finally:
+        tree_queue.release()
 
 async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -1359,20 +1386,26 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_class = class_names.get(target_hero.hero_class, target_hero.hero_class)
     target_rarity = rarity_names.get(target_hero.rarity, target_hero.rarity)
     
-    await update.message.reply_text(
-        f"⚔️ *發起 PvP 攻擊！*\n\n"
-        f"🔵 你的英雄：#{my_hero.card_id}\n"
-        f"   {my_rarity} {my_class}\n"
-        f"   ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}\n\n"
-        f"🔴 對手英雄：#{target_hero.card_id}\n"
-        f"   {target_rarity} {target_class}\n"
-        f"   ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}\n\n"
-        f"💰 消耗：{pvp_cost} mana\n\n"
-        f"⏳ 付費中...",
-        parse_mode='Markdown'
-    )
+    # v0.3: 排隊機制 - 一次只服務一場 PvP
+    queue_size = tree_queue.queue_size()
+    if queue_size > 0:
+        await update.message.reply_text(f"⏳ 大地之樹忙碌中，排隊等候 {queue_size} 人...")
+    
+    await tree_queue.acquire(user.id)
     
     try:
+        await update.message.reply_text(
+            f"⚔️ *發起 PvP 攻擊！*\n\n"
+            f"🔵 你的英雄：#{my_hero.card_id}\n"
+            f"   {my_rarity} {my_class}\n"
+            f"   ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}\n\n"
+            f"🔴 對手英雄：#{target_hero.card_id}\n"
+            f"   {target_rarity} {target_class}\n"
+            f"   ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}\n\n"
+            f"💰 消耗：{pvp_cost} mana\n\n"
+            f"⏳ 付費中...",
+            parse_mode='Markdown'
+        )
         # 取得下一個 DAA 決定勝負
         from hero_commands import get_next_daa_block
         event_daa, block_hash = await get_next_daa_block()
@@ -1465,9 +1498,17 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if result.get("win_tx"):
             msg += f"\n勝利: <code>{result['win_tx'][:20]}...</code>"
-        msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
+        if result.get("death_tx"):
+            msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
         
-        msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
+        # 顯示獎勵
+        if result.get("reward_paid") and result.get("pvp_reward", 0) > 0:
+            msg += f"\n\n🎁 <b>勝者獎勵</b>：{result['pvp_reward']} mana"
+            if result.get("reward_tx"):
+                msg += f"\n獎勵 TX: <code>{result['reward_tx'][:20]}...</code>"
+        
+        if result.get("death_tx"):
+            msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
         
         await update.message.reply_text(msg, parse_mode='HTML')
         
@@ -1488,6 +1529,8 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         import traceback
         traceback.print_exc()
         await update.message.reply_text(f"❌ PvP 失敗：{e}")
+    finally:
+        tree_queue.release()
 
 async def hero_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -1555,7 +1598,8 @@ async def hero_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⚔️ *戰鬥*
 `/nami_pvp` `/np` - PvP 攻擊
 
-🔍 *查詢*
+🔍 *查詢 & 偵查*
+`/nami_search` `/nse` - 偵查敵人（10 mana）
 `/nami_verify` `/nv` - 驗證出生證明
 `/nami_next_reward` `/nr` - 下次獎勵
 `/nami_game_status` `/ns` - 遊戲狀態
@@ -1575,47 +1619,45 @@ async def hero_rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_rules - 查看遊戲規則
     """
     rules = """🌲 *娜米的英雄奇幻冒險*
-_Nami's Hero Fantasy Adventure_
+_在區塊鏈的盡頭，大地之樹守護著英雄們的命運_
 
-━━━━━━━━━━━━━━━━
+━━━━━━━━━━━
 
-*📜 指令列表（縮寫）*
-`/nami_hero` (`/nh`) - 召喚英雄
-`/nami_heroes` (`/nhs`) - 查看英雄
-`/nami_pvp` (`/np`) - PvP 攻擊
-`/nami_burn` (`/nb`) - 銷毀英雄
-`/nami_hero_info` (`/ni`) - 英雄詳情
-`/nami_verify` (`/nv`) - 驗證出生
-`/nami_name` (`/nn`) - 命名英雄
-`/nami_next_reward` (`/nr`) - 下次獎勵
-`/nami_game_status` (`/ns`) - 遊戲狀態
+*💰 費用*
+🌟 召喚英雄：10 mana
+⚔️ PvP 攻擊：10 mana
+🕵️ 偵查敵人：10 mana
+🔥 銷毀英雄：10 mana
 
-━━━━━━━━━━━━━━━━
+*🏆 Rank 系統*
+⚪ N (普通) 70%
+🔵 R (稀有) 20%
+🟣 SR (超稀有) 8%
+🟡 SSR (傳說) 2%
 
-*⚡ 基本規則*
-• tKAS = Mana（瑪那）
-• 召喚英雄：10 mana
-• PvP 攻擊：2-8 mana
+*⚔️ 職業*
+戰士 ⚔️ | 法師 🧙 | 盜賊 🗡️ | 弓箭手 🏹
 
-*🃏 稀有度*
-⚪ 普通 55% | 🟢 優秀 28%
-🔵 稀有 13% | 🟣 史詩 3.5%
-🟡 傳說 0.4% | 🔱 神話 0.1%
+*🎮 戰鬥規則*
+• 三回合對決（ATK vs DEF + SPD 判定先攻）
+• 敗者永久死亡 ☠️
+• 勝者獲得 1-5 mana 獎勵 🎁
 
-*⚔️ 戰鬥*
-• 三回合對決
-• 敗者英雄永久死亡 ☠️
+*🛡️ 保護機制*
+• `/nhp` 開啟保護，PvP 輸了不會死
+• 保護中無法被偵查詳細屬性
 
-*🌲 大地之樹*
-• DAA 結尾 66666 發放獎勵
-• 積分 = 存活天數 + 稀有度 + 擊殺×2
-
-*🔗 閉環驗證*
+*🔗 鏈上驗證*
+• 每個英雄都有出生證明
 • payment\_tx → DAA → 命運區塊 → 屬性
-• 任何人可驗證，無法作弊
+• 任何人可用 `/nv` 驗證，無法作弊
 
-━━━━━━━━━━━━━━━━
-_Built on Kaspa TestNet_"""
+*🌲 大地之樹獎勵*
+• DAA 結尾 66666 發放獎勵
+• 積分 = Rank + 擊殺×2
+
+━━━━━━━━━━━
+_Built on Kaspa TestNet_ 🌊"""
     
     await update.message.reply_text(rules, parse_mode='Markdown')
 
@@ -2550,6 +2592,7 @@ def register_hero_commands(app):
     app.add_handler(CommandHandler("nn", hero_name))         # nami_name
     app.add_handler(CommandHandler("nr", next_reward))       # nami_next_reward
     app.add_handler(CommandHandler("ns", hero_stats))        # nami_game_status
+    app.add_handler(CommandHandler("nse", hero_search))      # nami_search (偵查)
     app.add_handler(CommandHandler("nhp", hero_protect))     # v0.3: nami_hero_protect
     
     logger.info("🌲 英雄遊戲指令已註冊")

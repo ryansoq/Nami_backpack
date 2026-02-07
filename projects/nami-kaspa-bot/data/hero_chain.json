@@ -661,5 +661,66 @@
     "rank": "N",
     "tx_id": "8092c7903641d5d6a76032cc4570afad28e520f080cd332f1604130761d9e0d8",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 380994848,
+    "pre_tx": "a92393a92974b04f8a6ba220205ec291c47e8dcd4690d5f10c08ccdd6a077336",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "tx_id": "029495a2e43f7a56ef393ecc8c59ac6c956461adf32e5a09b7ff1224bcd7743a",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 381090790,
+    "pre_tx": "12de96d3f8513254567b2caaec135f2f426e8e06fdcdb79d901ed9f9f59deb05",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "tx_id": "5a995e28ba14bc72db83c4fe19788e16ee9a8557d5127606bcfd7490b36200fb",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 380994977,
+    "pre_tx": "431296e4d9a5237f453ff96aba1646bd94d6713b0ba28c021386d1738dd3a046",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 380851549,
+    "battle_tx": "0b315c0b1422e275f43daea6ad71d62667868629f319a05c9afb584527d259e5",
+    "tx_id": "f05ebeaeedb877cbd87079c1473f4a71a382ca951bce1e029325f7c47cba4196",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 381090558,
+    "pre_tx": "a1b2935520fba5a4b61874999b99676c814402794c4c4add104d802af95517e4",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 380851549,
+    "battle_tx": "15ade0957193dd17997cd4842a3445d0a38ecdb80ed27810b8e947f601d296ee",
+    "tx_id": "857299a7058ab87c64dea3bee964b71fb1979b9d7df72fa5ad4918dc53275588",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 381103380,
+    "pre_tx": "bbf4b77e7f5e018b9c7ccb67c15a6414081f539052e4afb18a13b047c66b346e",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 380851549,
+    "battle_tx": "8948bfc4ef35e27a7cada5de242f3982ea6bd53bfcb8ff6920874d23fc22256b",
+    "tx_id": "5da5a4927b8169eda9539ec7baecffb99b61b2144cfb54822e2d7f3f30077bbf",
+    "signer": "tree"
   }
 ]

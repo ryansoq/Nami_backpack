@@ -1494,7 +1494,18 @@ async def process_pvp_onchain(
             death_tx = await send_payload_tx(death_payload)
             result["death_tx"] = death_tx
             defender.latest_tx = death_tx
+            defender.death_tx = death_tx
+            defender.death_reason = "pvp"
+            defender.ltx = death_tx
             logger.info(f"   Death TX: {death_tx}")
+            
+            # 記錄到 hero_chain
+            chain = load_hero_chain()
+            death_payload["tx_id"] = death_tx
+            death_payload["signer"] = "tree"
+            chain.append(death_payload)
+            save_hero_chain(chain)
+            logger.info(f"   ✅ 死亡事件已記錄到 hero_chain")
         else:
             logger.info(f"   🛡️ 防守者受保護，跳過死亡事件")
         
@@ -1561,7 +1572,18 @@ async def process_pvp_onchain(
             death_tx = await send_payload_tx(death_payload)
             result["death_tx"] = death_tx
             attacker.latest_tx = death_tx
+            attacker.death_tx = death_tx
+            attacker.death_reason = "pvp"
+            attacker.ltx = death_tx
             logger.info(f"   Death TX: {death_tx}")
+            
+            # 記錄到 hero_chain
+            chain = load_hero_chain()
+            death_payload["tx_id"] = death_tx
+            death_payload["signer"] = "tree"
+            chain.append(death_payload)
+            save_hero_chain(chain)
+            logger.info(f"   ✅ 死亡事件已記錄到 hero_chain")
             
             # 記錄銘文（防守者勝利 + 攻擊者死亡，使用保存的舊 ltx）
             try:
@@ -1621,6 +1643,24 @@ async def process_pvp_onchain(
         logger.warning(f"⚠️ Mana 池不足 ({current_pool})，無法派發獎勵")
     
     save_heroes_db(db)
+    
+    # v0.3: 發獎勵給勝者
+    if result.get("reward_paid") and pvp_reward > 0:
+        winner = result.get("winner")
+        if winner and winner.owner_address:
+            try:
+                reward_amount = pvp_reward * 100_000_000  # 轉換為 sompi
+                reward_tx = await unified_wallet.send_from_tree(
+                    to_address=winner.owner_address,
+                    amount=reward_amount,
+                    memo=f"pvp_reward:{winner.card_id}"
+                )
+                result["reward_tx"] = reward_tx
+                logger.info(f"🎁 獎勵已發送: {pvp_reward} mana -> {winner.owner_address[:20]}... TX: {reward_tx[:20]}...")
+            except Exception as e:
+                logger.error(f"❌ 發獎失敗: {e}")
+                result["reward_tx"] = None
+                result["reward_error"] = str(e)
     
     logger.info(f"⚔️ PvP 完成: #{attacker.card_id} vs #{defender.card_id} -> {'攻擊者勝' if attacker_wins else '防守者勝'}")
     
