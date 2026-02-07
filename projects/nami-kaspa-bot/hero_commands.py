@@ -1953,29 +1953,53 @@ async def hero_payload(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 找不到英雄 #{card_id}")
         return
     
-    # 生成 payload
-    payload = {
-        "g": "nami_hero",
-        "type": "hero",
-        "daa": hero.card_id,
-        "card": hero.card_id,
-        "c": hero.hero_class[:3],
-        "r": hero.rarity[:3],
-        "a": hero.atk,
-        "d": hero.def_,
-        "s": hero.spd,
-        "status": hero.status
-    }
-    
     import json
-    payload_json = json.dumps(payload, separators=(',', ':'))
+    import os
     
-    msg = f"""📦 英雄 #{card_id} Payload
+    # v0.3: 優先讀取已上鏈的 birth inscription
+    inscription_path = f"data/inscriptions/{card_id}/birth.json"
+    
+    if os.path.exists(inscription_path):
+        # ✅ 已上鏈：顯示實際 payload
+        with open(inscription_path) as f:
+            birth = json.load(f)
+        
+        tx_id = birth.get("tx_id", "")
+        payload = birth.get("payload", {})
+        payload_json = json.dumps(payload, separators=(',', ':'))
+        verified = "✅ 已驗證" if birth.get("verified") else "⏳ 待驗證"
+        
+        msg = f"""📦 英雄 #{card_id} 出生銘文
+
+<b>狀態：{verified}</b>
 
 <code>{payload_json}</code>
 
 📍 命運: DAA {hero.card_id}
-📦 公告: DAA {hero.card_id + 1} (待上鏈)
+🔗 TX: <code>{tx_id}</code>
+🔗 <a href="https://explorer-tn10.kaspa.org/txs/{tx_id}">區塊瀏覽器</a>
+
+Size: {len(payload_json)} bytes"""
+    else:
+        # ⏳ 待上鏈：生成預計格式
+        payload = {
+            "g": "nami_hero",
+            "type": "birth",
+            "daa": hero.card_id,
+            "pre_tx": None,
+            "pay_tx": "(pending)",
+            "src": "(pending)",
+            "rank": hero.rarity[0].upper() if hero.rarity else "N"
+        }
+        payload_json = json.dumps(payload, separators=(',', ':'))
+        
+        msg = f"""📦 英雄 #{card_id} Payload
+
+<b>狀態：⏳ 待上鏈</b>
+
+<code>{payload_json}</code>
+
+📍 命運: DAA {hero.card_id}
 
 Size: {len(payload_json)} bytes"""
     
