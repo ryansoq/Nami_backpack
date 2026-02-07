@@ -296,6 +296,11 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
     winner_class = class_names.get(winner.hero_class, winner.hero_class)
     loser_class = class_names.get(loser.hero_class, loser.hero_class)
     
+    # 判斷敗者是否有保護
+    loser_protected = result.get("defender_protected") if result["attacker_wins"] else result.get("attacker_protected")
+    loser_fate = "🛡️ 受保護（免死）" if loser_protected else "永久死亡"
+    loser_emoji = "🛡️" if loser_protected else "☠️"
+    
     # 格式化戰鬥詳情
     detail = result.get("battle_detail", {})
     rounds_text = ""
@@ -327,19 +332,23 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
 🏆 <b>勝者</b>：#{winner.card_id} {winner_class}
    @{winner_name} | 擊殺：{winner.kills}
 
-☠️ <b>敗者</b>：#{loser.card_id} {loser_class}
-   @{loser_name} | 永久死亡
+{loser_emoji} <b>敗者</b>：#{loser.card_id} {loser_class}
+   @{loser_name} | {loser_fate}
 
 📝 <b>鏈上記錄</b>：
 付費: <code>{result['payment_tx'][:16]}...</code>"""
     
     if result.get("win_tx"):
         msg += f"\n勝利: <code>{result['win_tx'][:20]}...</code>"
-    msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
     
-    msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
-    
-    msg += "\n\n<i>願靈魂回歸大地之樹...</i> 🌲"
+    # 只有敗者真的死了才顯示死亡 TX
+    if result.get("death_tx"):
+        msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
+        msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
+        msg += "\n\n<i>願靈魂回歸大地之樹...</i> 🌲"
+    else:
+        # 敗者有保護，沒死
+        msg += "\n\n🛡️ <i>敗者受保護，免於死亡</i>"
     
     # 嘗試生成 PvP 戰報頭像（雙方並排）
     try:
@@ -1450,6 +1459,11 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         winner_class = class_names.get(winner.hero_class, winner.hero_class)
         loser_class = class_names.get(loser.hero_class, loser.hero_class)
         
+        # 判斷敗者是否有保護
+        loser_protected = result.get("defender_protected") if result["attacker_wins"] else result.get("attacker_protected")
+        loser_fate = "🛡️ 受保護（免死）" if loser_protected else "永久死亡"
+        loser_emoji = "🛡️" if loser_protected else "☠️"
+        
         # 格式化戰鬥詳情
         detail = result.get("battle_detail", {})
         
@@ -1490,8 +1504,8 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🏆 <b>勝者</b>：#{winner.card_id} {winner_class}
    @{winner_name} | 擊殺：{winner.kills}
 
-☠️ <b>敗者</b>：#{loser.card_id} {loser_class}
-   @{loser_name} | 永久死亡
+{loser_emoji} <b>敗者</b>：#{loser.card_id} {loser_class}
+   @{loser_name} | {loser_fate}
 
 📝 <b>鏈上記錄</b>：
 付費: <code>{result['payment_tx'][:16]}...</code>"""

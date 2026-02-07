@@ -63,7 +63,7 @@
       "status": "alive",
       "latest_daa": 380851549,
       "kills": 3,
-      "battles": 3,
+      "battles": 5,
       "created_at": "2026-02-07T14:29:42.522500",
       "death_time": "",
       "source_hash": "5357f0b58edd126933976f7e3ae4027d29cfaf45cb736ed45f97a99bb63e1c66",
@@ -138,8 +138,8 @@
       "spd": 102,
       "status": "alive",
       "latest_daa": 380994424,
-      "kills": 0,
-      "battles": 0,
+      "kills": 2,
+      "battles": 2,
       "created_at": "2026-02-07T18:27:20.090357",
       "death_time": "",
       "source_hash": "033e62ffced5b978971a38cfe3f0d693fb0e488ba838a89bbad4e231ae40b476",
@@ -315,9 +315,9 @@
   },
   "last_summon_daa": 381103380,
   "summon_queue": [],
-  "total_mana_pool": 66,
-  "last_checked_daa": 381159700,
-  "last_reward_daa": 381066666,
+  "total_mana_pool": 18,
+  "last_checked_daa": 381194399,
+  "last_reward_daa": 381166666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -327,6 +327,14 @@
       "distributed": 20200000000,
       "recipients_count": 9,
       "note": "手動補記錄（程式錯誤導致沒保存）"
+    },
+    {
+      "daa": 381166666,
+      "checked_at_daa": 381166904,
+      "timestamp": "2026-02-07T23:13:03.396619",
+      "total_pool": 56600000000,
+      "distributed": 37733333331,
+      "recipients_count": 6
     }
   ]
 }
