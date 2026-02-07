@@ -301,31 +301,53 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
     loser_fate = "🛡️ 受保護（免死）" if loser_protected else "永久死亡"
     loser_emoji = "🛡️" if loser_protected else "☠️"
     
-    # 格式化戰鬥詳情
+    # 格式化戰鬥詳情（v0.4 ATB 系統）
     detail = result.get("battle_detail", {})
-    rounds_text = ""
-    for i, r in enumerate(detail.get("rounds", []), 1):
-        if r["winner"] == "atk":
-            r_result = "🔵"
-        elif r["winner"] == "def":
-            r_result = "🔴"
-        else:
-            r_result = "⚪"
-        rounds_text += f"R{i} {r['name']}: {r['atk_val']} vs {r['def_val']} {r_result}\n"
     
-    score = f"{detail.get('atk_wins', 0)}:{detail.get('def_wins', 0)}"
+    # 檢查是否是 ATB 版本
+    if detail.get("atb_version"):
+        # v0.4 ATB 戰報
+        battle_log = detail.get("battle_log", "")
+        stats = detail.get("stats", {})
+        loops = detail.get("loops", 0)
+        is_draw = detail.get("draw", False)
+        
+        # 取戰報的最後幾行（精華部分）
+        log_lines = battle_log.split("\n")
+        # 跳過開頭的介紹，取戰鬥過程
+        battle_lines = [l for l in log_lines if l.startswith("⚡") or l.startswith("🗡️") or l.startswith("🧙") or l.startswith("⚔️") or l.startswith("🏹") or l.startswith("💨") or l.startswith("🔥")]
+        # 最多取 10 行
+        if len(battle_lines) > 10:
+            battle_summary = "\n".join(battle_lines[:5]) + "\n...\n" + "\n".join(battle_lines[-5:])
+        else:
+            battle_summary = "\n".join(battle_lines)
+        
+        rounds_text = f"<pre>{battle_summary}</pre>" if battle_summary else ""
+        score = f"Loop:{loops} | 閃避:{stats.get('p1_evades',0)+stats.get('p2_evades',0)} | 大招:{stats.get('p1_skills',0)+stats.get('p2_skills',0)}"
+    else:
+        # 舊版三回合格式
+        rounds_text = ""
+        for i, r in enumerate(detail.get("rounds", []), 1):
+            if r["winner"] == "atk":
+                r_result = "🔵"
+            elif r["winner"] == "def":
+                r_result = "🔴"
+            else:
+                r_result = "⚪"
+            rounds_text += f"R{i} {r['name']}: {r['atk_val']} vs {r['def_val']} {r_result}\n"
+        score = f"{detail.get('atk_wins', 0)}:{detail.get('def_wins', 0)}"
     
     msg = f"""{result_emoji} <b>PvP 結果：{result_text}</b>
 
 🔵 <b>攻方</b> #{my_hero.card_id} ({my_rank} {my_mult})
-⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
+HP:{getattr(my_hero, 'max_hp', 500)} ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
 
 🔴 <b>守方</b> #{target_hero.card_id} ({target_rank} {target_mult})
-⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
+HP:{getattr(target_hero, 'max_hp', 500)} ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
 
-📊 <b>對決</b> (數值已含加成)
+📊 <b>ATB 戰報</b>
 {rounds_text}
-<b>比分: {score}</b> → {detail.get('final_reason', '')}
+<b>{score}</b>
 
 ---
 
@@ -1524,7 +1546,9 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if result.get("death_tx"):
             msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
         
-        await update.message.reply_text(msg, parse_mode='HTML')
+        # v0.5: 私訊改為簡短通知，完整戰報只發群聊
+        short_msg = f"{result_emoji} PvP {'勝利！' if result['attacker_wins'] else '落敗...'} #{my_hero.card_id} vs #{target_hero.card_id}\n詳見群聊公告 ⬇️"
+        await update.message.reply_text(short_msg)
         
         # 群組公告（完整戰報）
         await announce_pvp_result(
