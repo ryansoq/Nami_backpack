@@ -562,5 +562,60 @@
     "rank": "N",
     "tx_id": "84b0fe47f3bf9eb2b8a117c7f589dae54540cc8b209c0d50eb663e9f5af20f2a",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380994228,
+    "pre_tx": null,
+    "pay_tx": "dff1809815237f8e2e88956419e6ad7600668919b42aff95e331cb0d99bd07b5",
+    "src": "a0e7476cc16a8055eeceb6e8849b69114a1b84db3a13959a2b44b01d9b6cdb4d",
+    "rank": "N",
+    "tx_id": "77524cf1f8e9dc2d7255f8a44ece2c6ac5b7d396f987facc9c97a69e89b3417d",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380994424,
+    "pre_tx": null,
+    "pay_tx": "9727007558b795bef44d7ae26a1ef46c3aed07c45dce978c6b3584ee022ada01",
+    "src": "033e62ffced5b978971a38cfe3f0d693fb0e488ba838a89bbad4e231ae40b476",
+    "rank": "SR",
+    "tx_id": "4ec3cf233c356323b72a6f52115a3c503d9ea955c45bed0c7212af1d8abe245a",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380994626,
+    "pre_tx": null,
+    "pay_tx": "cee805c89107c14fcdf33fd46c127b474ab4252dd6b5d1b8bfbbe947209d05e2",
+    "src": "bdf20262a227c39f5638d20c35da18a7d3cd3b7aba10f5a7bf1d6753a6aa0db4",
+    "rank": "R",
+    "tx_id": "7fe47e1d62384ae6b3c76286fd4176d881fcfe253d87d750efd5f4995cd2fae3",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380994848,
+    "pre_tx": null,
+    "pay_tx": "ff599ce3869fcbb334a2f374fec6c9f41caceee95364a2780e62f9aee2ad58d1",
+    "src": "9008add3189a998b419f79b0d2714fb453ff5ec94fbf1c1bbce4e782b806d396",
+    "rank": "N",
+    "tx_id": "a92393a92974b04f8a6ba220205ec291c47e8dcd4690d5f10c08ccdd6a077336",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380994977,
+    "pre_tx": null,
+    "pay_tx": "250e2221e2e90beeb3343962df829e93a641a9365b236b83d715c8bd740364f3",
+    "src": "a8862f3aaa0d26fa949292d1302a92bf6635baa376f57141849840979914a892",
+    "rank": "N",
+    "tx_id": "431296e4d9a5237f453ff96aba1646bd94d6713b0ba28c021386d1738dd3a046",
+    "signer": "player"
   }
 ]

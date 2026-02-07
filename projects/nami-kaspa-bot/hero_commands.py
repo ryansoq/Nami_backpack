@@ -344,34 +344,43 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
     # 嘗試生成 PvP 戰報頭像（雙方並排）
     try:
         from hero_avatar import generate_avatar
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
         import io
         
-        # 創建雙方頭像並排圖
-        size = 24
-        gap = 8
-        vs_width = 16
+        # 創建雙方頭像並排圖（放大尺寸！）
+        size = 128  # 每個頭像 128x128
+        gap = 24
+        vs_width = 64
         total_width = size * 2 + gap + vs_width + gap
         
         img = Image.new('RGBA', (total_width, size), (30, 30, 35, 255))
         
-        # 攻方頭像（左）
+        # 攻方頭像（左）- 藍框
         if my_hero.source_hash:
             atk_avatar = Image.open(io.BytesIO(
                 generate_avatar(my_hero.source_hash, my_hero.rank, my_hero.hero_class, size)
             ))
             img.paste(atk_avatar, (0, 0), atk_avatar)
+            # 畫藍框
+            draw = ImageDraw.Draw(img)
+            draw.rectangle([(0, 0), (size-1, size-1)], outline=(100, 150, 255, 255), width=3)
         
-        # VS 文字
+        # VS 文字（置中）
         draw = ImageDraw.Draw(img)
-        draw.text((size + gap, size // 3), "⚔", fill=(255, 200, 50, 255))
+        vs_x = size + gap + vs_width // 2
+        vs_y = size // 2
+        draw.text((vs_x - 16, vs_y - 24), "⚔️", fill=(255, 200, 50, 255))
+        draw.text((vs_x - 12, vs_y + 8), "VS", fill=(255, 255, 255, 200))
         
-        # 守方頭像（右）
+        # 守方頭像（右）- 紅框
+        right_x = size + gap + vs_width + gap
         if target_hero.source_hash:
             def_avatar = Image.open(io.BytesIO(
                 generate_avatar(target_hero.source_hash, target_hero.rank, target_hero.hero_class, size)
             ))
-            img.paste(def_avatar, (size + gap + vs_width + gap, 0), def_avatar)
+            img.paste(def_avatar, (right_x, 0), def_avatar)
+            # 畫紅框
+            draw.rectangle([(right_x, 0), (right_x + size - 1, size - 1)], outline=(255, 100, 100, 255), width=3)
         
         buffer = io.BytesIO()
         img.save(buffer, format='PNG')
@@ -1339,7 +1348,7 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         owner_id=my_hero_data["owner_id"],
         owner_address=my_hero_data["owner_address"],
         hero_class=my_hero_data["hero_class"],
-        rarity=my_hero_data["rarity"],
+        rank=my_hero_data.get("rank", my_hero_data.get("rarity", "N")),
         atk=my_hero_data["atk"],
         def_=my_hero_data["def"],
         spd=my_hero_data["spd"],
@@ -1356,7 +1365,7 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         owner_id=target_hero_data["owner_id"],
         owner_address=target_hero_data["owner_address"],
         hero_class=target_hero_data["hero_class"],
-        rarity=target_hero_data["rarity"],
+        rank=target_hero_data.get("rank", target_hero_data.get("rarity", "N")),
         atk=target_hero_data["atk"],
         def_=target_hero_data["def"],
         spd=target_hero_data["spd"],
@@ -1898,7 +1907,7 @@ async def hero_remint(update: Update, context: ContextTypes.DEFAULT_TYPE):
             owner_id=hero_data["owner_id"],
             owner_address=hero_data["owner_address"],
             hero_class=hero_data["hero_class"],
-            rarity=hero_data["rarity"],
+            rank=hero_data.get("rank", hero_data.get("rarity", "N")),
             atk=hero_data["atk"],
             def_=hero_data["def"],
             spd=hero_data["spd"],
@@ -1986,7 +1995,9 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db = load_heroes_db()
         
         # 🌲 大地的祝福（召喚、PvP 等費用累積）
-        mana_pool = db.get("total_mana_pool", 0)
+        accumulated_mana = db.get("total_mana_pool", 0)
+        BASE_REWARD = 500  # 大地之母每回合提供
+        total_mana = accumulated_mana + BASE_REWARD
         
         # 取得存活英雄數
         alive_count = sum(1 for h in db.get("heroes", {}).values() if h.get("status") == "alive")
@@ -1999,31 +2010,48 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             time_str = f"{remaining_minutes}m"
         
-        # 預估每位英雄獎勵
-        per_hero = mana_pool / alive_count if alive_count > 0 else 0
+        # 預估每位英雄獎勵（用總額計算）
+        per_hero = total_mana / alive_count if alive_count > 0 else 0
         
         # 取得前 5 名英雄（按擊殺數排序，0 殺則按稀有度）
-        rarity_rank = {"mythic": 6, "legendary": 5, "epic": 4, "rare": 3, "uncommon": 2, "common": 1}
+        # v0.3: 支援新舊格式
+        rank_order = {
+            "LR": 6, "mythic": 6,
+            "UR": 5, "legendary": 5, 
+            "SSR": 4, "epic": 4,
+            "SR": 3, "rare": 3,
+            "R": 2, "uncommon": 2,
+            "N": 1, "common": 1
+        }
         alive_heroes = [(hid, h) for hid, h in db.get("heroes", {}).items() if h.get("status") == "alive"]
         
         # 排序：先按擊殺數降序，再按稀有度降序
         alive_heroes.sort(key=lambda x: (
             -(x[1].get("kills", 0)),
-            -rarity_rank.get(x[1].get("rarity", "common"), 1)
+            -rank_order.get(x[1].get("rank") or x[1].get("rarity", "N"), 1)
         ))
         
         # 前 5 名
         top5_lines = []
-        rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣", "legendary": "🟡", "mythic": "🔱"}
+        rank_emoji = {
+            "N": "⭐", "common": "⭐",
+            "R": "⭐⭐", "uncommon": "⭐⭐",
+            "SR": "⭐⭐⭐", "rare": "⭐⭐⭐",
+            "SSR": "💎", "epic": "💎",
+            "UR": "✨", "legendary": "✨",
+            "LR": "🔱", "mythic": "🔱"
+        }
         class_emoji = {"warrior": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
         
         for i, (hid, h) in enumerate(alive_heroes[:5], 1):
             name = h.get("name")
             display = f"「{name}」" if name else f"#{hid}"
             kills = h.get("kills", 0)
-            re = rarity_emoji.get(h.get("rarity"), "⚪")
+            rank = h.get("rank") or h.get("rarity", "N")
+            re = rank_emoji.get(rank, "⭐")
             ce = class_emoji.get(h.get("hero_class"), "")
-            top5_lines.append(f"{i}. {re}{ce} {display} ({kills}殺)")
+            protected = "🛡️" if h.get("protected") else ""
+            top5_lines.append(f"{i}. {re}{ce} {display} {protected}({kills}殺)")
         
         top5_str = "\n".join(top5_lines) if top5_lines else "無存活英雄"
         
@@ -2034,7 +2062,9 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⏳ 剩餘: ~{time_str} ({remaining_daa:,} DAA)
 
 💰 *🌲 大地的祝福*
-累積: {mana_pool} mana
+累積: {accumulated_mana} mana
+大地之母: +{BASE_REWARD} mana
+總計: *{total_mana} mana*
 預估每位: ~{per_hero:.1f} mana
 
 👥 存活英雄: {alive_count} 位

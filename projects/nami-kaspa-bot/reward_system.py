@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 REWARD_TRIGGER_SUFFIX = "66666"  # DAA 結尾 66666 觸發（約每 2.78 小時）
-BASE_REWARD_MANA = 100  # 大地之母每回合提供的起始 mana
+BASE_REWARD_MANA = 500  # 大地之母每回合提供的起始 mana
 REWARD_POOL_RATIO = 0.7  # 70% 進獎勵池
 MIN_REWARD = 100000  # 最小發放金額 0.001 tKAS
 
@@ -224,7 +224,7 @@ async def distribute_rewards(daa: int, tree_balance: int, queue_lock=None) -> di
     db = load_heroes_db()
     db["total_mana_pool"] = 0
     save_heroes_db(db)
-    logger.info(f"🌲 驅動費池已清空（已發放 {mana_pool} mana）")
+    logger.info(f"🌲 驅動費池已清空（已發放 {accumulated_mana} mana）")
     
     return result
 
@@ -345,11 +345,7 @@ async def check_and_distribute(current_daa: int, tree_balance: int) -> Optional[
     last_reward_daa = db.get("last_reward_daa") or 0  # 處理 None
     last_checked_daa = db.get("last_checked_daa") or (last_reward_daa or current_daa - 100000)
     
-    # 更新檢查點
-    db["last_checked_daa"] = current_daa
-    save_heroes_db(db)
-    
-    # 檢查區間內是否有觸發點
+    # 檢查區間內是否有觸發點（先不更新 last_checked_daa）
     trigger_daa = find_trigger_daa_in_range(last_checked_daa, current_daa)
     
     if trigger_daa is None:
@@ -365,18 +361,24 @@ async def check_and_distribute(current_daa: int, tree_balance: int) -> Optional[
     # 發放獎勵（用觸發點 DAA，不是當前 DAA）
     result = await distribute_rewards(trigger_daa, tree_balance)
     
-    # 記錄已發放
-    db = load_heroes_db()  # 重新載入（distribute_rewards 可能有修改）
-    db["last_reward_daa"] = trigger_daa
-    db["reward_history"] = db.get("reward_history", [])
-    db["reward_history"].append({
-        "daa": trigger_daa,
-        "checked_at_daa": current_daa,
-        "timestamp": datetime.now().isoformat(),
-        "total_pool": result["total_pool"],
-        "distributed": result["distributed"],
-        "recipients_count": len(result["recipients"])
-    })
-    save_heroes_db(db)
+    # 只在成功發放後才更新記錄
+    if result.get("success"):
+        db = load_heroes_db()  # 重新載入（distribute_rewards 可能有修改）
+        db["last_reward_daa"] = trigger_daa
+        db["last_checked_daa"] = current_daa  # 只在成功發放後才更新
+        db["reward_history"] = db.get("reward_history", [])
+        db["reward_history"].append({
+            "daa": trigger_daa,
+            "checked_at_daa": current_daa,
+            "timestamp": datetime.now().isoformat(),
+            "total_pool": result["total_pool"],
+            "distributed": result["distributed"],
+            "recipients_count": len(result["recipients"])
+        })
+        save_heroes_db(db)
+        logger.info(f"✅ 獎勵記錄已保存 | DAA: {trigger_daa}")
+    else:
+        # 發放失敗，記錄錯誤但不更新 last_checked_daa（下次會重試）
+        logger.warning(f"⚠️ 獎勵發放失敗 | DAA: {trigger_daa} | 原因: {result.get('error')}")
     
     return result
