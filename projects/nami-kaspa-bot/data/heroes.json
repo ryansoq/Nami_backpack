@@ -110,7 +110,7 @@
       "atk": 60,
       "def": 14,
       "spd": 62,
-      "status": "dead",
+      "status": "alive",
       "latest_daa": 380994228,
       "kills": 0,
       "battles": 0,
@@ -287,31 +287,6 @@
       "name": "",
       "protected": false,
       "ltx": "bbf4b77e7f5e018b9c7ccb67c15a6414081f539052e4afb18a13b047c66b346e"
-    },
-    "380826142": {
-      "card_id": 380826142,
-      "owner_id": 5168530096,
-      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
-      "hero_class": "warrior",
-      "rank": "R",
-      "rarity": "R",
-      "atk": 32,
-      "def": 118,
-      "spd": 48,
-      "status": "alive",
-      "latest_daa": 380826142,
-      "kills": 2,
-      "battles": 0,
-      "created_at": "2026-02-07T21:42:09.697712",
-      "death_time": "",
-      "source_hash": "300d741c4b925277ba50fc73e434795591d72a99148a02e23f5064f7e8d707c2",
-      "payment_tx": "f9f441f34b9bdebd4003afff0f580ba22a161cc9c5908a647cd71cf7d6ee3a4f",
-      "tx_id": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
-      "latest_tx": "a85d42b6dc7bcab6836b96c2a87df58d43a03d6c66952e33aa7e7e367f1e1045",
-      "name": "亂拳打死老師傅",
-      "protected": true,
-      "birth_tx": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
-      "ltx": "a85d42b6dc7bcab6836b96c2a87df58d43a03d6c66952e33aa7e7e367f1e1045"
     }
   },
   "user_heroes": {
@@ -319,8 +294,7 @@
       380830830,
       380849450,
       380851549,
-      380926157,
-      380826142
+      380926157
     ],
     "684243833": [
       380994228,
@@ -336,7 +310,7 @@
   "last_summon_daa": 381103380,
   "summon_queue": [],
   "total_mana_pool": 40,
-  "last_checked_daa": 381119469,
+  "last_checked_daa": 381123838,
   "last_reward_daa": 381066666,
   "reward_history": [
     {

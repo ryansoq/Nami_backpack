@@ -1746,12 +1746,26 @@ async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"TX verify error: {e}")
             await update.message.reply_text(f"❌ 驗證失敗：{e}")
     else:
-        # 本地驗證（用英雄 ID）
+        # 本地驗證（用英雄 ID 或別名）
         try:
             card_id = int(arg)
         except ValueError:
-            await update.message.reply_text("❌ 無效的 ID（數字 = 英雄 ID，64 hex = TX ID）")
-            return
+            # 嘗試用別名查找
+            from hero_game import load_heroes_db
+            db = load_heroes_db()
+            found = None
+            search_name = arg.lower()
+            for hid, hero in db.get("heroes", {}).items():
+                hero_name = hero.get("name", "").lower()
+                if hero_name and search_name in hero_name:
+                    found = int(hid)
+                    break
+            
+            if found:
+                card_id = found
+            else:
+                await update.message.reply_text("❌ 無效的 ID（數字 = 英雄 ID，64 hex = TX ID，或英雄名字）")
+                return
         
         await update.message.reply_text(f"🔍 正在驗證英雄 #{card_id}...")
         
