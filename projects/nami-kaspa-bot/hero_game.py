@@ -16,6 +16,9 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 from enum import Enum
 
+# v0.4 ATB 戰鬥系統
+from atb_battle import ATBFighter, atb_battle, RANK_HP
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -39,7 +42,7 @@ PVP_REWARD_MAX = 5       # PvP 勝利獎勵最大值
 SUMMON_COOLDOWN = 5  # 秒
 
 # 版本
-GAME_VERSION = "0.3"
+GAME_VERSION = "0.4"  # ATB 戰鬥系統
 
 # Bot 錢包設定
 BOT_WALLET_FILE = Path(__file__).parent.parent.parent.parent / "clawd/.secrets/testnet-wallet.json"
@@ -588,6 +591,58 @@ def get_rank_stars(rank: str) -> str:
         if r.code == rank:
             return r.stars
     return "⭐"
+
+def calculate_battle_result_atb(attacker: Hero, defender: Hero, block_hash: str) -> Tuple[bool, dict]:
+    """
+    v0.4 ATB 戰鬥系統
+    
+    使用 Active Time Battle 系統計算戰鬥結果
+    """
+    import random
+    random.seed(int(block_hash[:16], 16))  # 用 block_hash 作為種子確保可驗證
+    
+    # 建立 ATB 戰鬥單位
+    atk_fighter = ATBFighter(
+        card_id=attacker.card_id,
+        name=getattr(attacker, 'name', '') or f"#{attacker.card_id}",
+        hero_class=attacker.hero_class,
+        rank=getattr(attacker, 'rank', 'N'),
+        atk=attacker.atk,
+        def_=attacker.def_,
+        spd=attacker.spd,
+    )
+    
+    def_fighter = ATBFighter(
+        card_id=defender.card_id,
+        name=getattr(defender, 'name', '') or f"#{defender.card_id}",
+        hero_class=defender.hero_class,
+        rank=getattr(defender, 'rank', 'N'),
+        atk=defender.atk,
+        def_=defender.def_,
+        spd=defender.spd,
+    )
+    
+    # 執行 ATB 戰鬥
+    result = atb_battle(atk_fighter, def_fighter)
+    
+    # 轉換結果格式
+    attacker_wins = not result["draw"] and result.get("winner") and result["winner"].card_id == attacker.card_id
+    
+    battle_detail = {
+        "atb_version": "0.4",
+        "loops": result["loops"],
+        "draw": result["draw"],
+        "battle_log": result["logs"].get_full_log(),
+        "stats": result["stats"],
+    }
+    
+    if not result["draw"]:
+        battle_detail["winner_id"] = result["winner"].card_id
+        battle_detail["loser_id"] = result["loser"].card_id
+        battle_detail["winner_hp"] = result["winner"].current_hp
+    
+    return attacker_wins, battle_detail
+
 
 def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> Tuple[bool, dict]:
     """
@@ -1398,8 +1453,8 @@ async def process_pvp_onchain(
         "death_tx": None
     }
     
-    # 1. 計算戰鬥結果
-    attacker_wins, battle_detail = calculate_battle_result(attacker, defender, block_hash)
+    # 1. 計算戰鬥結果（v0.4 ATB 系統）
+    attacker_wins, battle_detail = calculate_battle_result_atb(attacker, defender, block_hash)
     result["attacker_wins"] = attacker_wins
     result["battle_detail"] = battle_detail
     
