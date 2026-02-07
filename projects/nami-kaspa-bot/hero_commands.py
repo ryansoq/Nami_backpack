@@ -818,8 +818,26 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if hero.tx_id:
             logger.info(f"   📦 TX: {hero.tx_id}")
         
-        # 回覆結果
-        await update.message.reply_text(format_summon_result(hero), parse_mode='Markdown')
+        # 回覆結果（帶像素頭像）
+        try:
+            from hero_avatar import generate_avatar_with_frame
+            import io
+            
+            avatar_bytes = generate_avatar_with_frame(
+                block_hash=hero.source_hash,
+                rank=hero.rank,
+                hero_class=hero.hero_class,
+                size=64
+            )
+            
+            await update.message.reply_photo(
+                photo=io.BytesIO(avatar_bytes),
+                caption=format_summon_result(hero),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.warning(f"Avatar generation failed: {e}, fallback to text")
+            await update.message.reply_text(format_summon_result(hero), parse_mode='Markdown')
         
         # 群組公告
         await announce_hero_birth(context.bot, hero, user.username or str(user.id))
