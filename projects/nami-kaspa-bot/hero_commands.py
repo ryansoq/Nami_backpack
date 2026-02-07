@@ -121,6 +121,22 @@ async def send_announcement(bot, message: str, parse_mode: str = 'Markdown'):
     except Exception as e:
         logger.error(f"公告發送失敗: {e}")
 
+
+async def send_announcement_photo(bot, photo, caption: str, parse_mode: str = 'Markdown'):
+    """發送帶圖片的公告到群組"""
+    chat_id = get_announcement_chat_id()
+    if not chat_id:
+        return
+    try:
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=photo,
+            caption=caption,
+            parse_mode=parse_mode
+        )
+    except Exception as e:
+        logger.error(f"公告圖片發送失敗: {e}")
+
 async def announce_hero_birth(bot, hero, username: str):
     """v0.3: 公告英雄誕生（星星格式）"""
     # v0.3 Rank 顯示
@@ -325,7 +341,45 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
     
     msg += "\n\n<i>願靈魂回歸大地之樹...</i> 🌲"
     
-    await send_announcement(bot, msg, parse_mode='HTML')
+    # 嘗試生成 PvP 戰報頭像（雙方並排）
+    try:
+        from hero_avatar import generate_avatar
+        from PIL import Image, ImageDraw
+        import io
+        
+        # 創建雙方頭像並排圖
+        size = 24
+        gap = 8
+        vs_width = 16
+        total_width = size * 2 + gap + vs_width + gap
+        
+        img = Image.new('RGBA', (total_width, size), (30, 30, 35, 255))
+        
+        # 攻方頭像（左）
+        if my_hero.source_hash:
+            atk_avatar = Image.open(io.BytesIO(
+                generate_avatar(my_hero.source_hash, my_hero.rank, my_hero.hero_class, size)
+            ))
+            img.paste(atk_avatar, (0, 0), atk_avatar)
+        
+        # VS 文字
+        draw = ImageDraw.Draw(img)
+        draw.text((size + gap, size // 3), "⚔", fill=(255, 200, 50, 255))
+        
+        # 守方頭像（右）
+        if target_hero.source_hash:
+            def_avatar = Image.open(io.BytesIO(
+                generate_avatar(target_hero.source_hash, target_hero.rank, target_hero.hero_class, size)
+            ))
+            img.paste(def_avatar, (size + gap + vs_width + gap, 0), def_avatar)
+        
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        
+        await send_announcement_photo(bot, io.BytesIO(buffer.getvalue()), msg, parse_mode='HTML')
+    except Exception as e:
+        logger.warning(f"PvP avatar failed: {e}")
+        await send_announcement(bot, msg, parse_mode='HTML')
 
 async def announce_reward(bot, result: dict):
     """公告獎勵發放"""
@@ -882,10 +936,62 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def hero_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /nami_heroes - 查看我的英雄
+    /nami_heroes - 查看我的英雄（帶頭像）
     """
     user = update.effective_user
     heroes = get_user_heroes(user.id)
+    
+    # 嘗試生成英雄列表頭像
+    alive_heroes = [h for h in heroes if h.status == "alive"]
+    
+    if alive_heroes:
+        try:
+            from hero_avatar import generate_avatar
+            from PIL import Image
+            import io
+            
+            # 每個頭像 16x16，最多顯示 10 個
+            display_heroes = alive_heroes[:10]
+            count = len(display_heroes)
+            
+            # 計算排列（最多 5 個一行）
+            cols = min(count, 5)
+            rows = (count + cols - 1) // cols
+            
+            # 創建拼接圖
+            margin = 2
+            cell_size = 16 + margin
+            img_width = cols * cell_size + margin
+            img_height = rows * cell_size + margin
+            
+            combined = Image.new('RGBA', (img_width, img_height), (30, 30, 35, 255))
+            
+            for i, hero in enumerate(display_heroes):
+                if hero.source_hash:
+                    avatar_bytes = generate_avatar(hero.source_hash, hero.rank, hero.hero_class, 16)
+                    avatar = Image.open(io.BytesIO(avatar_bytes))
+                    
+                    col = i % cols
+                    row = i // cols
+                    x = margin + col * cell_size
+                    y = margin + row * cell_size
+                    
+                    combined.paste(avatar, (x, y), avatar)
+            
+            # 轉換為 bytes
+            buffer = io.BytesIO()
+            combined.save(buffer, format='PNG')
+            
+            await update.message.reply_photo(
+                photo=io.BytesIO(buffer.getvalue()),
+                caption=format_hero_list(heroes),
+                parse_mode='Markdown'
+            )
+            return
+        except Exception as e:
+            logger.warning(f"Hero list avatar failed: {e}")
+    
+    # Fallback: 純文字
     await update.message.reply_text(format_hero_list(heroes), parse_mode='Markdown')
 
 SCOUT_COST = 10_00000000  # 偵查費用 10 mana
