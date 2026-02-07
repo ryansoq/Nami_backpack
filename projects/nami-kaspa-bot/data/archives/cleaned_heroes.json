@@ -1,0 +1,25 @@
+{
+  "description": "已清理的無效卡片（缺少出生證明）",
+  "cleaned_at": "2026-02-07T01:37:14.816368",
+  "total": 2,
+  "heroes": [
+    {
+      "card_id": 380344861,
+      "owner_id": 339795705,
+      "owner_address": "kaspatest:qrxnjklj0mtwsnp2uzkyrrh09g7psgv9l4kzr0938jd92z9q5dw37sadvmzta",
+      "rarity": "common",
+      "status": "dead",
+      "reason": "missing_birth_proof",
+      "cleaned_at": "2026-02-07T01:37:14.816204"
+    },
+    {
+      "card_id": 380360403,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "rarity": "uncommon",
+      "status": "alive",
+      "reason": "missing_birth_proof",
+      "cleaned_at": "2026-02-07T01:37:14.816250"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "type": "birth",
+  "hero_id": 380070021,
+  "tx_id": "cec1dd82e1b415192c0d6e0df165fdb8009d853f2ac3ada1e007ca7bff3a2dd3",
+  "payment_tx": "579694e5df760edabece6b6e0a9a66d6008d2ec8b43aa8fc58cd22b348706718",
+  "source_hash": "ffc0647304a2259eedd764bb455aeb82ddda521aa42289a28adde468df0ae305",
+  "source_daa": 380070022,
+  "payload": {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380070021,
+    "c": "rogue",
+    "r": "uncommon",
+    "a": 69,
+    "d": 14,
+    "s": 93
+  },
+  "pre_tx": null,
+  "verified": true,
+  "timestamp": "2026-02-07T02:24:51.529439"
+}
