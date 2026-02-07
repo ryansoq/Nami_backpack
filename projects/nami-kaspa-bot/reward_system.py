@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # 配置
 # ═══════════════════════════════════════════════════════════════════════════════
 
-REWARD_TRIGGER_SUFFIX = "066666"  # DAA 結尾觸發（約每 2.78 小時）
+REWARD_TRIGGER_SUFFIX = "66666"  # DAA 結尾 66666 觸發（約每 2.78 小時）
 BASE_REWARD_MANA = 100  # 大地之母每回合提供的起始 mana
 REWARD_POOL_RATIO = 0.7  # 70% 進獎勵池
 MIN_REWARD = 100000  # 最小發放金額 0.001 tKAS
@@ -312,7 +312,7 @@ def find_trigger_daa_in_range(start_daa: int, end_daa: int) -> Optional[int]:
     # 要找 380566666（如果在區間內）
     
     suffix = int(REWARD_TRIGGER_SUFFIX)  # 66666
-    suffix_len = len(REWARD_TRIGGER_SUFFIX)  # 5
+    suffix_len = len(REWARD_TRIGGER_SUFFIX)  # 5 位數
     divisor = 10 ** suffix_len  # 100000
     
     # 計算 start_daa 之後最近的 66666 結尾 DAA
