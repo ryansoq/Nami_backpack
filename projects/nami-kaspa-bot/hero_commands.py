@@ -337,7 +337,7 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
             battle_summary = "\n".join(battle_lines)
         
         rounds_text = f"<pre>{battle_summary}</pre>" if battle_summary else ""
-        score = f"Loop:{loops} | 閃避:{stats.get('p1_evades',0)+stats.get('p2_evades',0)} | 大招:{stats.get('p1_skills',0)+stats.get('p2_skills',0)}"
+        score = f"回合:{loops} | 閃避:{stats.get('p1_evades',0)+stats.get('p2_evades',0)} | 大招:{stats.get('p1_skills',0)+stats.get('p2_skills',0)}"
     else:
         # 舊版三回合格式
         rounds_text = ""
