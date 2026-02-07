@@ -317,12 +317,14 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
         # 跳過開頭的介紹，取戰鬥過程
         battle_lines = [l for l in log_lines if l.startswith("⚡") or l.startswith("🗡️") or l.startswith("🧙") or l.startswith("⚔️") or l.startswith("🏹") or l.startswith("💨") or l.startswith("🔥")]
         
-        # v0.5: 用顏色區分攻守方名字
+        # v0.5: 用顏色區分攻守方名字（用英雄名字，不是 username）
         # 攻方藍色 🔵，守方紅色 🔴
+        atk_hero_name = getattr(my_hero, 'name', '') or str(my_hero.card_id)
+        def_hero_name = getattr(target_hero, 'name', '') or str(target_hero.card_id)
         colored_lines = []
         for line in battle_lines:
-            line = line.replace(f"[{attacker_name}]", f"🔵[{attacker_name}]")
-            line = line.replace(f"[{defender_name}]", f"🔴[{defender_name}]")
+            line = line.replace(f"[{atk_hero_name}]", f"🔵[{atk_hero_name}]")
+            line = line.replace(f"[{def_hero_name}]", f"🔴[{def_hero_name}]")
             colored_lines.append(line)
         battle_lines = colored_lines
         
