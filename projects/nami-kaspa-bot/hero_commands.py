@@ -1697,7 +1697,25 @@ async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     for err in result["errors"]:
                         msg += f"• {err}\n"
                 
-                await update.message.reply_text(msg, parse_mode='Markdown')
+                # 嘗試顯示英雄頭像
+                hero = get_hero_by_id(card_id)
+                if hero and hero.source_hash:
+                    try:
+                        from hero_avatar import generate_avatar_with_frame
+                        import io
+                        avatar_bytes = generate_avatar_with_frame(
+                            hero.source_hash, hero.rank, hero.hero_class, 64
+                        )
+                        await update.message.reply_photo(
+                            photo=io.BytesIO(avatar_bytes),
+                            caption=msg,
+                            parse_mode='Markdown'
+                        )
+                    except Exception as e:
+                        logger.warning(f"Avatar in verify failed: {e}")
+                        await update.message.reply_text(msg, parse_mode='Markdown')
+                else:
+                    await update.message.reply_text(msg, parse_mode='Markdown')
             else:
                 # 沒有本地記錄，嘗試鏈上驗證（可能超時）
                 await update.message.reply_text("⏳ 本地無記錄，嘗試鏈上查詢...")
