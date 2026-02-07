@@ -11,6 +11,40 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# 🔒 v0.3 安全機制
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# 管理員 ID（可以在維護模式下操作）
+ADMIN_IDS = [5168530096]  # Ryan
+
+# 維護模式（開啟時只有管理員能執行操作）
+MAINTENANCE_MODE = False
+
+# 全局錢包鎖（防止 UTXO 衝突）
+WALLET_LOCK = asyncio.Lock()
+
+def is_admin(user_id: int) -> bool:
+    """檢查是否為管理員"""
+    return user_id in ADMIN_IDS
+
+def check_maintenance(user_id: int) -> str | None:
+    """
+    檢查維護模式
+    Returns: 錯誤訊息（如果被阻擋），None（如果可以繼續）
+    """
+    if MAINTENANCE_MODE and not is_admin(user_id):
+        return "🛠️ 系統維護中，請稍後再試～"
+    return None
+
+async def with_wallet_lock(coro):
+    """
+    使用錢包鎖執行協程
+    確保同一時間只有一個錢包操作
+    """
+    async with WALLET_LOCK:
+        return await coro
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # 🙏 大地之樹排隊系統
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -561,6 +595,11 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat = update.effective_chat
     
+    # v0.3: 維護模式檢查
+    if msg := check_maintenance(user.id):
+        await update.message.reply_text(msg)
+        return
+    
     # Log: 誰在哪裡做了什麼
     chat_info = f"[{chat.type}:{chat.id}]" if chat.type != "private" else "[私聊]"
     logger.info(f"🎮 召喚請求 | {chat_info} @{user.username or user.id}")
@@ -1060,6 +1099,11 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat = update.effective_chat
     
+    # v0.3: 維護模式檢查
+    if msg := check_maintenance(user.id):
+        await update.message.reply_text(msg)
+        return
+    
     chat_info = f"[{chat.type}:{chat.id}]" if chat.type != "private" else "[私聊]"
     logger.info(f"⚔️ PvP 請求 | {chat_info} @{user.username or user.id} | args: {len(context.args or [])}")
     
@@ -1478,6 +1522,11 @@ async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_burn <ID> <PIN> - 銷毀英雄（不可逆！）
     """
     user = update.effective_user
+    
+    # v0.3: 維護模式檢查
+    if msg := check_maintenance(user.id):
+        await update.message.reply_text(msg)
+        return
     
     if len(context.args) < 2:
         await update.message.reply_text(
@@ -2139,6 +2188,77 @@ PvP 費用：2-8 tKAS"""
         await update.message.reply_text(f"❌ 查詢失敗：{e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# v0.3 管理員指令
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def admin_maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nami_admin_maintenance [on|off] - 開關維護模式（管理員專用）
+    """
+    global MAINTENANCE_MODE
+    user = update.effective_user
+    
+    if not is_admin(user.id):
+        await update.message.reply_text("❌ 此指令僅限管理員使用")
+        return
+    
+    if not context.args:
+        status = "🔴 開啟中" if MAINTENANCE_MODE else "🟢 關閉"
+        await update.message.reply_text(
+            f"🛠️ *維護模式狀態*\n\n"
+            f"目前: {status}\n\n"
+            f"用法：\n"
+            f"`/nami_admin_maintenance on` - 開啟\n"
+            f"`/nami_admin_maintenance off` - 關閉",
+            parse_mode='Markdown'
+        )
+        return
+    
+    action = context.args[0].lower()
+    if action == "on":
+        MAINTENANCE_MODE = True
+        await update.message.reply_text("🔴 維護模式已開啟\n其他用戶無法執行操作")
+        logger.warning("🛠️ 維護模式已開啟")
+    elif action == "off":
+        MAINTENANCE_MODE = False
+        await update.message.reply_text("🟢 維護模式已關閉\n系統恢復正常")
+        logger.info("🛠️ 維護模式已關閉")
+    else:
+        await update.message.reply_text("❌ 參數錯誤，請用 on 或 off")
+
+async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nami_admin_status - 查看系統狀態（管理員專用）
+    """
+    user = update.effective_user
+    
+    if not is_admin(user.id):
+        await update.message.reply_text("❌ 此指令僅限管理員使用")
+        return
+    
+    from hero_game import load_heroes_db
+    db = load_heroes_db()
+    
+    total_heroes = len(db.get("heroes", {}))
+    alive_heroes = sum(1 for h in db.get("heroes", {}).values() if h.get("status") == "alive")
+    mana_pool = db.get("total_mana_pool", 0)
+    
+    maintenance_status = "🔴 開啟" if MAINTENANCE_MODE else "🟢 關閉"
+    lock_status = "🔒 鎖定中" if WALLET_LOCK.locked() else "🔓 空閒"
+    queue_size = tree_queue.queue_size()
+    
+    await update.message.reply_text(
+        f"📊 *系統狀態*\n\n"
+        f"🛠️ 維護模式: {maintenance_status}\n"
+        f"🔐 錢包鎖: {lock_status}\n"
+        f"⏳ 排隊人數: {queue_size}\n\n"
+        f"🦸 總英雄: {total_heroes}\n"
+        f"🟢 存活: {alive_heroes}\n"
+        f"🏦 獎池: {mana_pool} mana",
+        parse_mode='Markdown'
+    )
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # v0.3 保護機制
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2234,6 +2354,10 @@ def register_hero_commands(app):
     
     # v0.3 新指令
     app.add_handler(CommandHandler("nami_hero_protect", hero_protect))
+    
+    # v0.3 管理員指令
+    app.add_handler(CommandHandler("nami_admin_maintenance", admin_maintenance))
+    app.add_handler(CommandHandler("nami_admin_status", admin_status))
     
     # ═══════════════════════════════════════════════════════════════════════
     # 縮寫指令
