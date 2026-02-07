@@ -1451,9 +1451,13 @@ async def process_pvp_onchain(
         # 5a. 攻擊者贏 - 發送 pvp_win 事件
         logger.info(f"   ✅ 攻擊者勝利！發送 pvp_win 事件...")
         
+        # 保存舊的 latest_tx（用於銘文記錄的 pre_tx）
+        attacker_old_ltx = attacker.latest_tx or attacker.tx_id or ""
+        defender_old_ltx = defender.latest_tx or defender.tx_id or ""
+        
         win_payload = create_pvp_win_payload(
             hero_id=attacker.card_id,
-            pre_tx=attacker.latest_tx or "",
+            pre_tx=attacker_old_ltx,
             target_id=defender.card_id,
             payment_tx=payment_tx,
             source_hash=block_hash
@@ -1497,22 +1501,22 @@ async def process_pvp_onchain(
         # 記錄銘文（攻擊者勝利 + 防守者死亡，如果沒受保護）
         try:
             from inscription_store import save_event_inscription, save_death_inscription
-            # 攻擊者的勝利事件
+            # 攻擊者的勝利事件（使用保存的舊 ltx）
             save_event_inscription(
                 hero_id=attacker.card_id,
                 event_type="pvp_win",
                 tx_id=win_tx,
-                pre_tx=attacker.latest_tx or attacker.tx_id,
+                pre_tx=attacker_old_ltx,
                 payment_tx=payment_tx,
                 source_hash=block_hash,
                 target_id=defender.card_id
             )
-            # 防守者的死亡（只有沒受保護時）
+            # 防守者的死亡（只有沒受保護時，使用保存的舊 ltx）
             if not defender_protected:
                 save_death_inscription(
                     hero_id=defender.card_id,
                     tx_id=death_tx,
-                    pre_tx=defender.latest_tx or defender.tx_id,
+                    pre_tx=defender_old_ltx,
                     reason="pvp",
                     killer_id=attacker.card_id,
                     battle_tx=win_tx
@@ -1537,12 +1541,16 @@ async def process_pvp_onchain(
         result["loser"] = attacker
         
         # 5b. 攻擊者輸 - 大地之樹發送死亡事件給攻擊者（如果沒受保護）
+        # 保存舊的 latest_tx（用於銘文記錄的 pre_tx）
+        attacker_old_ltx = attacker.latest_tx or attacker.tx_id or ""
+        defender_old_ltx = defender.latest_tx or defender.tx_id or ""
+        
         if not attacker_protected:
             logger.info(f"   ❌ 攻擊者落敗！🌲 大地之樹發送死亡事件...")
             
             death_payload = create_death_payload(
                 hero_id=attacker.card_id,
-                pre_tx=attacker.latest_tx or "",
+                pre_tx=attacker_old_ltx,
                 reason="pvp",
                 killer_id=defender.card_id,
                 battle_tx=payment_tx  # 用付款 TX 作為戰鬥證明
@@ -1555,7 +1563,7 @@ async def process_pvp_onchain(
             attacker.latest_tx = death_tx
             logger.info(f"   Death TX: {death_tx}")
             
-            # 記錄銘文（防守者勝利 + 攻擊者死亡）
+            # 記錄銘文（防守者勝利 + 攻擊者死亡，使用保存的舊 ltx）
             try:
                 from inscription_store import save_event_inscription, save_death_inscription
                 # 防守者的勝利事件
@@ -1563,7 +1571,7 @@ async def process_pvp_onchain(
                     hero_id=defender.card_id,
                     event_type="pvp_win",
                     tx_id=payment_tx,  # 用付款 TX 作為證明
-                    pre_tx=defender.latest_tx or defender.tx_id,
+                    pre_tx=defender_old_ltx,
                     source_hash=block_hash,
                     target_id=attacker.card_id
                 )
@@ -1571,7 +1579,7 @@ async def process_pvp_onchain(
                 save_death_inscription(
                     hero_id=attacker.card_id,
                     tx_id=death_tx,
-                    pre_tx=attacker.latest_tx or attacker.tx_id,
+                    pre_tx=attacker_old_ltx,
                     reason="pvp",
                     killer_id=defender.card_id,
                     battle_tx=payment_tx
