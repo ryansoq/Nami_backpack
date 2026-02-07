@@ -1,30 +1,5 @@
 {
   "heroes": {
-    "380826142": {
-      "card_id": 380826142,
-      "owner_id": 5168530096,
-      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
-      "hero_class": "warrior",
-      "rank": "R",
-      "rarity": "R",
-      "atk": 32,
-      "def": 118,
-      "spd": 48,
-      "status": "alive",
-      "latest_daa": 380826142,
-      "kills": 2,
-      "battles": 2,
-      "created_at": "",
-      "death_time": "",
-      "source_hash": "",
-      "payment_tx": "",
-      "tx_id": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
-      "latest_tx": "89528270b1babab90961ef70082b068b83767ffff051d3b1769247af61057cca",
-      "name": "",
-      "protected": false,
-      "birth_tx": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
-      "ltx": "43004462029efc090843d12574bac069df573b8186fa776775dbdd8072f3d8c5"
-    },
     "380830830": {
       "card_id": 380830830,
       "owner_id": 5168530096,
@@ -144,11 +119,12 @@
       "source_hash": "a0e7476cc16a8055eeceb6e8849b69114a1b84db3a13959a2b44b01d9b6cdb4d",
       "payment_tx": "dff1809815237f8e2e88956419e6ad7600668919b42aff95e331cb0d99bd07b5",
       "tx_id": "77524cf1f8e9dc2d7255f8a44ece2c6ac5b7d396f987facc9c97a69e89b3417d",
-      "latest_tx": "c527f2098e302eb86d54d41063a74d221871cdf227d3fcd0bb881478684fda3b",
+      "latest_tx": "77524cf1f8e9dc2d7255f8a44ece2c6ac5b7d396f987facc9c97a69e89b3417d",
       "name": "",
       "protected": true,
       "death_reason": "burn",
-      "death_tx": "c527f2098e302eb86d54d41063a74d221871cdf227d3fcd0bb881478684fda3b"
+      "death_tx": "c527f2098e302eb86d54d41063a74d221871cdf227d3fcd0bb881478684fda3b",
+      "ltx": "77524cf1f8e9dc2d7255f8a44ece2c6ac5b7d396f987facc9c97a69e89b3417d"
     },
     "380994424": {
       "card_id": 380994424,
@@ -170,7 +146,7 @@
       "payment_tx": "9727007558b795bef44d7ae26a1ef46c3aed07c45dce978c6b3584ee022ada01",
       "tx_id": "4ec3cf233c356323b72a6f52115a3c503d9ea955c45bed0c7212af1d8abe245a",
       "latest_tx": "4ec3cf233c356323b72a6f52115a3c503d9ea955c45bed0c7212af1d8abe245a",
-      "name": "",
+      "name": "pvp專用",
       "protected": false
     },
     "380994626": {
@@ -281,8 +257,8 @@
       "battles": 1,
       "created_at": "",
       "death_time": "2026-02-07T21:20:35.626637",
-      "source_hash": "",
-      "payment_tx": "",
+      "source_hash": "f5c986fb4f4b7c548ca144a3513cd24d8c95963642ba862924eb613c4ea01ae0",
+      "payment_tx": "fa41715cc2c3a1a93cecf56ff9ea02d80a6fbc895a98be620c1fbeb53563ad6d",
       "tx_id": "12de96d3f8513254567b2caaec135f2f426e8e06fdcdb79d901ed9f9f59deb05",
       "latest_tx": "5a995e28ba14bc72db83c4fe19788e16ee9a8557d5127606bcfd7490b36200fb",
       "name": "",
@@ -300,25 +276,51 @@
       "spd": 82,
       "status": "alive",
       "latest_daa": 381103380,
-      "kills": 0,
-      "battles": 0,
-      "created_at": "2026-02-07T21:21:23.361695",
+      "kills": 1,
+      "battles": 1,
+      "created_at": "",
       "death_time": "",
       "source_hash": "9503610d21abe7f9037c92549e67be1ac1f8c764b8326a216913b96ac8c44dfd",
       "payment_tx": "2418ee3452b314ed8890bef42f35b9a4a90d1bc46c4ca7bba434d895ce5965fc",
       "tx_id": "8092c7903641d5d6a76032cc4570afad28e520f080cd332f1604130761d9e0d8",
-      "latest_tx": "8092c7903641d5d6a76032cc4570afad28e520f080cd332f1604130761d9e0d8",
+      "latest_tx": "bbf4b77e7f5e018b9c7ccb67c15a6414081f539052e4afb18a13b047c66b346e",
       "name": "",
-      "protected": false
+      "protected": false,
+      "ltx": "bbf4b77e7f5e018b9c7ccb67c15a6414081f539052e4afb18a13b047c66b346e"
+    },
+    "380826142": {
+      "card_id": 380826142,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "warrior",
+      "rank": "R",
+      "rarity": "R",
+      "atk": 32,
+      "def": 118,
+      "spd": 48,
+      "status": "alive",
+      "latest_daa": 380826142,
+      "kills": 2,
+      "battles": 0,
+      "created_at": "2026-02-07T21:42:09.697712",
+      "death_time": "",
+      "source_hash": "300d741c4b925277ba50fc73e434795591d72a99148a02e23f5064f7e8d707c2",
+      "payment_tx": "f9f441f34b9bdebd4003afff0f580ba22a161cc9c5908a647cd71cf7d6ee3a4f",
+      "tx_id": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
+      "latest_tx": "a85d42b6dc7bcab6836b96c2a87df58d43a03d6c66952e33aa7e7e367f1e1045",
+      "name": "亂拳打死老師傅",
+      "protected": true,
+      "birth_tx": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
+      "ltx": "a85d42b6dc7bcab6836b96c2a87df58d43a03d6c66952e33aa7e7e367f1e1045"
     }
   },
   "user_heroes": {
     "5168530096": [
-      380826142,
       380830830,
       380849450,
       380851549,
-      380926157
+      380926157,
+      380826142
     ],
     "684243833": [
       380994228,
@@ -333,8 +335,8 @@
   },
   "last_summon_daa": 381103380,
   "summon_queue": [],
-  "total_mana_pool": 35,
-  "last_checked_daa": 381102288,
+  "total_mana_pool": 40,
+  "last_checked_daa": 381119469,
   "last_reward_daa": 381066666,
   "reward_history": [
     {

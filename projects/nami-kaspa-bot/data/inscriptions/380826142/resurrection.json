@@ -1,0 +1,8 @@
+{
+  "type": "resurrection",
+  "hero_id": 380826142,
+  "tx_id": "a85d42b6dc7bcab6836b96c2a87df58d43a03d6c66952e33aa7e7e367f1e1045",
+  "pre_tx": "dd5ed37e4e0ccb98afade9df794bdb20d5b148e5df3983a3f59c0b8f933ee8f7",
+  "reason": "gm_bug_fix",
+  "timestamp": "2026-02-07T21:42:12.413962"
+}

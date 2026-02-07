@@ -6,8 +6,17 @@
   "pre_tx": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
   "payment_tx": "37f2a8e28ed907097cc844c1999673bc95e3d1555fe3f5071f5f111a040f8b51",
   "source_hash": "6bc19d3bfbe6cd842968bd661f29a461c224c4faa1de60125de3841d4f2e953a",
-  "payload": null,
+  "payload": {
+    "g": "nami_hero",
+    "type": "pvp_win",
+    "daa": 380826142,
+    "pre_tx": "aed54c4174bad6a720f40e07ddec101c4ae667871dc2fc6157b928bd662955d9",
+    "pay_tx": "37f2a8e28ed907097cc844c1999673bc95e3d1555fe3f5071f5f111a040f8b51",
+    "src": "6bc19d3bfbe6cd842968bd661f29a461c224c4faa1de60125de3841d4f2e953a",
+    "target": 380994848,
+    "kills": 1
+  },
   "verified": true,
-  "timestamp": "2026-02-07T19:59:29.154006",
+  "timestamp": "2026-02-07T21:42:10.408175",
   "target_id": 380994848
 }

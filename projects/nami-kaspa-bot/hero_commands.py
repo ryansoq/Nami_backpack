@@ -1342,40 +1342,9 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ PIN 錯誤")
         return
     
-    # 建立 Hero 物件
-    my_hero = Hero(
-        card_id=my_hero_data["card_id"],
-        owner_id=my_hero_data["owner_id"],
-        owner_address=my_hero_data["owner_address"],
-        hero_class=my_hero_data["hero_class"],
-        rank=my_hero_data.get("rank", my_hero_data.get("rarity", "N")),
-        atk=my_hero_data["atk"],
-        def_=my_hero_data["def"],
-        spd=my_hero_data["spd"],
-        status=my_hero_data["status"],
-        latest_daa=my_hero_data.get("latest_daa", my_hero_data["card_id"]),
-        kills=my_hero_data.get("kills", 0),
-        battles=my_hero_data.get("battles", 0),
-        tx_id=my_hero_data.get("tx_id", ""),
-        latest_tx=my_hero_data.get("latest_tx", "")
-    )
-    
-    target_hero = Hero(
-        card_id=target_hero_data["card_id"],
-        owner_id=target_hero_data["owner_id"],
-        owner_address=target_hero_data["owner_address"],
-        hero_class=target_hero_data["hero_class"],
-        rank=target_hero_data.get("rank", target_hero_data.get("rarity", "N")),
-        atk=target_hero_data["atk"],
-        def_=target_hero_data["def"],
-        spd=target_hero_data["spd"],
-        status=target_hero_data["status"],
-        latest_daa=target_hero_data.get("latest_daa", target_hero_data["card_id"]),
-        kills=target_hero_data.get("kills", 0),
-        battles=target_hero_data.get("battles", 0),
-        tx_id=target_hero_data.get("tx_id", ""),
-        latest_tx=target_hero_data.get("latest_tx", "")
-    )
+    # 建立 Hero 物件（使用 from_dict 確保所有欄位都正確載入）
+    my_hero = Hero.from_dict(my_hero_data)
+    target_hero = Hero.from_dict(target_hero_data)
     
     # 計算費用
     pvp_cost = PVP_COST

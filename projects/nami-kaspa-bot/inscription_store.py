@@ -179,6 +179,12 @@ def get_hero_chain(hero_id: int) -> list:
         with open(death_file) as f:
             chain.append(json.load(f))
     
+    # 4. 復活銘文（GM 特赦）
+    resurrection_file = hero_dir / "resurrection.json"
+    if resurrection_file.exists():
+        with open(resurrection_file) as f:
+            chain.append(json.load(f))
+    
     return chain
 
 
@@ -281,6 +287,8 @@ def format_chain_summary(hero_id: int) -> str:
             emoji = "🎴"
         elif item_type == "death":
             emoji = "💀"
+        elif item_type == "resurrection":
+            emoji = "✨"
         else:
             emoji = "⚔️"
         

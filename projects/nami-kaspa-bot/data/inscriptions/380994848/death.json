@@ -2,7 +2,7 @@
   "type": "death",
   "hero_id": 380994848,
   "tx_id": "029495a2e43f7a56ef393ecc8c59ac6c956461adf32e5a09b7ff1224bcd7743a",
-  "pre_tx": "029495a2e43f7a56ef393ecc8c59ac6c956461adf32e5a09b7ff1224bcd7743a",
+  "pre_tx": "a92393a92974b04f8a6ba220205ec291c47e8dcd4690d5f10c08ccdd6a077336",
   "reason": "pvp",
   "killer_id": 380826142,
   "battle_tx": "43004462029efc090843d12574bac069df573b8186fa776775dbdd8072f3d8c5",
