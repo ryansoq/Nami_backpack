@@ -18,7 +18,8 @@
       "source_hash": "2e8546284f0f70fe47c2b8b7a9b01cd4d3dcc6c6ff6f68fabe3ac20808cd5637",
       "payment_tx": "6dd7865b3d3bcfca52617f6b4bb61f626df5d5af50d35cdb629c2384db24d37d",
       "tx_id": "da9bf4db145542667caa85b6391c5ca50d85a768b5fd586b21bac0cb5509a00e",
-      "latest_tx": "da9bf4db145542667caa85b6391c5ca50d85a768b5fd586b21bac0cb5509a00e"
+      "latest_tx": "da9bf4db145542667caa85b6391c5ca50d85a768b5fd586b21bac0cb5509a00e",
+      "name": "crazygraph1"
     },
     "380688388": {
       "card_id": 380688388,
@@ -38,7 +39,8 @@
       "source_hash": "d85ea80c27ac4ccd7dc713f331a875cc802a4a9728eb80a19ac028f625669b86",
       "payment_tx": "da1985a3c71f59edd720691e175afdf8199bcf051e73dd3124ffcb93cc65ee5e",
       "tx_id": "26c8aa2a3ea1a74481dad9dba7941a080206422b0511602b0a83b08f5e8dcf2b",
-      "latest_tx": "26c8aa2a3ea1a74481dad9dba7941a080206422b0511602b0a83b08f5e8dcf2b"
+      "latest_tx": "26c8aa2a3ea1a74481dad9dba7941a080206422b0511602b0a83b08f5e8dcf2b",
+      "name": "還能習武"
     },
     "380694157": {
       "card_id": 380694157,

@@ -2227,16 +2227,19 @@ def set_hero_name(hero_id: int, name: str) -> tuple[bool, str]:
     if not re.match(r'^[\u4e00-\u9fff\w]+$', name):
         return False, "名字只能包含中英文、數字、底線"
     
-    if is_name_taken(name):
-        return False, "名字已被使用"
-    
     db = load_heroes_db()
     hero = db.get("heroes", {}).get(str(hero_id))
     if not hero:
         return False, "找不到英雄"
     
-    # 清除舊名字（如果有）
+    # 取得舊名字
     old_name = hero.get("name")
+    
+    # 檢查名字是否被使用（排除自己）
+    if is_name_taken(name):
+        # 如果是自己改成自己的名字（大小寫變化），允許
+        if not (old_name and old_name.lower() == name.lower()):
+            return False, "名字已被使用"
     
     # 設定新名字
     hero["name"] = name

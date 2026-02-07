@@ -1438,99 +1438,6 @@ _Built on Kaspa TestNet_"""
 
 async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /nami_burn <ID> - 銷毀英雄（測試用）
-    """
-    user = update.effective_user
-    
-    if not context.args:
-        await update.message.reply_text("用法：\n```\n/nami_burn <英雄ID>\n```", parse_mode='Markdown')
-        return
-    
-    try:
-        card_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("❌ 無效的英雄 ID")
-        return
-    
-    # 檢查是否是自己的英雄
-    from hero_game import get_hero_by_id, load_heroes_db, save_heroes_db, load_hero_chain, save_hero_chain
-    
-    hero = get_hero_by_id(card_id)
-    if not hero:
-        await update.message.reply_text(f"❌ 找不到英雄 #{card_id}")
-        return
-    
-    if hero.owner_id != user.id:
-        await update.message.reply_text("❌ 這不是你的英雄！")
-        return
-    
-    if hero.status == "dead":
-        await update.message.reply_text(f"❌ 英雄 #{card_id} 已經死亡了")
-        return
-    
-    await update.message.reply_text(f"🔥 正在銷毀英雄 #{card_id}...\n⏳ 等待區塊確認...")
-    
-    # 取得下一個 DAA 和區塊 hash
-    try:
-        daa, block_hash = await get_next_daa_block()
-    except Exception as e:
-        await update.message.reply_text(f"❌ 銷毀失敗：{e}")
-        return
-    
-    # 更新狀態
-    hero.status = "dead"
-    hero.latest_daa = daa
-    
-    db = load_heroes_db()
-    db["heroes"][str(card_id)] = hero.to_dict()
-    save_heroes_db(db)
-    
-    # 建立 payload
-    event_payload = {
-        "g": "nami_hero",
-        "type": "event",
-        "daa": daa,
-        "pre_daa": hero.card_id,
-        "action": "burn",
-        "card": card_id,
-        "block_hash": block_hash,
-        "result": "destroyed"
-    }
-    
-    state_payload = {
-        "g": "nami_hero",
-        "type": "hero",
-        "daa": daa + 1,
-        "pre_daa": daa,
-        "card": card_id,
-        "status": "dead"
-    }
-    
-    # 記錄銷毀事件
-    chain = load_hero_chain()
-    chain.append(event_payload)
-    chain.append(state_payload)
-    save_hero_chain(chain)
-    
-    # 區塊瀏覽器連結
-    explorer_url = f"https://explorer-tn10.kaspa.org/blocks/{block_hash}"
-    
-    # 格式化 payload 顯示
-    import json
-    payload_str = json.dumps(event_payload, indent=2, ensure_ascii=False)
-    
-    await update.message.reply_text(
-        f"🔥 英雄已銷毀！\n\n"
-        f"#{card_id} {hero.display_class()} {hero.display_rarity()}\n"
-        f"→ 回歸大地之樹 🌲\n\n"
-        f"📍 銷毀 DAA: #{daa}\n"
-        f"🔗 [區塊瀏覽器]({explorer_url})\n\n"
-        f"📦 *Payload:*\n```json\n{payload_str}\n```",
-        parse_mode='Markdown'
-    )
-
-async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
     /nami_burn <ID> <PIN> - 銷毀英雄（不可逆！）
     """
     user = update.effective_user
@@ -2250,8 +2157,8 @@ async def hero_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_name <英雄ID> <名字> - 為英雄命名
     
     名字規則：
-    - 2-16 字元
-    - 只能使用英文、數字、底線
+    - 2-12 字元
+    - 支援中文、英文、數字、底線
     - 不能與其他英雄重複
     """
     user = update.effective_user
@@ -2264,8 +2171,8 @@ async def hero_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "例如：\n"
             "`/nami_name 380312869 Excalibur`\n\n"
             "規則：\n"
-            "• 2-16 字元\n"
-            "• 英文、數字、底線\n"
+            "• 2-12 字元\n"
+            "• 中文、英文、數字、底線\n"
             "• 名字不能重複",
             parse_mode='Markdown'
         )
@@ -2278,14 +2185,15 @@ async def hero_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 用法：`/nami_name <英雄ID> <名字>`", parse_mode='Markdown')
         return
     
-    # 驗證名字格式
+    # 驗證名字格式（支援中文）
     import re
-    if not re.match(r'^[a-zA-Z0-9_]{2,16}$', name):
+    # 支援中文、英文、數字、底線，2-12 字元
+    if not re.match(r'^[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9_]{2,12}$', name):
         await update.message.reply_text(
             "❌ 名字格式錯誤！\n\n"
             "規則：\n"
-            "• 2-16 字元\n"
-            "• 只能用英文、數字、底線"
+            "• 2-12 字元\n"
+            "• 中文、英文、數字、底線"
         )
         return
     
@@ -2300,11 +2208,13 @@ async def hero_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # 驗證擁有權
-    if hero.get("owner_id") != user.id:
+    hero_owner = hero.get("owner_id")
+    if hero_owner != user.id:
+        logger.warning(f"⚠️ 命名權限拒絕 | user={user.id} 嘗試命名 #{hero_id} (owner={hero_owner})")
         await update.message.reply_text(f"❌ #{hero_id} 不是你的英雄！")
         return
     
-    # 設定名字（包含驗證：長度 2-12、字元、不重複）
+    # 設定名字（包含驗證：長度 2-12、字元、不重複，改名會釋放舊名字）
     old_name = hero.get("name")
     success, error = set_hero_name(hero_id, name)
     
