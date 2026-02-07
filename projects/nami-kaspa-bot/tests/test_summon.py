@@ -170,16 +170,16 @@ async def test_reward_system():
     # 測試區間檢查
     print("[1/2] 測試區間檢查...")
     
-    # 應該找到 380666666
-    result = find_trigger_daa_in_range(380600000, 380700000)
-    if result == 380666666:
-        print("      ✅ 正確找到 380666666")
+    # 應該找到 380066666（066666 結尾）
+    result = find_trigger_daa_in_range(380000000, 380100000)
+    if result == 380066666:
+        print("      ✅ 正確找到 380066666")
     else:
-        print(f"      ❌ 錯誤: 期望 380666666, 得到 {result}")
+        print(f"      ❌ 錯誤: 期望 380066666, 得到 {result}")
         return False
     
-    # 不應該找到（區間內沒有 666666）
-    result = find_trigger_daa_in_range(380700000, 380800000)
+    # 不應該找到（區間內沒有 066666）
+    result = find_trigger_daa_in_range(380100000, 380150000)
     if result is None:
         print("      ✅ 正確返回 None（區間內無觸發點）")
     else:
@@ -188,16 +188,16 @@ async def test_reward_system():
     
     # 測試精確匹配
     print("\n[2/2] 測試精確匹配...")
-    if should_trigger_reward(380666666):
-        print("      ✅ 380666666 觸發")
+    if should_trigger_reward(380066666):
+        print("      ✅ 380066666 觸發")
     else:
-        print("      ❌ 380666666 應該觸發")
+        print("      ❌ 380066666 應該觸發")
         return False
     
-    if not should_trigger_reward(380666665):
-        print("      ✅ 380666665 不觸發")
+    if not should_trigger_reward(380066665):
+        print("      ✅ 380066665 不觸發")
     else:
-        print("      ❌ 380666665 不應該觸發")
+        print("      ❌ 380066665 不應該觸發")
         return False
     
     print("\n🎉 獎勵系統測試通過！")

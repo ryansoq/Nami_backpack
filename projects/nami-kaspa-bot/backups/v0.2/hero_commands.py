@@ -88,33 +88,13 @@ async def send_announcement(bot, message: str, parse_mode: str = 'Markdown'):
         logger.error(f"公告發送失敗: {e}")
 
 async def announce_hero_birth(bot, hero, username: str):
-    """v0.3: 公告英雄誕生（星星格式）"""
-    # v0.3 Rank 顯示
-    rank = getattr(hero, 'rank', hero.rarity)
-    rank_display = {
-        "N": "⭐ N 普通", "R": "⭐⭐ R 稀有", "SR": "⭐⭐⭐ SR 超稀",
-        "SSR": "💎⭐⭐⭐⭐ SSR 極稀", "UR": "✨⭐⭐⭐⭐⭐ UR 傳說", "LR": "🔱⭐⭐⭐⭐⭐⭐ LR 神話",
-        # 向後相容
-        "common": "⭐ N 普通", "uncommon": "⭐⭐ R 稀有", "rare": "⭐⭐⭐ SR 超稀",
-        "epic": "💎⭐⭐⭐⭐ SSR 極稀", "legendary": "✨⭐⭐⭐⭐⭐ UR 傳說", "mythic": "🔱⭐⭐⭐⭐⭐⭐ LR 神話"
-    }.get(rank, f"⭐ {rank}")
-    
+    """公告英雄誕生"""
+    rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", 
+                    "epic": "🟣👑", "legendary": "🟡✨", "mythic": "🔴🔱"}.get(hero.rarity, "⚪")
+    rarity_name = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                   "epic": "史詩", "legendary": "傳說", "mythic": "神話"}.get(hero.rarity, "普通")
     class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
     class_emoji = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
-    
-    # v0.3 特效標題
-    header = ""
-    if rank in ["LR", "mythic"]:
-        header = "🔱🔱🔱 ⚡ 神話降世！⚡ 🔱🔱🔱\n\n"
-    elif rank in ["UR", "legendary"]:
-        header = "✨✨✨ 傳說降臨！✨✨✨\n\n"
-    elif rank in ["SSR", "epic"]:
-        header = "💎💎 極稀出現！💎💎\n\n"
-    
-    # 保護狀態
-    protected_note = ""
-    if getattr(hero, 'protected', False):
-        protected_note = "🛡️ <b>已受大地之母保護</b>\n\n"
     
     # 取得區塊和銘文連結
     block_link = ""
@@ -127,10 +107,10 @@ async def announce_hero_birth(bot, hero, username: str):
     
     msg = f"""🎴 <b>召喚成功！</b>
 
-{header}{rank_display} - {class_name} {class_emoji}
+{rarity_emoji} {rarity_name} - {class_name} {class_emoji}
 ⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}
 
-{protected_note}📍 命運: DAA <code>{hero.card_id}</code>
+📍 命運: DAA <code>{hero.card_id}</code>
 {block_link}
 {tx_link}
 
@@ -143,16 +123,11 @@ async def announce_hero_birth(bot, hero, username: str):
     await send_announcement(bot, msg, parse_mode='HTML')
 
 async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, death_tx: str = None):
-    """v0.3: 公告英雄死亡（星星格式）"""
-    # v0.3 Rank 顯示
-    rank = getattr(hero, 'rank', hero.rarity)
-    rank_display = {
-        "N": "⭐ N", "R": "⭐⭐ R", "SR": "⭐⭐⭐ SR",
-        "SSR": "💎 SSR", "UR": "✨ UR", "LR": "🔱 LR",
-        "common": "⭐ N", "uncommon": "⭐⭐ R", "rare": "⭐⭐⭐ SR",
-        "epic": "💎 SSR", "legendary": "✨ UR", "mythic": "🔱 LR"
-    }.get(rank, f"⭐ {rank}")
-    
+    """公告英雄死亡"""
+    rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵",
+                    "epic": "🟣👑", "legendary": "🟡✨", "mythic": "🔴🔱"}.get(hero.rarity, "⚪")
+    rarity_name = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                   "epic": "史詩", "legendary": "傳說", "mythic": "神話"}.get(hero.rarity, "普通")
     class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
     class_emoji = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
     
@@ -169,7 +144,7 @@ async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, d
     
     msg = f"""☠️ <b>英雄陣亡</b>
 
-{rank_display} - {class_name} {class_emoji}
+{rarity_emoji} {rarity_name} - {class_name} {class_emoji}
 ⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}
 
 💀 死因: {cause}
@@ -187,18 +162,13 @@ async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, d
 
 async def announce_pvp_result(bot, result: dict, my_hero, target_hero, 
                                attacker_name: str, defender_name: str):
-    """v0.3: 公告完整 PvP 戰報到群聊（星星格式）"""
+    """公告完整 PvP 戰報到群聊"""
     
-    # v0.3 Rank 顯示
-    def get_rank_short(hero):
-        rank = getattr(hero, 'rank', getattr(hero, 'rarity', 'N'))
-        return {
-            "N": "⭐N", "R": "⭐⭐R", "SR": "⭐⭐⭐SR",
-            "SSR": "💎SSR", "UR": "✨UR", "LR": "🔱LR",
-            "common": "⭐N", "uncommon": "⭐⭐R", "rare": "⭐⭐⭐SR",
-            "epic": "💎SSR", "legendary": "✨UR", "mythic": "🔱LR"
-        }.get(rank, f"⭐{rank}")
-    
+    # 稀有度名稱
+    rarity_names = {
+        "common": "普通", "uncommon": "優秀", "rare": "稀有",
+        "epic": "史詩", "legendary": "傳說", "mythic": "神話"
+    }
     class_names = {
         "warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"
     }
@@ -207,17 +177,10 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
         "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0"
     }
     
-    # v0.3: 使用 Rank 顯示
-    my_rank = get_rank_short(my_hero)
-    target_rank = get_rank_short(target_hero)
-    
-    # Rank 加成倍率
-    rank_mult = {
-        "N": "x1.0", "R": "x1.2", "SR": "x1.5", "SSR": "x2.0", "UR": "x3.0", "LR": "x5.0",
-        "common": "x1.0", "uncommon": "x1.1", "rare": "x1.2", "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0"
-    }
-    my_mult = rank_mult.get(getattr(my_hero, 'rank', my_hero.rarity), "x1.0")
-    target_mult = rank_mult.get(getattr(target_hero, 'rank', target_hero.rarity), "x1.0")
+    my_rarity = rarity_names.get(my_hero.rarity, "普通")
+    target_rarity = rarity_names.get(target_hero.rarity, "普通")
+    my_mult = rarity_mult.get(my_hero.rarity, "x1.0")
+    target_mult = rarity_mult.get(target_hero.rarity, "x1.0")
     
     # 檢查是否命運逆轉
     detail = result.get("battle_detail", {})
@@ -262,10 +225,10 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
     
     msg = f"""{result_emoji} <b>PvP 結果：{result_text}</b>
 
-🔵 <b>攻方</b> #{my_hero.card_id} ({my_rank} {my_mult})
+🔵 <b>攻方</b> #{my_hero.card_id} ({my_rarity} {my_mult})
 ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
 
-🔴 <b>守方</b> #{target_hero.card_id} ({target_rank} {target_mult})
+🔴 <b>守方</b> #{target_hero.card_id} ({target_rarity} {target_mult})
 ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
 
 📊 <b>對決</b> (數值已含加成)
@@ -2139,69 +2102,6 @@ PvP 費用：2-8 tKAS"""
         await update.message.reply_text(f"❌ 查詢失敗：{e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# v0.3 保護機制
-# ═══════════════════════════════════════════════════════════════════════════════
-
-async def hero_protect(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    /nami_hero_protect <英雄ID> - 設定英雄為受保護狀態
-    /nhp <英雄ID> - 縮寫
-    
-    v0.3 新功能：
-    - 每人可選 1 隻英雄設定保護
-    - 被保護的英雄 PvP 輸了不會死亡
-    - 設定新保護會取消舊保護
-    """
-    user = update.effective_user
-    
-    if not context.args:
-        # 顯示目前保護狀態
-        from hero_game import get_protected_hero, load_heroes_db
-        
-        protected = get_protected_hero(user.id)
-        if protected:
-            hero_name = protected.get("name") or f"#{str(protected['card_id'])[:6]}"
-            rank = protected.get("rank") or protected.get("rarity", "N")
-            await update.message.reply_text(
-                f"🛡️ **你的保護英雄**\n\n"
-                f"{hero_name} ({rank})\n"
-                f"被保護的英雄 PvP 輸了不會死亡\n\n"
-                f"要更換保護對象：`/nhp <英雄ID>`",
-                parse_mode='Markdown'
-            )
-        else:
-            # 列出可保護的英雄
-            db = load_heroes_db()
-            user_heroes = [h for h in db.get("heroes", {}).values() 
-                          if h.get("owner_id") == user.id and h.get("status") == "alive"]
-            if user_heroes:
-                hero_list = "\n".join([
-                    f"• `{h['card_id']}` - {h.get('name') or '無名'} ({h.get('rank') or h.get('rarity', '?')})"
-                    for h in user_heroes
-                ])
-                await update.message.reply_text(
-                    f"🛡️ **設定保護英雄**\n\n"
-                    f"你還沒有設定保護英雄！\n"
-                    f"被保護的英雄 PvP 輸了不會死亡\n\n"
-                    f"你的英雄：\n{hero_list}\n\n"
-                    f"用法：`/nhp <英雄ID>`",
-                    parse_mode='Markdown'
-                )
-            else:
-                await update.message.reply_text("❌ 你還沒有英雄！先用 /nh 召喚一隻吧")
-        return
-    
-    try:
-        card_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("❌ 請輸入正確的英雄 ID（數字）")
-        return
-    
-    from hero_game import set_hero_protection
-    success, message = set_hero_protection(user.id, card_id)
-    await update.message.reply_text(message)
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # 註冊指令
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2232,9 +2132,6 @@ def register_hero_commands(app):
     app.add_handler(CommandHandler("nami_hero_balance", hero_wallet_balance))
     app.add_handler(CommandHandler("nami_name", hero_name))
     
-    # v0.3 新指令
-    app.add_handler(CommandHandler("nami_hero_protect", hero_protect))
-    
     # ═══════════════════════════════════════════════════════════════════════
     # 縮寫指令
     # ═══════════════════════════════════════════════════════════════════════
@@ -2247,7 +2144,6 @@ def register_hero_commands(app):
     app.add_handler(CommandHandler("nn", hero_name))         # nami_name
     app.add_handler(CommandHandler("nr", next_reward))       # nami_next_reward
     app.add_handler(CommandHandler("ns", hero_stats))        # nami_game_status
-    app.add_handler(CommandHandler("nhp", hero_protect))     # v0.3: nami_hero_protect
     
     logger.info("🌲 英雄遊戲指令已註冊")
 

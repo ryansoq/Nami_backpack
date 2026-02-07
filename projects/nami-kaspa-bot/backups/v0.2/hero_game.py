@@ -28,18 +28,11 @@ HERO_CHAIN_FILE = DATA_DIR / "hero_chain.json"
 
 # 費用設定
 SUMMON_COST = 10  # 召喚英雄消耗 10 mana
-PVP_COST = 10     # PvP 統一費用 10 mana
-
-# v0.3 設定
-MAX_HEROES = 5           # 每人最多 5 隻英雄（從 10 改為 5）
-PVP_REWARD_MIN = 1       # PvP 勝利獎勵最小值
-PVP_REWARD_MAX = 5       # PvP 勝利獎勵最大值
+# PvP 統一費用 10 mana
+PVP_COST = 10
 
 # 抽卡冷卻
 SUMMON_COOLDOWN = 5  # 秒
-
-# 版本
-GAME_VERSION = "0.3"
 
 # Bot 錢包設定
 BOT_WALLET_FILE = Path(__file__).parent.parent.parent.parent / "clawd/.secrets/testnet-wallet.json"
@@ -59,32 +52,19 @@ class HeroClass(Enum):
         self.display = display
         self.desc = desc
 
-class Rank(Enum):
-    """
-    v0.3 Rank 系統 - 6階手遊風格
+class Rarity(Enum):
+    # WoW 風格稀有度系統（千分比機率）
+    COMMON = ("common", "⚪ 普通", 1.0, 550)        # 55% 機率
+    UNCOMMON = ("uncommon", "🟢 優秀", 1.1, 280)   # 28% 機率
+    RARE = ("rare", "🔵 稀有", 1.2, 130)           # 13% 機率
+    EPIC = ("epic", "🟣👑 史詩", 1.5, 35)          # 3.5% 機率
+    LEGENDARY = ("legendary", "🟠✨ 傳說", 2.0, 5) # 0.5% 機率（超稀有！）
     
-    計算方式：hash[0:16] (8 bytes) % 1000
-    """
-    N   = ("N",   "⭐",           "普通", 1.0, 550)       # 55% (450-999)
-    R   = ("R",   "⭐⭐",         "稀有", 1.2, 280)       # 28% (170-449)
-    SR  = ("SR",  "⭐⭐⭐",       "超稀", 1.5, 130)       # 13% (40-169)
-    SSR = ("SSR", "💎⭐⭐⭐⭐",   "極稀", 2.0, 35)        # 3.5% (5-39)
-    UR  = ("UR",  "✨⭐⭐⭐⭐⭐", "傳說", 3.0, 4)         # 0.4% (1-4)
-    LR  = ("LR",  "🔱⭐⭐⭐⭐⭐⭐", "神話", 5.0, 1)       # 0.1% (0)
-    
-    def __init__(self, code: str, stars: str, cn_name: str, multiplier: float, chance: int):
+    def __init__(self, code: str, display: str, multiplier: float, chance: int):
         self.code = code
-        self.stars = stars
-        self.cn_name = cn_name
+        self.display = display
         self.multiplier = multiplier
         self.chance = chance  # 千分比
-    
-    @property
-    def display(self) -> str:
-        return f"{self.stars} {self.code} {self.cn_name}"
-
-# 向後相容：保留 Rarity 別名
-Rarity = Rank
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 英雄資料結構
@@ -92,19 +72,11 @@ Rarity = Rank
 
 @dataclass
 class Hero:
-    """
-    v0.3 英雄資料結構
-    
-    改動：
-    - rarity → rank (N/R/SR/SSR/UR/LR)
-    - 新增 protected 欄位（大地之母保護）
-    - name 欄位
-    """
     card_id: int          # DAA = 唯一 ID
     owner_id: int         # TG user_id
     owner_address: str    # Kaspa 地址
     hero_class: str       # warrior/mage/archer/rogue
-    rank: str             # v0.3: N/R/SR/SSR/UR/LR
+    rarity: str           # common/rare/epic/legendary
     atk: int
     def_: int
     spd: int
@@ -114,17 +86,10 @@ class Hero:
     battles: int = 0
     created_at: str = ""
     death_time: str = ""  # 死亡時間（計算生存時間用）
-    source_hash: str = "" # 來源區塊 hash（命運塊）
+    source_hash: str = "" # 來源區塊 hash（用於驗證）
     payment_tx: str = ""  # 付費交易 ID（出生證明）
-    tx_id: str = ""       # 出生銘文交易 ID（固定）
+    tx_id: str = ""       # 出生公告交易 ID（固定）
     latest_tx: str = ""   # 最後事件交易 ID（每次事件更新）
-    name: str = ""        # 英雄名字
-    protected: bool = False  # v0.3: 大地之母保護（PvP 不死）
-    
-    # 向後相容
-    @property
-    def rarity(self) -> str:
-        return self.rank
     
     def display_class(self) -> str:
         for hc in HeroClass:
@@ -132,13 +97,11 @@ class Hero:
                 return hc.display
         return self.hero_class
     
-    def display_rank(self) -> str:
-        """v0.3: 顯示 Rank（星星 + 等級 + 中文）"""
-        return get_rank_display(self.rank)
-    
-    # 向後相容
     def display_rarity(self) -> str:
-        return self.display_rank()
+        for r in Rarity:
+            if r.code == self.rarity:
+                return r.display
+        return self.rarity
     
     def to_dict(self) -> dict:
         return {
@@ -146,8 +109,7 @@ class Hero:
             "owner_id": self.owner_id,
             "owner_address": self.owner_address,
             "hero_class": self.hero_class,
-            "rank": self.rank,           # v0.3
-            "rarity": self.rank,         # 向後相容
+            "rarity": self.rarity,
             "atk": self.atk,
             "def": self.def_,
             "spd": self.spd,
@@ -160,21 +122,17 @@ class Hero:
             "source_hash": self.source_hash,
             "payment_tx": self.payment_tx,
             "tx_id": self.tx_id,
-            "latest_tx": self.latest_tx,
-            "name": self.name,
-            "protected": self.protected   # v0.3
+            "latest_tx": self.latest_tx
         }
     
     @classmethod
     def from_dict(cls, d: dict) -> 'Hero':
-        # v0.3: 支援 rank 或 rarity
-        rank = d.get("rank") or d.get("rarity", "N")
         return cls(
             card_id=d["card_id"],
             owner_id=d["owner_id"],
             owner_address=d["owner_address"],
             hero_class=d["hero_class"],
-            rank=rank,
+            rarity=d["rarity"],
             atk=d["atk"],
             def_=d["def"],
             spd=d["spd"],
@@ -187,9 +145,7 @@ class Hero:
             source_hash=d.get("source_hash", ""),
             payment_tx=d.get("payment_tx", ""),
             tx_id=d.get("tx_id", ""),
-            latest_tx=d.get("latest_tx", ""),
-            name=d.get("name", ""),
-            protected=d.get("protected", False)
+            latest_tx=d.get("latest_tx", "")
         )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -232,76 +188,6 @@ def load_bot_wallet() -> dict:
     """載入 Bot 錢包"""
     with open(BOT_WALLET_FILE, 'r') as f:
         return json.load(f)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# v0.3 保護機制
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def set_hero_protection(user_id: int, card_id: int) -> Tuple[bool, str]:
-    """
-    設定英雄為受保護狀態（大地之母保護）
-    
-    規則：
-    - 每人只能保護 1 隻英雄
-    - 被保護的英雄 PvP 輸了不會死亡
-    - 設定新保護會取消舊保護
-    
-    Args:
-        user_id: TG 用戶 ID
-        card_id: 要保護的英雄 ID
-    
-    Returns:
-        (success, message)
-    """
-    db = load_heroes_db()
-    
-    # 檢查英雄是否存在且屬於該用戶
-    hero_data = db.get("heroes", {}).get(str(card_id))
-    if not hero_data:
-        return False, "❌ 找不到這隻英雄"
-    
-    if hero_data.get("owner_id") != user_id:
-        return False, "❌ 這不是你的英雄"
-    
-    if hero_data.get("status") != "alive":
-        return False, "❌ 這隻英雄已經死亡"
-    
-    # 取消該用戶其他英雄的保護
-    old_protected = None
-    for hid, hdata in db.get("heroes", {}).items():
-        if hdata.get("owner_id") == user_id and hdata.get("protected"):
-            if int(hid) != card_id:
-                hdata["protected"] = False
-                old_protected = hdata.get("name") or f"#{hid[:6]}"
-    
-    # 設定新保護
-    db["heroes"][str(card_id)]["protected"] = True
-    save_heroes_db(db)
-    
-    hero_name = hero_data.get("name") or f"#{str(card_id)[:6]}"
-    if old_protected:
-        return True, f"🛡️ 已將保護從「{old_protected}」轉移到「{hero_name}」\n被保護的英雄 PvP 輸了不會死亡"
-    else:
-        return True, f"🛡️ 已設定「{hero_name}」為受保護狀態\n被保護的英雄 PvP 輸了不會死亡"
-
-def get_protected_hero(user_id: int) -> Optional[dict]:
-    """取得用戶受保護的英雄"""
-    db = load_heroes_db()
-    for hid, hdata in db.get("heroes", {}).items():
-        if hdata.get("owner_id") == user_id and hdata.get("protected") and hdata.get("status") == "alive":
-            return hdata
-    return None
-
-def calculate_pvp_reward(block_hash: str) -> int:
-    """
-    v0.3: 計算 PvP 獎勵（1-5 mana）
-    
-    由戰鬥命運塊決定
-    """
-    h = block_hash.lower().replace("0x", "")
-    # 用 hash 的一部分決定獎勵
-    reward_val = int(h[32:36], 16) % 5 + 1  # 1-5
-    return reward_val
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 鏈上交易功能
@@ -461,133 +347,57 @@ async def send_hero_tx_simple(to_address: str, payload: dict) -> str:
 # Hash 計算屬性
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def calculate_rank_from_hash(block_hash: str) -> str:
+def calculate_hero_from_hash(block_hash: str) -> Tuple[str, str, int, int, int]:
     """
-    v0.3: 從 block hash 計算 Rank
-    
-    規則：
-    - 用 hash[0:16] (8 bytes) 計算
-    - 更大的熵，更公平的機率
+    從 block hash 計算英雄屬性
     
     Args:
         block_hash: 區塊 hash (64 字元)
     
     Returns:
-        rank code: "N" | "R" | "SR" | "SSR" | "UR" | "LR"
+        (hero_class, rarity, atk, def, spd)
     """
+    # 移除 0x 前綴（如果有）
     h = block_hash.lower().replace("0x", "")
     
-    # Rank: hash[0:16] % 1000（千分比）
-    rank_val = int(h[0:16], 16) % 1000
-    
-    if rank_val < 1:           # 0 = 0.1%
-        return "LR"
-    elif rank_val < 5:         # 1-4 = 0.4%
-        return "UR"
-    elif rank_val < 40:        # 5-39 = 3.5%
-        return "SSR"
-    elif rank_val < 170:       # 40-169 = 13%
-        return "SR"
-    elif rank_val < 450:       # 170-449 = 28%
-        return "R"
-    else:                      # 450-999 = 55%
-        return "N"
-
-def calculate_class_from_hash(block_hash: str) -> str:
-    """
-    v0.3: 從 block hash 計算職業
-    
-    規則：
-    - 用 hash[16:20] 計算
-    - 與 Rank 計算分開，避免相關性
-    
-    Args:
-        block_hash: 區塊 hash (64 字元)
-    
-    Returns:
-        hero_class: "warrior" | "mage" | "archer" | "rogue"
-    """
-    h = block_hash.lower().replace("0x", "")
-    
-    # 職業: hash[16:20] % 4
-    class_val = int(h[16:20], 16) % 4
+    # 職業: hash[0:2] % 4
+    class_val = int(h[0:2], 16) % 4
     classes = ["warrior", "mage", "archer", "rogue"]
-    return classes[class_val]
-
-def calculate_stats_from_hash(block_hash: str, rank: str) -> Tuple[int, int, int]:
-    """
-    v0.3: 從 block hash 計算屬性（大地之母解釋）
+    hero_class = classes[class_val]
     
-    規則：
-    - 基礎屬性從 hash[20:32] 計算
-    - 套用 Rank 加權
+    # 稀有度: hash[2:6] % 1000（千分比）WoW 風格
+    # 🔱 神話 0.1% | 🟡 傳說 0.4% | 🟣 史詩 3.5% | 🔵 稀有 13% | 🟢 優秀 28% | ⚪ 普通 55%
+    rarity_val = int(h[2:6], 16) % 1000
+    if rarity_val < 1:           # 0 = 0.1%
+        rarity = "mythic"
+        multiplier = 3.0
+    elif rarity_val < 5:         # 1-4 = 0.4%
+        rarity = "legendary"
+        multiplier = 2.0
+    elif rarity_val < 40:        # 5-39 = 3.5%
+        rarity = "epic"
+        multiplier = 1.5
+    elif rarity_val < 170:       # 40-169 = 13%
+        rarity = "rare"
+        multiplier = 1.2
+    elif rarity_val < 450:       # 170-449 = 28%
+        rarity = "uncommon"
+        multiplier = 1.1
+    else:                        # 450-999 = 55%
+        rarity = "common"
+        multiplier = 1.0
     
-    Args:
-        block_hash: 區塊 hash (64 字元)
-        rank: Rank code
+    # 基礎屬性: 10-100
+    base_atk = int(h[4:8], 16) % 91 + 10
+    base_def = int(h[8:12], 16) % 91 + 10
+    base_spd = int(h[12:16], 16) % 91 + 10
     
-    Returns:
-        (atk, def, spd)
-    """
-    h = block_hash.lower().replace("0x", "")
-    
-    # Rank 加權
-    RANK_MULTIPLIER = {
-        "N": 1.0,
-        "R": 1.2,
-        "SR": 1.5,
-        "SSR": 2.0,
-        "UR": 3.0,
-        "LR": 5.0
-    }
-    multiplier = RANK_MULTIPLIER.get(rank, 1.0)
-    
-    # 基礎屬性: 10-100（從 hash[20:32] 計算）
-    base_atk = int(h[20:24], 16) % 91 + 10
-    base_def = int(h[24:28], 16) % 91 + 10
-    base_spd = int(h[28:32], 16) % 91 + 10
-    
-    # 套用 Rank 加權
+    # 套用稀有度加成
     atk = int(base_atk * multiplier)
     def_ = int(base_def * multiplier)
     spd = int(base_spd * multiplier)
     
-    return atk, def_, spd
-
-def calculate_hero_from_hash(block_hash: str) -> Tuple[str, str, int, int, int]:
-    """
-    v0.3: 從 block hash 計算英雄完整屬性
-    
-    這是大地之母的「解釋」功能：
-    - Rank: hash[0:16] (8 bytes)
-    - 職業: hash[16:20]
-    - 屬性: hash[20:32] × Rank 加權
-    
-    Args:
-        block_hash: 區塊 hash (64 字元)
-    
-    Returns:
-        (hero_class, rank, atk, def, spd)
-    """
-    rank = calculate_rank_from_hash(block_hash)
-    hero_class = calculate_class_from_hash(block_hash)
-    atk, def_, spd = calculate_stats_from_hash(block_hash, rank)
-    
-    return hero_class, rank, atk, def_, spd
-
-def get_rank_display(rank: str) -> str:
-    """取得 Rank 的顯示文字"""
-    for r in Rank:
-        if r.code == rank:
-            return r.display
-    return rank
-
-def get_rank_stars(rank: str) -> str:
-    """取得 Rank 的星星顯示"""
-    for r in Rank:
-        if r.code == rank:
-            return r.stars
-    return "⭐"
+    return hero_class, rarity, atk, def_, spd
 
 def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> Tuple[bool, dict]:
     """
@@ -624,16 +434,13 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
     """
     h = block_hash.lower().replace("0x", "")
     
-    # v0.3 Rank 等級（數字越大越稀有）
-    RANK_LEVEL = {
-        "N": 0, "R": 1, "SR": 2,
-        "SSR": 3, "UR": 4, "LR": 5,
-        # 向後相容舊版
+    # 稀有度等級
+    RARITY_RANK = {
         "common": 0, "uncommon": 1, "rare": 2,
         "epic": 3, "legendary": 4, "mythic": 5
     }
     
-    # 反殺機率（千分比）根據 Rank 差距
+    # 反殺機率（千分比）根據稀有度差距
     # 差距越大，反殺機率越低
     REVERSAL_CHANCE = {
         0: 0,      # 同級：無反殺
@@ -641,12 +448,12 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
         2: 50,     # 2級差：5%
         3: 20,     # 3級差：2%
         4: 5,      # 4級差：0.5%
-        5: 1       # 5級差：0.1% (N→LR)
+        5: 1       # 5級差：0.1% (普通→神話)
     }
     
-    atk_rank = RANK_LEVEL.get(attacker.rank, 0)
-    def_rank = RANK_LEVEL.get(defender.rank, 0)
-    rank_diff = def_rank - atk_rank  # 正數表示防守方 Rank 更高
+    atk_rank = RARITY_RANK.get(attacker.rarity, 0)
+    def_rank = RARITY_RANK.get(defender.rarity, 0)
+    rank_diff = def_rank - atk_rank  # 正數表示防守方稀有度更高
     
     # 檢查命運逆轉（弱者反殺強者）
     reversal_triggered = False
@@ -656,17 +463,18 @@ def calculate_battle_result(attacker: Hero, defender: Hero, block_hash: str) -> 
         if reversal_roll < reversal_threshold:
             reversal_triggered = True
     
-    # v0.3 Rank 加成倍率
-    RANK_MULT = {
-        "N": 1.0, "R": 1.2, "SR": 1.5,
-        "SSR": 2.0, "UR": 3.0, "LR": 5.0,
-        # 向後相容舊版
-        "common": 1.0, "uncommon": 1.1, "rare": 1.2,
-        "epic": 1.5, "legendary": 2.0, "mythic": 3.0
+    # 稀有度加成倍率
+    RARITY_MULT = {
+        "common": 1.0,
+        "uncommon": 1.1,
+        "rare": 1.2,
+        "epic": 1.5,
+        "legendary": 2.0,
+        "mythic": 3.0
     }
     
-    atk_mult = RANK_MULT.get(attacker.rank, 1.0)
-    def_mult = RANK_MULT.get(defender.rank, 1.0)
+    atk_mult = RARITY_MULT.get(attacker.rarity, 1.0)
+    def_mult = RARITY_MULT.get(defender.rarity, 1.0)
     
     # 三回合對決
     rounds = []
@@ -837,15 +645,13 @@ def _base_payload(type_: str, daa: int, pre_tx: str = None,
 def create_birth_payload(daa: int, hero: Hero, source_hash: str = "",
                          payment_tx: str = None) -> dict:
     """
-    v0.3 建立出生 payload
+    建立出生 payload
     
-    最小化 payload，最大化解釋：
-    - 只存 rank（命運塊決定）
-    - 職業、屬性由大地之母從 src 解釋
+    共用欄位 + 專屬欄位：
+    - c/r/a/d/s: 職業/稀有度/攻擊/防禦/速度
     
     驗證閉環：
-    pay_tx → 確認 DAA (N) → 找 DAA > N 的最小存在 DAA 
-    → 取該 DAA 官方第一塊 → 驗證 src → rank 自動正確
+    pay_tx → 確認 DAA (N) → 找 DAA=N+1 的第一個官方區塊 → 驗證 src → 重算屬性
     """
     payload = _base_payload(
         type_="birth",
@@ -854,8 +660,14 @@ def create_birth_payload(daa: int, hero: Hero, source_hash: str = "",
         pay_tx=payment_tx,     # 付費證明
         src=source_hash        # 命運區塊 hash
     )
-    # v0.3: 只存 rank，其他由大地之母解釋
-    payload["rank"] = hero.rank
+    # 專屬欄位
+    payload.update({
+        "c": hero.hero_class,
+        "r": hero.rarity,
+        "a": hero.atk,
+        "d": hero.def_,
+        "s": hero.spd
+    })
     return payload
 
 
@@ -956,8 +768,7 @@ def create_pvp_win_payload(hero_id: int, pre_tx: str, target_id: int,
 # 遊戲邏輯
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# v0.3: 統一使用 MAX_HEROES
-MAX_HEROES_PER_USER = MAX_HEROES  # 5 隻
+MAX_HEROES_PER_USER = 10  # 每人最多英雄數
 
 async def summon_hero(user_id: int, username: str, address: str, 
                       daa: int, block_hash: str, pin: str = None,
@@ -998,11 +809,8 @@ async def summon_hero(user_id: int, username: str, address: str,
     if len(user_heroes) >= MAX_HEROES_PER_USER:
         raise ValueError(f"英雄數量已達上限（{MAX_HEROES_PER_USER}隻）！請先用 /nami_burn 燒掉不需要的英雄")
     
-    # v0.3: 從命運塊計算屬性
-    hero_class, rank, atk, def_, spd = calculate_hero_from_hash(block_hash)
-    
-    # 檢查是否為第一隻英雄（預設保護）
-    is_first_hero = len(user_heroes) == 0
+    # 計算屬性
+    hero_class, rarity, atk, def_, spd = calculate_hero_from_hash(block_hash)
     
     # 建立英雄
     hero = Hero(
@@ -1010,7 +818,7 @@ async def summon_hero(user_id: int, username: str, address: str,
         owner_id=user_id,
         owner_address=address,
         hero_class=hero_class,
-        rank=rank,              # v0.3: 用 rank 取代 rarity
+        rarity=rarity,
         atk=atk,
         def_=def_,
         spd=spd,
@@ -1019,8 +827,7 @@ async def summon_hero(user_id: int, username: str, address: str,
         kills=0,
         battles=0,
         created_at=datetime.now().isoformat(),
-        source_hash=block_hash, # 儲存來源區塊 hash（命運塊）
-        protected=is_first_hero # v0.3: 第一隻英雄預設保護
+        source_hash=block_hash  # 儲存來源區塊 hash
     )
     
     # 儲存到資料庫
@@ -1283,23 +1090,13 @@ async def process_battle(attacker: Hero, defender: Hero,
     from datetime import datetime
     if attacker_wins:
         attacker.kills += 1
-        # v0.3: 保護機制 - 受保護的英雄不會死
-        if getattr(defender, 'protected', False):
-            logger.info(f"🛡️ 防守者 #{defender.card_id} 受保護，免於死亡")
-            # 不改變 status
-        else:
-            defender.status = "dead"
-            defender.death_time = datetime.now().isoformat()
+        defender.status = "dead"
+        defender.death_time = datetime.now().isoformat()
         result = "win"
     else:
         defender.kills += 1
-        # v0.3: 保護機制 - 受保護的英雄不會死
-        if getattr(attacker, 'protected', False):
-            logger.info(f"🛡️ 攻擊者 #{attacker.card_id} 受保護，免於死亡")
-            # 不改變 status
-        else:
-            attacker.status = "dead"
-            attacker.death_time = datetime.now().isoformat()
+        attacker.status = "dead"
+        attacker.death_time = datetime.now().isoformat()
         result = "lose"
     
     attacker.latest_daa = result_daa
@@ -1325,16 +1122,6 @@ async def process_battle(attacker: Hero, defender: Hero,
     # PvP 費用加入 mana 池
     pvp_cost = PVP_COST
     db["total_mana_pool"] = db.get("total_mana_pool", 0) + pvp_cost
-    
-    # v0.3: 計算並派發 PvP 獎勵（從 mana 池扣除）
-    pvp_reward = calculate_pvp_reward(block_hash)
-    current_pool = db.get("total_mana_pool", 0)
-    if current_pool >= pvp_reward:
-        db["total_mana_pool"] = current_pool - pvp_reward
-        logger.info(f"🎁 PvP 獎勵: {pvp_reward} mana (池剩餘: {db['total_mana_pool']})")
-    else:
-        pvp_reward = 0  # 池不夠就不派發
-        logger.warning(f"⚠️ Mana 池不足，無法派發獎勵")
     
     save_heroes_db(db)
     
@@ -1428,23 +1215,10 @@ async def process_pvp_onchain(
     attacker.battles += 1
     defender.battles += 1
     
-    # v0.3: 計算 PvP 獎勵
-    pvp_reward = calculate_pvp_reward(block_hash)
-    result["pvp_reward"] = pvp_reward
-    
     if attacker_wins:
         attacker.kills += 1
-        
-        # v0.3: 保護機制檢查
-        defender_protected = getattr(defender, 'protected', False)
-        if defender_protected:
-            logger.info(f"🛡️ 防守者 #{defender.card_id} 受保護，免於死亡")
-            result["defender_protected"] = True
-        else:
-            defender.status = "dead"
-            defender.death_time = datetime.now().isoformat()
-            result["defender_protected"] = False
-            
+        defender.status = "dead"
+        defender.death_time = datetime.now().isoformat()
         result["winner"] = attacker
         result["loser"] = defender
         
@@ -1474,27 +1248,24 @@ async def process_pvp_onchain(
         logger.info(f"   ⏳ 等待 UTXO 確認...")
         await asyncio.sleep(5)
         
-        # 6a. 大地之樹發送死亡事件給防守者（如果沒受保護）
-        if not defender_protected:
-            logger.info(f"   🌲 大地之樹發送死亡事件給 #{defender.card_id}...")
-            
-            death_payload = create_death_payload(
-                hero_id=defender.card_id,
-                pre_tx=defender.latest_tx or "",
-                reason="pvp",
-                killer_id=attacker.card_id,
-                battle_tx=win_tx
-            )
-            
-            from kaspa_tx import send_payload_tx
-            death_tx = await send_payload_tx(death_payload)
-            result["death_tx"] = death_tx
-            defender.latest_tx = death_tx
-            logger.info(f"   Death TX: {death_tx}")
-        else:
-            logger.info(f"   🛡️ 防守者受保護，跳過死亡事件")
+        # 6a. 大地之樹發送死亡事件給防守者
+        logger.info(f"   🌲 大地之樹發送死亡事件給 #{defender.card_id}...")
         
-        # 記錄銘文（攻擊者勝利 + 防守者死亡，如果沒受保護）
+        death_payload = create_death_payload(
+            hero_id=defender.card_id,
+            pre_tx=defender.latest_tx or "",
+            reason="pvp",
+            killer_id=attacker.card_id,
+            battle_tx=win_tx
+        )
+        
+        from kaspa_tx import send_payload_tx
+        death_tx = await send_payload_tx(death_payload)
+        result["death_tx"] = death_tx
+        defender.latest_tx = death_tx
+        logger.info(f"   Death TX: {death_tx}")
+        
+        # 記錄銘文（攻擊者勝利 + 防守者死亡）
         try:
             from inscription_store import save_event_inscription, save_death_inscription
             # 攻擊者的勝利事件
@@ -1507,79 +1278,66 @@ async def process_pvp_onchain(
                 source_hash=block_hash,
                 target_id=defender.card_id
             )
-            # 防守者的死亡（只有沒受保護時）
-            if not defender_protected:
-                save_death_inscription(
-                    hero_id=defender.card_id,
-                    tx_id=death_tx,
-                    pre_tx=defender.latest_tx or defender.tx_id,
-                    reason="pvp",
-                    killer_id=attacker.card_id,
-                    battle_tx=win_tx
-                )
+            # 防守者的死亡
+            save_death_inscription(
+                hero_id=defender.card_id,
+                tx_id=death_tx,
+                pre_tx=defender.latest_tx or defender.tx_id,
+                reason="pvp",
+                killer_id=attacker.card_id,
+                battle_tx=win_tx
+            )
         except Exception as e:
             logger.warning(f"銘文記錄失敗（非致命）: {e}")
         
     else:
         defender.kills += 1
-        
-        # v0.3: 保護機制檢查
-        attacker_protected = getattr(attacker, 'protected', False)
-        if attacker_protected:
-            logger.info(f"🛡️ 攻擊者 #{attacker.card_id} 受保護，免於死亡")
-            result["attacker_protected"] = True
-        else:
-            attacker.status = "dead"
-            attacker.death_time = datetime.now().isoformat()
-            result["attacker_protected"] = False
-            
+        attacker.status = "dead"
+        attacker.death_time = datetime.now().isoformat()
         result["winner"] = defender
         result["loser"] = attacker
         
-        # 5b. 攻擊者輸 - 大地之樹發送死亡事件給攻擊者（如果沒受保護）
-        if not attacker_protected:
-            logger.info(f"   ❌ 攻擊者落敗！🌲 大地之樹發送死亡事件...")
-            
-            death_payload = create_death_payload(
+        # 5b. 攻擊者輸 - 大地之樹發送死亡事件給攻擊者
+        logger.info(f"   ❌ 攻擊者落敗！🌲 大地之樹發送死亡事件...")
+        
+        death_payload = create_death_payload(
+            hero_id=attacker.card_id,
+            pre_tx=attacker.latest_tx or "",
+            reason="pvp",
+            killer_id=defender.card_id,
+            battle_tx=payment_tx  # 用付款 TX 作為戰鬥證明
+        )
+        death_payload["src"] = block_hash  # 加入命運區塊
+        
+        from kaspa_tx import send_payload_tx
+        death_tx = await send_payload_tx(death_payload)
+        result["death_tx"] = death_tx
+        attacker.latest_tx = death_tx
+        logger.info(f"   Death TX: {death_tx}")
+        
+        # 記錄銘文（防守者勝利 + 攻擊者死亡）
+        try:
+            from inscription_store import save_event_inscription, save_death_inscription
+            # 防守者的勝利事件
+            save_event_inscription(
+                hero_id=defender.card_id,
+                event_type="pvp_win",
+                tx_id=payment_tx,  # 用付款 TX 作為證明
+                pre_tx=defender.latest_tx or defender.tx_id,
+                source_hash=block_hash,
+                target_id=attacker.card_id
+            )
+            # 攻擊者的死亡
+            save_death_inscription(
                 hero_id=attacker.card_id,
-                pre_tx=attacker.latest_tx or "",
+                tx_id=death_tx,
+                pre_tx=attacker.latest_tx or attacker.tx_id,
                 reason="pvp",
                 killer_id=defender.card_id,
-                battle_tx=payment_tx  # 用付款 TX 作為戰鬥證明
+                battle_tx=payment_tx
             )
-            death_payload["src"] = block_hash  # 加入命運區塊
-            
-            from kaspa_tx import send_payload_tx
-            death_tx = await send_payload_tx(death_payload)
-            result["death_tx"] = death_tx
-            attacker.latest_tx = death_tx
-            logger.info(f"   Death TX: {death_tx}")
-            
-            # 記錄銘文（防守者勝利 + 攻擊者死亡）
-            try:
-                from inscription_store import save_event_inscription, save_death_inscription
-                # 防守者的勝利事件
-                save_event_inscription(
-                    hero_id=defender.card_id,
-                    event_type="pvp_win",
-                    tx_id=payment_tx,  # 用付款 TX 作為證明
-                    pre_tx=defender.latest_tx or defender.tx_id,
-                    source_hash=block_hash,
-                    target_id=attacker.card_id
-                )
-                # 攻擊者的死亡
-                save_death_inscription(
-                    hero_id=attacker.card_id,
-                    tx_id=death_tx,
-                    pre_tx=attacker.latest_tx or attacker.tx_id,
-                    reason="pvp",
-                    killer_id=defender.card_id,
-                    battle_tx=payment_tx
-                )
-            except Exception as e:
-                logger.warning(f"銘文記錄失敗（非致命）: {e}")
-        else:
-            logger.info(f"   🛡️ 攻擊者受保護，跳過死亡事件")
+        except Exception as e:
+            logger.warning(f"銘文記錄失敗（非致命）: {e}")
     
     # 7. 更新本地資料庫（用 merge 保留額外欄位如 name, payment_tx, source_hash）
     db = load_heroes_db()
@@ -1598,20 +1356,7 @@ async def process_pvp_onchain(
     else:
         db["heroes"][defender_key] = defender.to_dict()
     
-    # v0.3: PvP 費用加入 mana 池
     db["total_mana_pool"] = db.get("total_mana_pool", 0) + pvp_cost
-    
-    # v0.3: 從 mana 池扣除獎勵（勝者領取）
-    current_pool = db.get("total_mana_pool", 0)
-    if current_pool >= pvp_reward:
-        db["total_mana_pool"] = current_pool - pvp_reward
-        result["reward_paid"] = True
-        logger.info(f"🎁 PvP 獎勵: {pvp_reward} mana 從池中扣除 (剩餘: {db['total_mana_pool']})")
-    else:
-        result["reward_paid"] = False
-        result["pvp_reward"] = 0
-        logger.warning(f"⚠️ Mana 池不足 ({current_pool})，無法派發獎勵")
-    
     save_heroes_db(db)
     
     logger.info(f"⚔️ PvP 完成: #{attacker.card_id} vs #{defender.card_id} -> {'攻擊者勝' if attacker_wins else '防守者勝'}")
@@ -1650,22 +1395,16 @@ def get_game_stats() -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def format_hero_card(hero: Hero) -> str:
-    """
-    v0.3: 格式化英雄卡片顯示（HTML 格式）
-    
-    顯示格式：
-    💎⭐⭐⭐⭐ SSR 極稀 - 戰士 ⚔️
-    """
+    """格式化英雄卡片顯示（HTML 格式）"""
     from datetime import datetime
     
     status_icon = "🟢" if hero.status == "alive" else "☠️"
-    protected_icon = "🛡️" if getattr(hero, 'protected', False) else ""
     
-    # v0.3: Rank 顯示（星星 + 等級 + 中文）
-    rank_display = get_rank_display(hero.rank)
+    # 稀有度 - 職業 顯示
+    rarity_display = get_rarity_display(hero.rarity)
     class_name = get_class_name(hero.hero_class)
     class_emoji = get_class_emoji(hero.hero_class)
-    title_line = f"{rank_display} - {class_name} {class_emoji}"
+    title_line = f"{rarity_display} - {class_name} {class_emoji}"
     
     # 計算生存時間
     age_str = ""
@@ -1718,16 +1457,11 @@ def format_hero_card(hero: Hero) -> str:
 <pre>/nami_payload {hero.card_id}</pre>"""
 
 def format_hero_list(heroes: list[Hero]) -> str:
-    """
-    v0.3: 格式化英雄列表（Markdown 格式）
-    
-    顯示格式：
-    🟢🛡️ #123456 💎⭐⭐⭐⭐ SSR 戰士⚔️ 3殺 ⏳2d
-    """
+    """格式化英雄列表（Markdown 格式）"""
     from datetime import datetime
     
     if not heroes:
-        return "📜 你還沒有英雄\n\n使用 `/nh` 召喚你的第一位英雄！"
+        return "📜 你還沒有英雄\n\n使用 `/nami_hero` 召喚你的第一位英雄！"
     
     alive = [h for h in heroes if h.status == "alive"]
     dead = [h for h in heroes if h.status == "dead"]
@@ -1754,33 +1488,27 @@ def format_hero_list(heroes: list[Hero]) -> str:
         except:
             return ""
     
-    # v0.3: 上限改為 5
-    lines = [f"📜 你的英雄 ({len(alive)}/{MAX_HEROES} 存活 | {len(dead)} 陣亡)\n"]
+    lines = [f"📜 你的英雄 ({len(alive)}/10 存活 | {len(dead)} 陣亡)\n"]
     
     for h in alive:
-        # v0.3: 使用 Rank 顯示
-        rank_stars = get_rank_stars(h.rank)
+        rarity = get_rarity_display(h.rarity)
         class_name = get_class_name(h.hero_class)
         class_emoji = get_class_emoji(h.hero_class)
         age = get_age_str(h)
-        # v0.3: 顯示保護狀態
-        protected = "🛡️" if getattr(h, 'protected', False) else ""
-        name_part = f"「{h.name}」" if h.name else ""
-        lines.append(f"🟢{protected} `#{h.card_id}` {rank_stars} {h.rank} {class_name}{class_emoji} {name_part} {h.kills}殺 {age}")
+        # 用 ` ` 包住 ID，點擊可複製
+        lines.append(f"🟢 `#{h.card_id}` {rarity} {class_name}{class_emoji} {h.kills}殺 {age}")
     
     for h in dead:
-        rank_stars = get_rank_stars(h.rank)
+        rarity = get_rarity_display(h.rarity)
         class_name = get_class_name(h.hero_class)
         class_emoji = get_class_emoji(h.hero_class)
         age = get_age_str(h)
-        name_part = f"「{h.name}」" if h.name else ""
-        lines.append(f"☠️ `#{h.card_id}` {rank_stars} {h.rank} {class_name}{class_emoji} {name_part} {age}")
+        lines.append(f"☠️ `#{h.card_id}` {rarity} {class_name}{class_emoji} {age}")
     
-    lines.append("\n━━━━━━━━━━━━")
-    lines.append("🛡️ = 受保護（PvP輸了不死）")
-    lines.append("━━━━━━━━━━━━")
-    lines.append("\n查看詳情：`/ni <ID>`")
-    lines.append("設定保護：`/nhp <ID>`")
+    lines.append("\n查看詳情：")
+    lines.append("```")
+    lines.append("/nami_hero_info <ID>")
+    lines.append("```")
     
     return "\n".join(lines)
 
@@ -1795,20 +1523,8 @@ def get_class_name(hero_class: str) -> str:
     return name_map.get(hero_class, hero_class)
 
 def get_rarity_display(rarity: str) -> str:
-    """
-    獲取稀有度/Rank 顯示
-    
-    v0.3: 支援新舊兩種格式
-    """
+    """獲取稀有度顯示（WoW 風格）"""
     display_map = {
-        # v0.3 Rank
-        "N": "⭐ N 普通",
-        "R": "⭐⭐ R 稀有",
-        "SR": "⭐⭐⭐ SR 超稀",
-        "SSR": "💎⭐⭐⭐⭐ SSR 極稀",
-        "UR": "✨⭐⭐⭐⭐⭐ UR 傳說",
-        "LR": "🔱⭐⭐⭐⭐⭐⭐ LR 神話",
-        # 舊版向後相容
         "common": "⚪普通",
         "uncommon": "🟢優秀",
         "rare": "🔵稀有", 
@@ -1819,42 +1535,34 @@ def get_rarity_display(rarity: str) -> str:
     return display_map.get(rarity, rarity)
 
 def format_summon_result(hero: Hero) -> str:
-    """
-    v0.3: 格式化召喚結果（星星顯示）
-    """
-    # v0.3 特效標題（手遊風格）
-    rank = hero.rank
-    if rank == "LR":
-        header = "🔱🔱🔱 ⚡ 神話降世！！！ ⚡ 🔱🔱🔱\n\n🌊 大地之樹震動！傳說現世！\n\n"
-    elif rank == "UR":
-        header = "✨✨✨ 傳說降臨！✨✨✨\n\n"
-    elif rank == "SSR":
-        header = "💎💎 極稀出現！💎💎\n\n"
-    elif rank == "SR":
-        header = "⭐⭐⭐ 超稀！\n\n"
-    elif rank == "R":
-        header = "⭐⭐ 稀有！\n\n"
+    """格式化召喚結果"""
+    # 特效標題（WoW 風格）
+    if hero.rarity == "mythic":
+        header = "🔱🔱🔱 ⚡ 神話降世！！！ ⚡ 🔱🔱🔱\n\n🌊 大地之樹震動！海神三叉戟現世！\n\n"
+    elif hero.rarity == "legendary":
+        header = "🟡🟡🟡 ✨ 傳說降臨！✨ 🟡🟡🟡\n\n"
+    elif hero.rarity == "epic":
+        header = "🟣🟣 👑 史詩級！👑 🟣🟣\n\n"
+    elif hero.rarity == "rare":
+        header = "🔵 稀有！\n\n"
+    elif hero.rarity == "uncommon":
+        header = "🟢 優秀！\n\n"
     else:
         header = ""
     
-    # v0.3: Rank + 職業 顯示
-    rank_display = get_rank_display(rank)
+    # 稀有度 - 職業 顯示
+    rarity_display = get_rarity_display(hero.rarity)
     class_name = get_class_name(hero.hero_class)
     class_emoji = get_class_emoji(hero.hero_class)
-    title_line = f"{rank_display} - {class_name} {class_emoji}"
-    
-    # 保護狀態
-    protected_note = ""
-    if getattr(hero, 'protected', False):
-        protected_note = "🛡️ *已受大地之母保護*\n\n"
+    title_line = f"{rarity_display} - {class_name} {class_emoji}"
     
     # 區塊瀏覽器連結 (純 URL，Telegram 會自動偵測)
     explorer_link = ""
     if hero.source_hash:
         explorer_link = f'🔗 命運區塊:\nhttps://explorer-tn10.kaspa.org/blocks/{hero.source_hash}'
     
-    # v0.3: 簡化版 payload 顯示（只有 rank）
-    payload_preview = f'{{"g":"nami_hero","type":"birth","rank":"{rank}","daa":{hero.card_id}}}'
+    # 構建簡化版 payload 顯示
+    payload_preview = f'{{"g":"nami_hero","daa":{hero.card_id},"c":"{hero.hero_class[:3]}","r":"{hero.rarity[:3]}","a":{hero.atk},"d":{hero.def_},"s":{hero.spd}}}'
     
     # 鏈上交易連結
     tx_links = ""
@@ -1873,7 +1581,7 @@ def format_summon_result(hero: Hero) -> str:
 
 ⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}
 
-{protected_note}📍 命運: DAA {hero.card_id}
+📍 命運: DAA {hero.card_id}
 {explorer_link}
 
 {tx_links}
@@ -2103,40 +1811,29 @@ async def verify_from_tx(tx_id: str) -> dict:
     source_hash = payload.get("src", "")
     if source_hash:
         try:
-            hero_class, rank, atk, def_, spd = calculate_hero_from_hash(source_hash)
+            hero_class, rarity, atk, def_, spd = calculate_hero_from_hash(source_hash)
             result["calculated"] = {
                 "hero_class": hero_class,
-                "rank": rank,
+                "rarity": rarity,
                 "atk": atk,
                 "def": def_,
                 "spd": spd
             }
             
-            # v0.3: 檢查 rank 欄位
-            p_rank = payload.get("rank")
-            if p_rank:
-                # v0.3 格式：只驗證 rank（其他由大地之母解釋）
-                if p_rank == rank:
-                    result["checks"].append(f"✓ Rank 驗證通過 ({rank})")
-                    result["checks"].append(f"✓ 大地之母解釋：{hero_class}/{atk}/{def_}/{spd}")
-                else:
-                    result["errors"].append(f"Rank 不匹配！payload: {p_rank}, 計算: {rank}")
-                    return result
+            # 比對（c 可能是 int 或 string）
+            p_class = payload.get("c")
+            p_rarity = payload.get("r")
+            
+            # 轉換為一致格式比對
+            if (str(p_class) == str(hero_class) and 
+                str(p_rarity) == str(rarity) and
+                payload.get("a") == atk and
+                payload.get("d") == def_ and
+                payload.get("s") == spd):
+                result["checks"].append("✓ 屬性驗證通過")
             else:
-                # v0.2 格式：檢查 c/r/a/d/s
-                p_class = payload.get("c")
-                p_rarity = payload.get("r")
-                
-                # 轉換為一致格式比對
-                if (str(p_class) == str(hero_class) and 
-                    str(p_rarity) == str(rank) and
-                    payload.get("a") == atk and
-                    payload.get("d") == def_ and
-                    payload.get("s") == spd):
-                    result["checks"].append("✓ 屬性驗證通過 (v0.2)")
-                else:
-                    result["errors"].append(f"屬性不匹配！payload: {p_class}/{p_rarity}/{payload.get('a')}/{payload.get('d')}/{payload.get('s')}, 計算: {hero_class}/{rank}/{atk}/{def_}/{spd}")
-                    return result
+                result["errors"].append(f"屬性不匹配！payload: {p_class}/{p_rarity}/{payload.get('a')}/{payload.get('d')}/{payload.get('s')}, 計算: {hero_class}/{rarity}/{atk}/{def_}/{spd}")
+                return result
         except Exception as e:
             result["errors"].append(f"屬性驗證失敗：{e}")
             return result
@@ -2209,40 +1906,23 @@ TX: `{tx_id[:32]}...`
 {errors}"""
     
     payload = result.get("payload", {})
-    calculated = result.get("calculated", {})
     checks = "\n".join(result.get("checks", []))
     verdict = result.get("verdict", "")
     
     # 英雄資訊
     daa = payload.get("daa", "?")
-    
-    # v0.3: 從 calculated 取得屬性（大地之母解釋）
-    if calculated:
-        hero_class = calculated.get("hero_class", "?")
-        rank = calculated.get("rank", payload.get("rank", "?"))
-        atk = calculated.get("atk", "?")
-        def_ = calculated.get("def", "?")
-        spd = calculated.get("spd", "?")
-    else:
-        # v0.2 格式
-        hero_class = payload.get("c", "?")
-        rank = payload.get("r", payload.get("rank", "?"))
-        atk = payload.get("a", "?")
-        def_ = payload.get("d", "?")
-        spd = payload.get("s", "?")
+    hero_class = payload.get("c", "?")
+    rarity = payload.get("r", "?")
+    atk = payload.get("a", "?")
+    def_ = payload.get("d", "?")
+    spd = payload.get("s", "?")
     
     # 翻譯對照
     class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
-    rank_names = {
-        # v0.3 Rank
-        "N": "⭐ N 普通", "R": "⭐⭐ R 稀有", "SR": "⭐⭐⭐ SR 超稀",
-        "SSR": "💎 SSR 極稀", "UR": "✨ UR 傳說", "LR": "🔱 LR 神話",
-        # v0.2 向後相容
-        "common": "普通", "uncommon": "優秀", "rare": "稀有",
-        "epic": "史詩", "legendary": "傳說", "mythic": "神話"
-    }
+    rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
+                    "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
     class_zh = class_names.get(hero_class, hero_class)
-    rank_zh = rank_names.get(rank, rank)
+    rarity_zh = rarity_names.get(rarity, rarity)
     
     return f"""🔍 驗證銘文
 
@@ -2250,8 +1930,8 @@ TX: `{tx_id[:32]}...`
 
 📦 *Payload 內容：*
 • 英雄 ID: #{daa}
-• Rank: {rank_zh}
-• 職業: {class_zh}（大地之母解釋）
+• 職業: {class_zh}
+• 稀有度: {rarity_zh}
 • 屬性: ⚔️{atk} 🛡️{def_} ⚡{spd}
 
 🔬 *驗證項目：*

@@ -287,6 +287,24 @@
       "tx_id": "091827e8f0c7e2fdf01c2231de7e656103e0b2e98406dc556175255a03075574",
       "date": "2026-02-07",
       "timestamp": "2026-02-07T03:00:42.692075"
+    },
+    {
+      "user_id": 873426709,
+      "username": "benrod3k",
+      "address": "kaspatest:qruh4yz8lk04eap8qjkh8aglz45wvwjsf66cna5h50dkyehw9ctpydllve4ug",
+      "amount": 10,
+      "tx_id": "98dbb844ea1bcb69ee3bb010c2b88aa15692dbfbebaa3ed9c6e475ff3f77129a",
+      "date": "2026-02-07",
+      "timestamp": "2026-02-07T11:36:18.943288"
+    },
+    {
+      "user_id": 873426709,
+      "username": "benrod3k",
+      "address": "kaspatest:qruh4yz8lk04eap8qjkh8aglz45wvwjsf66cna5h50dkyehw9ctpydllve4ug",
+      "amount": 10,
+      "tx_id": "2978da686fb4c6cd778f920a69ddab1d81fb58aa666c55140d04d09e9fb4db90",
+      "date": "2026-02-07",
+      "timestamp": "2026-02-07T11:36:55.931796"
     }
   ],
   "daily_stats": {
@@ -303,8 +321,8 @@
       "total": 100
     },
     "2026-02-07": {
-      "count": 5,
-      "total": 50
+      "count": 7,
+      "total": 70
     }
   }
 }
