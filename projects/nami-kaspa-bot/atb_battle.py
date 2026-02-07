@@ -28,7 +28,7 @@ RANK_HP = {
 
 # 職業大招設定
 ULTIMATE_SKILLS = {
-    "mage": {"name": "流星雨", "emoji": "🧙", "type": "damage", "multiplier": 3},  # 5→3
+    "mage": {"name": "流星雨", "emoji": "🧙", "type": "damage", "multiplier": 2.5},  # 5→2.5
     "warrior": {"name": "衝擊之暈", "emoji": "⚔️", "type": "stun", "move_reduce": 500},
     "rogue": {"name": "幻影", "emoji": "🗡️", "type": "evade"},
     "archer": {"name": "穿透射擊", "emoji": "🏹", "type": "damage_stun", "multiplier": 3, "move_reduce": 200},
@@ -170,23 +170,23 @@ class BattleLog:
 
 def calculate_damage(attacker: ATBFighter, defender: ATBFighter) -> Tuple[int, bool, bool]:
     """計算普通攻擊傷害，回傳 (傷害, 是否狂暴, 是否背刺)"""
-    base_damage = attacker.atk - defender.def_
     variance = random.randint(-5, 5)
-    damage = max(1, base_damage + variance)
     
     is_berserk = False
     is_backstab = False
     
-    # 戰士狂暴姿態：HP < 30% 時傷害 300%
-    if attacker.hero_class == "warrior" and attacker.is_rage_mode:
-        damage *= 3
-        is_berserk = True
-    
-    # 盜賊背刺：閃避成功後攻擊傷害 300%
+    # 盜賊背刺：ATK × 3 - DEF（先乘後減）
     if attacker.backstab_ready:
-        damage *= 3
+        damage = max(1, attacker.atk * 3 - defender.def_ + variance)
         is_backstab = True
         attacker.backstab_ready = False
+    # 戰士狂暴：ATK × 3 - DEF（先乘後減）
+    elif attacker.hero_class == "warrior" and attacker.is_rage_mode:
+        damage = max(1, attacker.atk * 3 - defender.def_ + variance)
+        is_berserk = True
+    # 普通攻擊
+    else:
+        damage = max(1, attacker.atk - defender.def_ + variance)
     
     return damage, is_berserk, is_backstab
 
