@@ -402,5 +402,50 @@
     "s": 16,
     "tx_id": "26c8aa2a3ea1a74481dad9dba7941a080206422b0511602b0a83b08f5e8dcf2b",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380694157,
+    "pre_tx": null,
+    "pay_tx": "bfa89823d39e4126e8962dc96461d1fa0afe672604c8c47803f8928aae56031f",
+    "src": "6947fbd71a29d4c40b2e27d87cbd36737020246d0da919ab1ba2b892b86a5ada",
+    "c": "mage",
+    "r": "uncommon",
+    "a": 58,
+    "d": 70,
+    "s": 66,
+    "tx_id": "dab1e264be45aba204fecf7bac842601689ef5a190cf3cbce50fa9843fee29c9",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380696332,
+    "pre_tx": null,
+    "pay_tx": "4e536febc11123950ccec13dc3bf42b4ba650c00d3ba84f037d1912ba812c372",
+    "src": "1cb7f0c323a2c1dca83bb0b3a4b029f5b745ea9dbac1cadaff04a53e7b2611dc",
+    "c": "warrior",
+    "r": "rare",
+    "a": 45,
+    "d": 38,
+    "s": 51,
+    "tx_id": "1ccfe93422fec142377d6232957aa148e48bf86db157970512a9f84e4f7264ca",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 380697184,
+    "pre_tx": null,
+    "pay_tx": "f575b3e90f40fc5fca746120d9aaf2046b048453571081420bd6b959d2924ef4",
+    "src": "8aada4ba8334a6837335c8e5eddad3f634122bcd15f29734b8980579b947170a",
+    "c": "archer",
+    "r": "common",
+    "a": 47,
+    "d": 19,
+    "s": 49,
+    "tx_id": "b011199b1ae4cbae26d1e485a844a80ee2fe489f5badbb4c1527ee5bf3ca116b",
+    "signer": "player"
   }
 ]

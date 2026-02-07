@@ -1840,8 +1840,8 @@ async def verify_from_tx(tx_id: str) -> dict:
     else:
         result["checks"].append("⚠ 舊版格式，無來源 hash（無法重算驗證）")
     
-    # 5. 驗證付款
-    payment_tx = payload.get("payment_tx", "")
+    # 5. 驗證付款（支援新舊格式：pay_tx / payment_tx）
+    payment_tx = payload.get("pay_tx") or payload.get("payment_tx", "")
     if payment_tx:
         try:
             async with aiohttp.ClientSession() as session:
@@ -2044,8 +2044,8 @@ async def verify_hero_by_id(hero_id: int) -> dict:
             elif tx_type == "event":
                 result["checks"].append(f"⚔️ 事件：{payload.get('action', 'unknown')}")
             
-            # 驗證 payment_tx
-            payment_tx = payload.get("payment_tx", "")
+            # 驗證 payment_tx（支援新舊格式）
+            payment_tx = payload.get("pay_tx") or payload.get("payment_tx", "")
             if payment_tx:
                 try:
                     pay_url = f"https://api-tn10.kaspa.org/transactions/{payment_tx}"

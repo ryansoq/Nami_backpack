@@ -39,9 +39,70 @@
       "payment_tx": "da1985a3c71f59edd720691e175afdf8199bcf051e73dd3124ffcb93cc65ee5e",
       "tx_id": "26c8aa2a3ea1a74481dad9dba7941a080206422b0511602b0a83b08f5e8dcf2b",
       "latest_tx": "26c8aa2a3ea1a74481dad9dba7941a080206422b0511602b0a83b08f5e8dcf2b"
+    },
+    "380694157": {
+      "card_id": 380694157,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "mage",
+      "rarity": "uncommon",
+      "atk": 58,
+      "def": 70,
+      "spd": 66,
+      "status": "alive",
+      "latest_daa": 380694157,
+      "kills": 1,
+      "battles": 1,
+      "created_at": "",
+      "death_time": "",
+      "source_hash": "",
+      "payment_tx": "",
+      "tx_id": "dab1e264be45aba204fecf7bac842601689ef5a190cf3cbce50fa9843fee29c9",
+      "latest_tx": "a3297a8b16c1a9a67cf2f44cf2504cbb59d2504a025d2594d87979456128a38b",
+      "name": "sky"
+    },
+    "380696332": {
+      "card_id": 380696332,
+      "owner_id": 684243833,
+      "owner_address": "kaspatest:qp6nvekfv3ng3wlht470qrzqgtm4mcpppwujc06w9c8uakq9c5zdud5nq728g",
+      "hero_class": "warrior",
+      "rarity": "rare",
+      "atk": 45,
+      "def": 38,
+      "spd": 51,
+      "status": "alive",
+      "latest_daa": 380696332,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-07T10:10:39.701434",
+      "death_time": "",
+      "source_hash": "1cb7f0c323a2c1dca83bb0b3a4b029f5b745ea9dbac1cadaff04a53e7b2611dc",
+      "payment_tx": "4e536febc11123950ccec13dc3bf42b4ba650c00d3ba84f037d1912ba812c372",
+      "tx_id": "1ccfe93422fec142377d6232957aa148e48bf86db157970512a9f84e4f7264ca",
+      "latest_tx": "1ccfe93422fec142377d6232957aa148e48bf86db157970512a9f84e4f7264ca"
+    },
+    "380697184": {
+      "card_id": 380697184,
+      "owner_id": 684243833,
+      "owner_address": "kaspatest:qp6nvekfv3ng3wlht470qrzqgtm4mcpppwujc06w9c8uakq9c5zdud5nq728g",
+      "hero_class": "archer",
+      "rarity": "common",
+      "atk": 47,
+      "def": 19,
+      "spd": 49,
+      "status": "dead",
+      "latest_daa": 380697184,
+      "kills": 0,
+      "battles": 1,
+      "created_at": "",
+      "death_time": "2026-02-07T10:15:18.548190",
+      "source_hash": "",
+      "payment_tx": "",
+      "tx_id": "b011199b1ae4cbae26d1e485a844a80ee2fe489f5badbb4c1527ee5bf3ca116b",
+      "latest_tx": "5137e54be83c380dcb52dfc0288c094d03638ad124ac78902f01478a6fa5c6b2"
     }
   },
-  "total_mana_pool": 20,
+  "total_mana_pool": 60,
   "last_reward_daa": null,
   "last_checked_daa": null,
   "reward_history": [],
@@ -50,8 +111,13 @@
   "user_heroes": {
     "5168530096": [
       380688189,
-      380688388
+      380688388,
+      380694157
+    ],
+    "684243833": [
+      380696332,
+      380697184
     ]
   },
-  "last_summon_daa": 380688388
+  "last_summon_daa": 380697184
 }
