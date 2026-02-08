@@ -305,6 +305,51 @@
       "tx_id": "2978da686fb4c6cd778f920a69ddab1d81fb58aa666c55140d04d09e9fb4db90",
       "date": "2026-02-07",
       "timestamp": "2026-02-07T11:36:55.931796"
+    },
+    {
+      "user_id": 5168530096,
+      "username": "ryansoq",
+      "address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "amount": 10,
+      "tx_id": "3f978cb8457319f70ff71581cf1f00cb0597f757bda9d427e34b6c93a692da1c",
+      "date": "2026-02-09",
+      "timestamp": "2026-02-09T02:22:46.259580"
+    },
+    {
+      "user_id": 5168530096,
+      "username": "ryansoq",
+      "address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "amount": 10,
+      "tx_id": "b6b5455bf2c2a651e98f399c1b5dfdd1a2318ace4de3c0b5b6012e9fdc43cf8b",
+      "date": "2026-02-09",
+      "timestamp": "2026-02-09T02:23:50.863570"
+    },
+    {
+      "user_id": 5168530096,
+      "username": "ryansoq",
+      "address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "amount": 10,
+      "tx_id": "c9bb78fb13fb05f0363306c72f5b64c8bfd0ee5d6d700715b0987d784d6c4d49",
+      "date": "2026-02-09",
+      "timestamp": "2026-02-09T02:23:55.966500"
+    },
+    {
+      "user_id": 5168530096,
+      "username": "ryansoq",
+      "address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "amount": 10,
+      "tx_id": "bf8339306212813797f4486b99b8e902fc43603ea72632f3a82772ea162e4815",
+      "date": "2026-02-09",
+      "timestamp": "2026-02-09T02:24:00.429361"
+    },
+    {
+      "user_id": 5168530096,
+      "username": "ryansoq",
+      "address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "amount": 10,
+      "tx_id": "f87916d5883aaaa27698f62a3da610149cd721cc2bccb54a02396a92ad24871c",
+      "date": "2026-02-09",
+      "timestamp": "2026-02-09T02:24:20.242575"
     }
   ],
   "daily_stats": {
@@ -323,6 +368,10 @@
     "2026-02-07": {
       "count": 7,
       "total": 70
+    },
+    "2026-02-09": {
+      "count": 5,
+      "total": 50
     }
   }
 }
