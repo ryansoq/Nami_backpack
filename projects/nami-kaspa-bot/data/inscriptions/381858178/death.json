@@ -1,0 +1,12 @@
+{
+  "type": "death",
+  "hero_id": 381858178,
+  "tx_id": "c0dd9695e8e0a0f12c855dc1bbee3c00e0c952f8b185b0a74007d8c7acb4c5a4",
+  "pre_tx": "a0c13e6357a48eaff88d4ba8d6027f116c8cacfe83a3f0f4f57fc328bfe6c2db",
+  "reason": "burn",
+  "killer_id": null,
+  "battle_tx": null,
+  "payload": null,
+  "verified": true,
+  "timestamp": "2026-02-08T20:20:03.399859"
+}
