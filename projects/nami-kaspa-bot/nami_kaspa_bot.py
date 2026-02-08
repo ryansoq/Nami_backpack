@@ -20,8 +20,8 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # 英雄遊戲模組
 try:
@@ -787,8 +787,13 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("❌ 查詢失敗，請稍後再試")
 
+# 存儲待確認的錢包創建請求
+_pending_wallet_requests = {}
+WALLET_CONFIRM_TIMEOUT = 30  # 30 秒超時
+
+
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """處理 /nami_wallet 指令 - 創建統一錢包"""
+    """處理 /nami_wallet 指令 - 創建統一錢包（帶確認機制）"""
     user = update.effective_user
     user_id = user.id
     
@@ -803,7 +808,9 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"📍 *你已有錢包*\n\n"
                     f"地址：`{existing_addr}`\n\n"
                     f"🎰 輪盤：`/bet r 5 <PIN>`\n"
-                    f"🌲 英雄：`/nami_hero <PIN>`",
+                    f"🌲 英雄：`/nami_hero <PIN>`\n\n"
+                    f"⚠️ 如要創建新錢包（新 PIN），請輸入：\n"
+                    f"`/nami_wallet <新PIN>`",
                     parse_mode='Markdown'
                 )
             else:
@@ -827,33 +834,51 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ PIN 需為 4-6 位數字")
             return
         
-        try:
-            # 設定 PIN 並取得地址
-            address = unified_wallet.set_pin(user_id, pin)
-            
-            # 註冊用戶
-            register_user(user_id, user.username or user.first_name, address)
-            logger.info(f"Unified wallet created for {user.username} ({user_id}): {address}")
-            
-            await update.message.reply_text(
-                f"✅ *錢包已創建！*\n\n"
-                f"📍 地址：\n`{address}`\n\n"
-                f"🔑 PIN：`{pin}`\n\n"
-                f"🎰 *輪盤下注：*\n"
-                f"`/bet r 5 {pin}` — 紅色\n"
-                f"`/bet b 5 {pin}` — 黑色\n"
-                f"`/bet g 5 {pin}` — 綠色\n\n"
-                f"🌲 *英雄召喚：*\n"
-                f"`/nami_hero {pin}`\n\n"
-                f"💧 用 `/nami_faucet` 領 tKAS！",
-                parse_mode='Markdown'
+        # 檢查是否已有錢包
+        existing_addr = unified_wallet.get_user_address(user_id)
+        
+        # 生成確認 ID
+        import secrets
+        action_id = secrets.token_hex(8)
+        
+        # 儲存待確認請求
+        _pending_wallet_requests[action_id] = {
+            'user_id': user_id,
+            'pin': pin,
+            'username': user.username or user.first_name,
+            'created_at': time.time(),
+            'has_existing': existing_addr is not None,
+            'existing_addr': existing_addr
+        }
+        
+        # 構建確認訊息
+        if existing_addr:
+            confirm_msg = (
+                f"⚠️ *你已有錢包！*\n\n"
+                f"現有地址：\n`{existing_addr}`\n\n"
+                f"確定要用新 PIN 創建新錢包嗎？\n"
+                f"（舊錢包仍可用舊 PIN 存取）\n\n"
+                f"⏰ {WALLET_CONFIRM_TIMEOUT} 秒後自動取消"
             )
-            
-        except Exception as e:
-            logger.error(f"Unified wallet creation error: {e}")
-            await update.message.reply_text(
-                f"❌ 創建失敗：{e}"
+        else:
+            confirm_msg = (
+                f"🌊 *確認創建錢包*\n\n"
+                f"即將使用 PIN 創建新錢包\n\n"
+                f"⏰ {WALLET_CONFIRM_TIMEOUT} 秒後自動取消"
             )
+        
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ 確認創建", callback_data=f"wallet_yes:{action_id}"),
+                InlineKeyboardButton("❌ 取消", callback_data=f"wallet_no:{action_id}")
+            ]
+        ])
+        
+        await update.message.reply_text(
+            confirm_msg,
+            parse_mode='Markdown',
+            reply_markup=keyboard
+        )
         return
     
     # 舊版：隨機助記詞（fallback）
@@ -903,6 +928,77 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Wallet creation error: {e}")
         await update.message.reply_text("❌ 創建失敗，請稍後再試")
+
+async def handle_wallet_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """處理錢包創建確認按鈕"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    user_id = query.from_user.id
+    
+    # 解析 callback data
+    if data.startswith("wallet_yes:"):
+        action_id = data.split(":")[1]
+        
+        # 取得待確認請求
+        request = _pending_wallet_requests.pop(action_id, None)
+        
+        if not request:
+            await query.edit_message_text("❌ 請求已過期，請重新操作")
+            return
+        
+        # 驗證是本人
+        if request['user_id'] != user_id:
+            await query.answer("❌ 這不是你的請求", show_alert=True)
+            _pending_wallet_requests[action_id] = request  # 放回
+            return
+        
+        # 檢查超時
+        if time.time() - request['created_at'] > WALLET_CONFIRM_TIMEOUT:
+            await query.edit_message_text("⏰ 請求已超時，請重新操作")
+            return
+        
+        try:
+            # 創建錢包
+            pin = request['pin']
+            address = unified_wallet.set_pin(user_id, pin)
+            
+            # 註冊用戶
+            register_user(user_id, request['username'], address)
+            logger.info(f"Wallet created for {request['username']} ({user_id}): {address}")
+            
+            await query.edit_message_text(
+                f"✅ *錢包已創建！*\n\n"
+                f"📍 地址：\n`{address}`\n\n"
+                f"🔑 PIN：`{pin}`\n\n"
+                f"🎰 *輪盤下注：*\n"
+                f"`/bet r 5 {pin}` — 紅色\n"
+                f"`/bet b 5 {pin}` — 黑色\n"
+                f"`/bet g 5 {pin}` — 綠色\n\n"
+                f"🌲 *英雄召喚：*\n"
+                f"`/nami_hero {pin}`\n\n"
+                f"💧 用 `/nf` 領 tKAS！",
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Wallet creation error: {e}")
+            await query.edit_message_text(f"❌ 創建失敗：{e}")
+    
+    elif data.startswith("wallet_no:"):
+        action_id = data.split(":")[1]
+        
+        # 移除待確認請求
+        request = _pending_wallet_requests.pop(action_id, None)
+        
+        if request and request['user_id'] != user_id:
+            await query.answer("❌ 這不是你的請求", show_alert=True)
+            _pending_wallet_requests[action_id] = request  # 放回
+            return
+        
+        await query.edit_message_text("❌ 已取消創建錢包")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 輪盤指令
@@ -1858,6 +1954,15 @@ def main():
     app.add_handler(CommandHandler("nami_faucet", faucet))
     app.add_handler(CommandHandler("nami_balance", balance))
     app.add_handler(CommandHandler("nami_status", status))
+    
+    # 縮寫指令
+    app.add_handler(CommandHandler("nw", wallet))         # nami_wallet
+    app.add_handler(CommandHandler("nf", faucet))         # nami_faucet
+    app.add_handler(CommandHandler("nbal", balance))      # nami_balance
+    
+    # Callback handlers
+    app.add_handler(CallbackQueryHandler(handle_wallet_callback, pattern=r"^wallet_(yes|no):"))
+    
     # 保留舊指令（私聊用）
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("wallet", wallet))
