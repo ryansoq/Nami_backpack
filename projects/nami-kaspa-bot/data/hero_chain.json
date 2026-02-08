@@ -722,5 +722,27 @@
     "battle_tx": "8948bfc4ef35e27a7cada5de242f3982ea6bd53bfcb8ff6920874d23fc22256b",
     "tx_id": "5da5a4927b8169eda9539ec7baecffb99b61b2144cfb54822e2d7f3f30077bbf",
     "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 380830830,
+    "pre_tx": "9fb8288c9d798617b1272c4f367459ad2b8c0a3a774b4d225d96e2236a53f5cd",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "c9f0dccafe84c7b8882c561af6b6efa3c777e6a707bd665d9486d0504550b1f6",
+    "tx_id": "8dfb0f50a350a3c4b5f1de26e71da1f27aacbe09381ec12668bc18243f302473"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 380849450,
+    "pre_tx": "05c50a3981bd439b22da465ad23b0392854069e5f7563092cbd62d63a4bf7d2c",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "59d3fc60396709beaefd133bb49e44b9a3b572be8866e0601c32c35156eba149",
+    "tx_id": "ae02201fe0edf9fe13b7981ead347e1a8e8f308f8abf0d67b5b97df7e1c8642c"
   }
 ]

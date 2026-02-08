@@ -6,12 +6,14 @@
 
 import asyncio
 import logging
+import re
 import time
-from telegram import Update
+import uuid
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🔒 v0.3 安全機制
+# 🔒 v0.4 安全機制
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # 管理員 ID（可以在維護模式下操作）
@@ -22,6 +24,61 @@ MAINTENANCE_MODE = False
 
 # 全局錢包鎖（防止 UTXO 衝突）
 WALLET_LOCK = asyncio.Lock()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎛️ v0.4 待確認操作暫存（Inline Button 確認機制）
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# 暫存待確認的操作，60 秒後過期
+# 格式: {action_id: {user_id, action, hero_id, pin, created_at}}
+PENDING_ACTIONS: dict[str, dict] = {}
+PENDING_TIMEOUT = 60  # 秒
+
+
+def create_pending_action(user_id: int, action: str, hero_id: int, pin: str) -> str:
+    """建立待確認操作，返回 action_id"""
+    action_id = uuid.uuid4().hex[:8]
+    PENDING_ACTIONS[action_id] = {
+        "user_id": user_id,
+        "action": action,
+        "hero_id": hero_id,
+        "pin": pin,
+        "created_at": time.time()
+    }
+    return action_id
+
+
+def get_pending_action(action_id: str, user_id: int) -> dict | None:
+    """取得待確認操作（驗證 user_id 和過期時間）"""
+    action = PENDING_ACTIONS.get(action_id)
+    if not action:
+        return None
+    
+    # 驗證 user_id
+    if action["user_id"] != user_id:
+        return None
+    
+    # 檢查過期
+    if time.time() - action["created_at"] > PENDING_TIMEOUT:
+        del PENDING_ACTIONS[action_id]
+        return None
+    
+    return action
+
+
+def consume_pending_action(action_id: str) -> dict | None:
+    """取出並刪除待確認操作"""
+    return PENDING_ACTIONS.pop(action_id, None)
+
+
+def cleanup_expired_actions():
+    """清理過期的待確認操作"""
+    now = time.time()
+    expired = [k for k, v in PENDING_ACTIONS.items() 
+               if now - v["created_at"] > PENDING_TIMEOUT]
+    for k in expired:
+        del PENDING_ACTIONS[k]
 
 def is_admin(user_id: int) -> bool:
     """檢查是否為管理員"""
@@ -34,6 +91,39 @@ def check_maintenance(user_id: int) -> str | None:
     """
     if MAINTENANCE_MODE and not is_admin(user_id):
         return "🛠️ 系統維護中，請稍後再試～"
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 📲 回覆即操作 - 從回覆訊息中提取英雄 ID
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def extract_hero_id_from_reply(update: Update) -> int | None:
+    """
+    從回覆的訊息中提取英雄 ID
+    
+    支援格式：
+    - 🎴 英雄 #380849450
+    - 英雄 ID: `#380849450`
+    - /nami_verify 380849450
+    
+    Returns: 英雄 ID (int) 或 None
+    """
+    if not update.message or not update.message.reply_to_message:
+        return None
+    
+    reply_text = update.message.reply_to_message.text or ""
+    
+    # 嘗試匹配 #xxxxxxxx 格式（最常見）
+    match = re.search(r'#(\d{6,12})', reply_text)
+    if match:
+        return int(match.group(1))
+    
+    # 嘗試匹配純數字格式（如 /nami_verify 380849450）
+    match = re.search(r'/nami_(?:verify|hero_info|burn|payload)\s+(\d{6,12})', reply_text)
+    if match:
+        return int(match.group(1))
+    
     return None
 
 async def with_wallet_lock(coro):
@@ -1056,26 +1146,46 @@ async def hero_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     - 查看自己的英雄：免費
     - 查看別人的英雄：需要 10 mana + PIN（偵查費）
+    
+    支援回覆模式：回覆英雄訊息 + /ni
     """
     user = update.effective_user
     
-    if not context.args:
+    # 📲 回覆模式：從回覆訊息抓取英雄 ID
+    reply_hero_id = extract_hero_id_from_reply(update)
+    
+    if not context.args and not reply_hero_id:
         await update.message.reply_text(
             "📜 *查看英雄詳情*\n\n"
             "查看自己的英雄（免費）：\n"
             "```\n/nami_hero_info <ID>\n```\n\n"
             "偵查敵方英雄（10 mana）：\n"
-            "```\n/nami_hero_info <ID或名字> <PIN>\n```",
+            "```\n/nami_hero_info <ID或名字> <PIN>\n```\n\n"
+            "*📲 回覆模式：*\n"
+            "回覆英雄訊息，只需輸入：\n"
+            "```\n/ni\n```",
             parse_mode='Markdown'
         )
         return
     
     # 支援 ID 或名字查詢
     from hero_game import resolve_hero_id
-    identifier = context.args[0]
-    card_id = resolve_hero_id(identifier)
+    
+    # 決定要查詢的英雄 ID
+    if reply_hero_id and not context.args:
+        # 純回覆模式：/ni（無參數）
+        card_id = reply_hero_id
+    elif reply_hero_id and len(context.args) == 1:
+        # 回覆 + PIN 模式：/ni <PIN>（偵查敵方）
+        # 先嘗試把參數當 PIN，用回覆的 ID
+        card_id = reply_hero_id
+    else:
+        # 傳統模式
+        identifier = context.args[0]
+        card_id = resolve_hero_id(identifier)
     
     if card_id is None:
+        identifier = context.args[0] if context.args else "（回覆訊息）"
         await update.message.reply_text(f"❌ 找不到英雄：{identifier}")
         return
     
@@ -1092,18 +1202,28 @@ async def hero_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(format_hero_card(hero), parse_mode='HTML')
     else:
         # 別人的英雄：需要付費偵查
-        if len(context.args) < 2:
-            await update.message.reply_text(
+        # 判斷 PIN 來源（回覆模式 vs 傳統模式）
+        pin = None
+        if reply_hero_id and len(context.args) == 1:
+            # 回覆模式：/ni <PIN>
+            pin = context.args[0]
+        elif len(context.args) >= 2:
+            # 傳統模式：/ni <ID> <PIN>
+            pin = context.args[1]
+        
+        if not pin:
+            help_text = (
                 f"🔍 *偵查敵方英雄*\n\n"
                 f"英雄 `#{card_id}` 屬於其他玩家\n"
                 f"偵查需要消耗 *10 mana*\n\n"
                 f"確認偵查：\n"
-                f"```\n/nami_hero_info {card_id} <你的PIN>\n```",
-                parse_mode='Markdown'
+                f"```\n/nami_hero_info {card_id} <你的PIN>\n```\n\n"
+                f"*📲 回覆模式：*\n"
+                f"回覆英雄訊息輸入：\n"
+                f"```\n/ni <PIN>\n```"
             )
+            await update.message.reply_text(help_text, parse_mode='Markdown')
             return
-        
-        pin = context.args[1]
         
         # 驗證 PIN 並取得地址
         if not verify_hero_pin(user.id, pin):
@@ -1295,6 +1415,11 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /nami_pvp <我的ID/名字> <對手ID/名字> <PIN> - 發起 PvP 攻擊
     
+    v0.4 新增：
+    - 📲 回覆模式：回覆對方英雄訊息 + /np <PIN>（用保護角色攻擊）
+    - 📲 回覆模式：回覆對方英雄訊息 + /np <我的英雄> <PIN>
+    - 🎛️ 確認按鈕：防止手滑
+    
     鏈上 PvP 流程：
     1. 驗證雙方英雄存活
     2. 付費給大地之樹
@@ -1304,7 +1429,7 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat = update.effective_chat
     
-    # v0.3: 維護模式檢查
+    # v0.4: 維護模式檢查
     if msg := check_maintenance(user.id):
         await update.message.reply_text(msg)
         return
@@ -1312,22 +1437,14 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_info = f"[{chat.type}:{chat.id}]" if chat.type != "private" else "[私聊]"
     logger.info(f"⚔️ PvP 請求 | {chat_info} @{user.username or user.id} | args: {len(context.args or [])}")
     
-    # 解析參數
-    if not context.args or len(context.args) < 3:
-        await update.message.reply_text(
-            "⚔️ *PvP 攻擊*\n\n"
-            "用法：\n"
-            "```\n/nami_pvp <我的英雄> <對手英雄> <PIN>\n```\n\n"
-            "支援 ID 或名字：\n"
-            "`/nami_pvp sky 380067645 1234`\n"
-            "`/nami_pvp 380079718 dragon 1234`\n\n"
-            "⚠️ 敗者永久死亡！",
-            parse_mode='Markdown'
-        )
-        return
+    # 📲 回覆模式：從回覆訊息抓取對方英雄 ID
+    reply_target_id = extract_hero_id_from_reply(update)
+    
+    from hero_game import load_heroes_db, Hero, PVP_COST, get_protected_hero
+    db = load_heroes_db()
     
     # 解析英雄 ID（支援數字或名字）
-    def resolve_hero_id(arg: str, db: dict, owner_id: int = None) -> int | None:
+    def resolve_hero_id_local(arg: str, owner_id: int = None) -> int | None:
         """解析英雄 ID，支援數字 ID 或名字查找"""
         # 先試數字
         try:
@@ -1343,27 +1460,68 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return int(hero_id)
         return None
     
-    from hero_game import load_heroes_db, Hero, PVP_COST, process_pvp_onchain, format_battle_result
-    db = load_heroes_db()
+    # ═══════════════════════════════════════════════════════════════════════
+    # v0.4: 多種輸入模式解析
+    # ═══════════════════════════════════════════════════════════════════════
+    my_hero_id = None
+    target_hero_id = None
+    pin = None
     
-    try:
-        my_hero_input = context.args[0]
-        target_hero_input = context.args[1]
+    if reply_target_id and len(context.args) == 1:
+        # 📲 回覆模式 A：/np <PIN>（用保護角色攻擊）
+        target_hero_id = reply_target_id
+        pin = context.args[0]
+        # 取得保護角色
+        protected = get_protected_hero(user.id)
+        if protected and protected.get("status") == "alive":
+            my_hero_id = protected.get("card_id")
+        else:
+            await update.message.reply_text(
+                "❌ 你沒有設定保護英雄，或保護英雄已死亡\n\n"
+                "請用完整格式：`/np <你的英雄> <PIN>`\n"
+                "或先設定保護英雄：`/nhp <英雄ID>`",
+                parse_mode='Markdown'
+            )
+            return
+    elif reply_target_id and len(context.args) == 2:
+        # 📲 回覆模式 B：/np <我的英雄> <PIN>
+        target_hero_id = reply_target_id
+        my_hero_id = resolve_hero_id_local(context.args[0], owner_id=user.id)
+        pin = context.args[1]
+        if my_hero_id is None:
+            await update.message.reply_text(f"❌ 找不到你的英雄：{context.args[0]}")
+            return
+    elif len(context.args) >= 3:
+        # 傳統模式：/np <我的英雄> <對手英雄> <PIN>
+        my_hero_id = resolve_hero_id_local(context.args[0], owner_id=user.id)
+        target_hero_id = resolve_hero_id_local(context.args[1])
         pin = context.args[2]
-    except IndexError:
-        await update.message.reply_text("❌ 用法：`/nami_pvp <我的ID/名字> <對手ID/名字> <PIN>`", parse_mode='Markdown')
-        return
-    
-    # 解析我的英雄（只找自己的）
-    my_hero_id = resolve_hero_id(my_hero_input, db, owner_id=user.id)
-    if my_hero_id is None:
-        await update.message.reply_text(f"❌ 找不到你的英雄：{my_hero_input}")
-        return
-    
-    # 解析對手英雄（全局查找）
-    target_hero_id = resolve_hero_id(target_hero_input, db)
-    if target_hero_id is None:
-        await update.message.reply_text(f"❌ 找不到對手英雄：{target_hero_input}")
+        if my_hero_id is None:
+            await update.message.reply_text(f"❌ 找不到你的英雄：{context.args[0]}")
+            return
+        if target_hero_id is None:
+            await update.message.reply_text(f"❌ 找不到對手英雄：{context.args[1]}")
+            return
+    else:
+        # 顯示用法
+        protected = get_protected_hero(user.id)
+        protect_hint = ""
+        if protected and protected.get("status") == "alive":
+            pname = protected.get("name") or f"#{protected.get('card_id')}"
+            protect_hint = f"\n🛡️ 你的保護英雄：*{pname}*\n"
+        
+        await update.message.reply_text(
+            "⚔️ *PvP 攻擊*\n\n"
+            "*傳統用法：*\n"
+            "```\n/np <我的英雄> <對手英雄> <PIN>\n```\n\n"
+            "*📲 回覆模式：*\n"
+            "回覆對方英雄訊息：\n"
+            "```\n/np <PIN>           # 用保護角色\n"
+            "/np <我的英雄> <PIN>  # 指定英雄\n```"
+            f"{protect_hint}\n"
+            "⚠️ 敗者永久死亡！",
+            parse_mode='Markdown'
+        )
         return
     
     # 不能攻擊自己的英雄
@@ -1414,55 +1572,97 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ PIN 錯誤")
         return
     
-    # 建立 Hero 物件（使用 from_dict 確保所有欄位都正確載入）
+    # 建立 Hero 物件
     my_hero = Hero.from_dict(my_hero_data)
     target_hero = Hero.from_dict(target_hero_data)
     
-    # 計算費用
-    pvp_cost = PVP_COST
+    # 中文翻譯
+    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}
+    
+    my_class = class_names.get(my_hero.hero_class, my_hero.hero_class)
+    target_class = class_names.get(target_hero.hero_class, target_hero.hero_class)
+    my_name = my_hero.name if my_hero.name else f"#{my_hero.card_id}"
+    target_name = target_hero.name if target_hero.name else f"#{target_hero.card_id}"
+    
+    # 保護狀態
+    my_protected = "🛡️" if getattr(my_hero, 'protected', False) else ""
+    target_protected = "🛡️" if getattr(target_hero, 'protected', False) else ""
+    
+    # v0.4: 建立待確認操作
+    action_id = create_pending_action(user.id, "pvp", my_hero_id, pin)
+    # 額外存對手資訊
+    PENDING_ACTIONS[action_id]["target_hero_id"] = target_hero_id
+    
+    confirm_text = (
+        f"⚔️ *確認發起 PvP？*\n\n"
+        f"🔵 *你的英雄*：{my_name} {my_protected}\n"
+        f"   {my_hero.rarity} {my_class}\n"
+        f"   ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}\n\n"
+        f"🔴 *對手英雄*：{target_name} {target_protected}\n"
+        f"   {target_hero.rarity} {target_class}\n"
+        f"   ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}\n\n"
+        f"💰 消耗：*{PVP_COST} mana*\n"
+        f"⚠️ 敗者永久死亡！\n\n"
+        f"⏱️ 60 秒內有效"
+    )
+    
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⚔️ 確認出戰", callback_data=f"pvp_yes:{action_id}"),
+            InlineKeyboardButton("❌ 取消", callback_data=f"pvp_no:{action_id}")
+        ]
+    ])
+    
+    await update.message.reply_text(confirm_text, parse_mode='Markdown', reply_markup=keyboard)
+
+
+async def execute_pvp(user, my_hero_id: int, target_hero_id: int, pin: str, 
+                      edit_message=None, context=None):
+    """
+    執行 PvP 的核心邏輯（供 callback handler 調用）
+    """
+    from hero_game import load_heroes_db, Hero, PVP_COST, process_pvp_onchain
+    
+    db = load_heroes_db()
+    my_hero_data = db.get("heroes", {}).get(str(my_hero_id))
+    target_hero_data = db.get("heroes", {}).get(str(target_hero_id))
+    
+    if not my_hero_data or not target_hero_data:
+        if edit_message:
+            await edit_message("❌ 找不到英雄資料")
+        return
+    
+    my_hero = Hero.from_dict(my_hero_data)
+    target_hero = Hero.from_dict(target_hero_data)
     
     # 中文翻譯
-    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}
     rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
-                    "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
+                    "epic": "史詩", "legendary": "傳說", "mythic": "神話",
+                    "N": "普通", "R": "稀有", "SR": "史詩", "SSR": "傳說"}
     
     my_class = class_names.get(my_hero.hero_class, my_hero.hero_class)
     my_rarity = rarity_names.get(my_hero.rarity, my_hero.rarity)
     target_class = class_names.get(target_hero.hero_class, target_hero.hero_class)
     target_rarity = rarity_names.get(target_hero.rarity, target_hero.rarity)
     
-    # v0.3: 排隊機制 - 一次只服務一場 PvP
-    queue_size = tree_queue.queue_size()
-    if queue_size > 0:
-        await update.message.reply_text(f"⏳ 大地之樹忙碌中，排隊等候 {queue_size} 人...")
-    
+    # 排隊系統
     await tree_queue.acquire(user.id)
     
     try:
-        await update.message.reply_text(
-            f"⚔️ *發起 PvP 攻擊！*\n\n"
-            f"🔵 你的英雄：#{my_hero.card_id}\n"
-            f"   {my_rarity} {my_class}\n"
-            f"   ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}\n\n"
-            f"🔴 對手英雄：#{target_hero.card_id}\n"
-            f"   {target_rarity} {target_class}\n"
-            f"   ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}\n\n"
-            f"💰 消耗：{pvp_cost} mana\n\n"
-            f"⏳ 付費中...",
-            parse_mode='Markdown'
-        )
         # 取得下一個 DAA 決定勝負
         from hero_commands import get_next_daa_block
         event_daa, block_hash = await get_next_daa_block()
         
-        await update.message.reply_text(
-            f"🎲 命運區塊：`{block_hash[:16]}...`\n"
-            f"📍 DAA: {event_daa}\n\n"
-            f"⏳ 計算結果並發送鏈上事件...",
-            parse_mode='Markdown'
-        )
+        if edit_message:
+            await edit_message(
+                f"🎲 命運區塊：`{block_hash[:16]}...`\n"
+                f"📍 DAA: {event_daa}\n\n"
+                f"⏳ 計算結果並發送鏈上事件..."
+            )
         
         # 處理鏈上 PvP
+        from hero_game import process_pvp_onchain
         result = await process_pvp_onchain(
             attacker=my_hero,
             defender=target_hero,
@@ -1506,7 +1706,8 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 稀有度加成說明
         rarity_mult = {
             "common": "x1.0", "uncommon": "x1.2", "rare": "x1.5",
-            "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0"
+            "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0",
+            "N": "x1.0", "R": "x1.2", "SR": "x1.5", "SSR": "x2.0"
         }
         my_mult = rarity_mult.get(my_hero.rarity, "x1.0")
         target_mult = rarity_mult.get(target_hero.rarity, "x1.0")
@@ -1523,66 +1724,94 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         score = f"{detail.get('atk_wins', 0)}:{detail.get('def_wins', 0)}"
         
-        msg = f"""{result_emoji} <b>PvP 結果：{result_text}</b>
-
-🔵 <b>攻方</b> #{my_hero.card_id} ({my_rarity} {my_mult})
-⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
-
-🔴 <b>守方</b> #{target_hero.card_id} ({target_rarity} {target_mult})
-⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
-
-📊 <b>對決</b> (數值已含加成)
-{rounds_text}
-<b>比分: {score}</b> → {detail.get('final_reason', '')}
-
----
-
-🏆 <b>勝者</b>：#{winner.card_id} {winner_class}
-   @{winner_name} | 擊殺：{winner.kills}
-
-{loser_emoji} <b>敗者</b>：#{loser.card_id} {loser_class}
-   @{loser_name} | {loser_fate}
-
-📝 <b>鏈上記錄</b>：
-付費: <code>{result['payment_tx'][:16]}...</code>"""
-        
-        if result.get("win_tx"):
-            msg += f"\n勝利: <code>{result['win_tx'][:20]}...</code>"
-        if result.get("death_tx"):
-            msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
-        
-        # 顯示獎勵
-        if result.get("reward_paid") and result.get("pvp_reward", 0) > 0:
-            msg += f"\n\n🎁 <b>勝者獎勵</b>：{result['pvp_reward']} mana"
-            if result.get("reward_tx"):
-                msg += f"\n獎勵 TX: <code>{result['reward_tx'][:20]}...</code>"
-        
-        if result.get("death_tx"):
-            msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
-        
-        # v0.5: 私訊改為簡短通知，完整戰報只發群聊
-        short_msg = f"{result_emoji} PvP {'勝利！' if result['attacker_wins'] else '落敗...'} #{my_hero.card_id} vs #{target_hero.card_id}\n詳見群聊公告 ⬇️"
-        await update.message.reply_text(short_msg)
+        # 更新訊息為結果
+        short_msg = f"{result_emoji} PvP {result_text}\n#{my_hero.card_id} vs #{target_hero.card_id}\n比分: {score}"
+        if edit_message:
+            await edit_message(short_msg)
         
         # 群組公告（完整戰報）
-        await announce_pvp_result(
-            context.bot,
-            result,
-            my_hero,
-            target_hero,
-            attacker_name=user.username or str(user.id),
-            defender_name=target_username
-        )
+        if context:
+            await announce_pvp_result(
+                context.bot,
+                result,
+                my_hero,
+                target_hero,
+                attacker_name=user.username or str(user.id),
+                defender_name=target_username
+            )
         
-        logger.info(f"⚔️ PvP 完成 | @{user.username} #{my_hero.card_id} vs #{target_hero.card_id} | {'勝利' if result['attacker_wins'] else '落敗'}")
+        logger.info(f"⚔️ PvP 完成 | @{user.username} #{my_hero.card_id} vs #{target_hero.card_id} | {result_text}")
         
     except Exception as e:
         logger.error(f"PvP error: {e}")
         import traceback
         traceback.print_exc()
-        await update.message.reply_text(f"❌ PvP 失敗：{e}")
+        if edit_message:
+            await edit_message(f"❌ PvP 失敗：{e}")
     finally:
         tree_queue.release()
+
+
+async def handle_pvp_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    處理 PvP 確認按鈕的 callback
+    """
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    data = query.data
+    
+    parts = data.split(":")
+    if len(parts) != 2:
+        await query.edit_message_text("❌ 無效的操作")
+        return
+    
+    action_type, action_id = parts
+    
+    if action_type == "pvp_no":
+        # 取消操作
+        consume_pending_action(action_id)
+        await query.edit_message_text("❌ 已取消 PvP")
+        return
+    
+    if action_type == "pvp_yes":
+        # 確認 PvP
+        action = get_pending_action(action_id, user.id)
+        
+        if not action:
+            await query.edit_message_text("❌ 操作已過期或無效\n請重新執行 /np 指令")
+            return
+        
+        # 取出並刪除操作
+        action = consume_pending_action(action_id)
+        if not action:
+            await query.edit_message_text("❌ 操作已處理")
+            return
+        
+        my_hero_id = action["hero_id"]
+        target_hero_id = action["target_hero_id"]
+        pin = action["pin"]
+        
+        # 更新訊息為處理中
+        await query.edit_message_text(
+            f"⚔️ 正在發起 PvP...\n"
+            f"#{my_hero_id} vs #{target_hero_id}\n\n"
+            f"⏳ 付費中..."
+        )
+        
+        # 執行 PvP
+        async def edit_msg(text):
+            await query.edit_message_text(text)
+        
+        await execute_pvp(
+            user=user,
+            my_hero_id=my_hero_id,
+            target_hero_id=target_hero_id,
+            pin=pin,
+            edit_message=edit_msg,
+            context=context
+        )
 
 async def hero_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -1716,29 +1945,44 @@ _Built on Kaspa TestNet_ 🌊"""
 async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /nami_burn <ID> <PIN> - 銷毀英雄（不可逆！）
+    
+    v0.4: 顯示確認按鈕，防止手滑
+    支援回覆模式：回覆英雄訊息 + /nb <PIN>
     """
     user = update.effective_user
     
-    # v0.3: 維護模式檢查
+    # v0.4: 維護模式檢查
     if msg := check_maintenance(user.id):
         await update.message.reply_text(msg)
         return
     
-    if len(context.args) < 2:
-        await update.message.reply_text(
+    # 📲 回覆模式：從回覆訊息抓取英雄 ID
+    reply_hero_id = extract_hero_id_from_reply(update)
+    
+    if reply_hero_id and len(context.args) == 1:
+        # 回覆模式：/nb <PIN>
+        hero_id = reply_hero_id
+        pin = context.args[0]
+    elif len(context.args) >= 2:
+        # 傳統模式：/nb <ID> <PIN>
+        try:
+            hero_id = int(context.args[0])
+            pin = context.args[1]
+        except ValueError:
+            await update.message.reply_text("❌ 無效的英雄 ID")
+            return
+    else:
+        # 顯示用法
+        help_text = (
             "🔥 *銷毀英雄*\n\n"
             "⚠️ 注意：銷毀不可逆！\n\n"
-            "用法：\n"
-            "```\n/nami_burn <英雄ID> <PIN>\n```",
-            parse_mode='Markdown'
+            "*用法：*\n"
+            "```\n/nami_burn <英雄ID> <PIN>\n```\n\n"
+            "*📲 回覆模式：*\n"
+            "回覆英雄訊息，只需輸入：\n"
+            "```\n/nb <PIN>\n```"
         )
-        return
-    
-    try:
-        hero_id = int(context.args[0])
-        pin = context.args[1]
-    except ValueError:
-        await update.message.reply_text("❌ 無效的英雄 ID")
+        await update.message.reply_text(help_text, parse_mode='Markdown')
         return
     
     # 確認擁有權
@@ -1755,50 +1999,119 @@ async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 英雄已經死亡")
         return
     
-    # 排隊系統
-    queue_size = tree_queue.queue_size()
-    if queue_size > 0:
-        await update.message.reply_text(
-            f"🔥 正在銷毀英雄 #{hero_id}...\n"
-            f"⏳ 排隊等候 {queue_size} 人..."
-        )
-    else:
-        await update.message.reply_text(
+    # v0.4: 驗證 PIN（提前驗證，避免按確認後才報錯）
+    if not verify_hero_pin(user.id, pin):
+        await update.message.reply_text("❌ PIN 錯誤")
+        return
+    
+    # v0.4: 建立待確認操作
+    action_id = create_pending_action(user.id, "burn", hero_id, pin)
+    
+    # 顯示英雄資訊
+    rarity_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "🌟🌟🌟🌟"}.get(hero.rarity, "⭐")
+    class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}.get(hero.hero_class, hero.hero_class)
+    hero_name = hero.name if hero.name else f"#{hero_id}"
+    
+    confirm_text = (
+        f"⚠️ *確認銷毀英雄？*\n\n"
+        f"🎴 *{hero_name}*\n"
+        f"{rarity_emoji} {hero.rarity} {class_name}\n"
+        f"⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}\n\n"
+        f"🔥 銷毀後無法復原！\n"
+        f"💰 將退還 *5 mana*\n\n"
+        f"⏱️ 60 秒內有效"
+    )
+    
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🔥 確認銷毀", callback_data=f"burn_yes:{action_id}"),
+            InlineKeyboardButton("❌ 取消", callback_data=f"burn_no:{action_id}")
+        ]
+    ])
+    
+    await update.message.reply_text(confirm_text, parse_mode='Markdown', reply_markup=keyboard)
+
+
+async def handle_burn_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    處理銷毀確認按鈕的 callback
+    """
+    query = update.callback_query
+    await query.answer()  # 先回應 callback，避免按鈕轉圈
+    
+    user = query.from_user
+    data = query.data  # burn_yes:action_id 或 burn_no:action_id
+    
+    parts = data.split(":")
+    if len(parts) != 2:
+        await query.edit_message_text("❌ 無效的操作")
+        return
+    
+    action_type, action_id = parts
+    
+    if action_type == "burn_no":
+        # 取消操作
+        consume_pending_action(action_id)
+        await query.edit_message_text("❌ 已取消銷毀")
+        return
+    
+    if action_type == "burn_yes":
+        # 確認銷毀
+        action = get_pending_action(action_id, user.id)
+        
+        if not action:
+            await query.edit_message_text("❌ 操作已過期或無效\n請重新執行 /nb 指令")
+            return
+        
+        # 取出並刪除操作（防止重複點擊）
+        action = consume_pending_action(action_id)
+        if not action:
+            await query.edit_message_text("❌ 操作已處理")
+            return
+        
+        hero_id = action["hero_id"]
+        pin = action["pin"]
+        
+        # 更新訊息為處理中
+        await query.edit_message_text(
             f"🔥 正在銷毀英雄 #{hero_id}...\n"
             f"📝 建立死亡銘文中..."
         )
-    
-    await tree_queue.acquire(user.id)
-    
-    try:
-        from hero_game import burn_hero
-        result = await burn_hero(user.id, hero_id, pin)
         
-        if result["success"]:
-            tx_id = result["tx_id"]
-            await update.message.reply_text(
-                f"🔥 *英雄已銷毀*\n\n"
-                f"英雄 ID: `#{hero_id}`\n"
-                f"狀態: ☠️ 已死亡\n"
-                f"原因: 銷毀 (burn)\n\n"
-                f"📝 死亡銘文:\n"
-                f"https://explorer-tn10.kaspa.org/txs/{tx_id}\n\n"
-                f"驗證指令：\n"
-                f"```\n/nami_verify {tx_id}\n```",
-                parse_mode='Markdown'
-            )
-            logger.info(f"🔥 Burn 成功 | @{user.username or user.id} | #{hero_id}")
+        # 排隊系統
+        await tree_queue.acquire(user.id)
+        
+        try:
+            from hero_game import burn_hero
+            result = await burn_hero(user.id, hero_id, pin)
             
-            # 群組公告
-            await announce_hero_death(context.bot, hero, "burn", death_tx=tx_id)
-        else:
-            await update.message.reply_text(f"❌ 銷毀失敗：{result['error']}")
-            
-    except Exception as e:
-        logger.error(f"Burn error: {e}")
-        await update.message.reply_text(f"❌ 銷毀失敗：{e}")
-    finally:
-        tree_queue.release()
+            if result["success"]:
+                tx_id = result["tx_id"]
+                await query.edit_message_text(
+                    f"🔥 *英雄已銷毀*\n\n"
+                    f"英雄 ID: `#{hero_id}`\n"
+                    f"狀態: ☠️ 已死亡\n"
+                    f"原因: 銷毀 (burn)\n\n"
+                    f"📝 死亡銘文:\n"
+                    f"https://explorer-tn10.kaspa.org/txs/{tx_id}\n\n"
+                    f"驗證指令：\n"
+                    f"```\n/nami_verify {tx_id}\n```",
+                    parse_mode='Markdown'
+                )
+                logger.info(f"🔥 Burn 成功 | @{user.username or user.id} | #{hero_id}")
+                
+                # 群組公告
+                hero = get_hero_by_id(hero_id)
+                if hero:
+                    await announce_hero_death(context.bot, hero, "burn", death_tx=tx_id)
+            else:
+                await query.edit_message_text(f"❌ 銷毀失敗：{result['error']}")
+                
+        except Exception as e:
+            logger.error(f"Burn callback error: {e}")
+            await query.edit_message_text(f"❌ 銷毀失敗：{e}")
+        finally:
+            tree_queue.release()
 
 
 async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1808,19 +2121,32 @@ async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     支援：
     - 英雄 ID (數字) → 本地驗證
     - TX ID (64 hex) → 鏈上完整驗證
+    
+    支援回覆模式：回覆英雄訊息 + /nv
     """
-    if not context.args:
+    # 📲 回覆模式：從回覆訊息抓取英雄 ID
+    reply_hero_id = extract_hero_id_from_reply(update)
+    
+    if not context.args and not reply_hero_id:
         await update.message.reply_text(
             "用法：\n"
             "```\n"
             "/nami_verify <英雄ID>  # 本地驗證\n"
             "/nami_verify <TX_ID>   # 鏈上完整驗證\n"
-            "```",
+            "```\n\n"
+            "*📲 回覆模式：*\n"
+            "回覆英雄訊息，只需輸入：\n"
+            "```\n/nv\n```",
             parse_mode='Markdown'
         )
         return
     
-    arg = context.args[0]
+    # 決定要驗證的目標
+    if reply_hero_id and not context.args:
+        # 回覆模式：用回覆訊息的英雄 ID
+        arg = str(reply_hero_id)
+    else:
+        arg = context.args[0]
     
     # 判斷是 TX ID 還是英雄 ID
     is_tx_id = len(arg) == 64 and all(c in '0123456789abcdef' for c in arg.lower())
@@ -2600,7 +2926,7 @@ async def hero_protect(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def register_hero_commands(app):
     """註冊英雄遊戲指令到 Bot"""
-    from telegram.ext import CommandHandler
+    from telegram.ext import CommandHandler, CallbackQueryHandler
     
     # 主要指令
     app.add_handler(CommandHandler("nami_hero", hero_summon))
@@ -2647,7 +2973,13 @@ def register_hero_commands(app):
     app.add_handler(CommandHandler("nse", hero_search))      # nami_search (偵查)
     app.add_handler(CommandHandler("nhp", hero_protect))     # v0.3: nami_hero_protect
     
-    logger.info("🌲 英雄遊戲指令已註冊")
+    # ═══════════════════════════════════════════════════════════════════════
+    # v0.4: Callback Query Handlers（按鈕回調）
+    # ═══════════════════════════════════════════════════════════════════════
+    app.add_handler(CallbackQueryHandler(handle_burn_callback, pattern=r"^burn_(yes|no):"))
+    app.add_handler(CallbackQueryHandler(handle_pvp_callback, pattern=r"^pvp_(yes|no):"))
+    
+    logger.info("🌲 英雄遊戲指令已註冊 (v0.4)")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

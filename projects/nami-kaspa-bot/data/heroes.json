@@ -10,7 +10,7 @@
       "atk": 87,
       "def": 82,
       "spd": 77,
-      "status": "alive",
+      "status": "dead",
       "latest_daa": 380830830,
       "kills": 0,
       "battles": 0,
@@ -19,11 +19,13 @@
       "source_hash": "d2fd6b4b1e8d7c4586a9e9d86ed588c3d9caddd765098d29d9b76e62b982c0e0",
       "payment_tx": "40b1aca8239ba0b4d171989cac582fdc22556c4244b647ef875dde838d1ca0bd",
       "tx_id": "9fb8288c9d798617b1272c4f367459ad2b8c0a3a774b4d225d96e2236a53f5cd",
-      "latest_tx": "9fb8288c9d798617b1272c4f367459ad2b8c0a3a774b4d225d96e2236a53f5cd",
+      "latest_tx": "8dfb0f50a350a3c4b5f1de26e71da1f27aacbe09381ec12668bc18243f302473",
       "name": "",
       "protected": false,
       "birth_tx": "9fb8288c9d798617b1272c4f367459ad2b8c0a3a774b4d225d96e2236a53f5cd",
-      "ltx": "9fb8288c9d798617b1272c4f367459ad2b8c0a3a774b4d225d96e2236a53f5cd"
+      "ltx": "9fb8288c9d798617b1272c4f367459ad2b8c0a3a774b4d225d96e2236a53f5cd",
+      "death_reason": "burn",
+      "death_tx": "8dfb0f50a350a3c4b5f1de26e71da1f27aacbe09381ec12668bc18243f302473"
     },
     "380849450": {
       "card_id": 380849450,
@@ -35,7 +37,7 @@
       "atk": 67,
       "def": 64,
       "spd": 20,
-      "status": "alive",
+      "status": "dead",
       "latest_daa": 380849450,
       "kills": 0,
       "battles": 0,
@@ -44,11 +46,13 @@
       "source_hash": "7a6a9e601ff40dedd1cb55e445876c1af6ec5d3d581496c6f4ea56e74ef0b7db",
       "payment_tx": "375cc333d2f9774bf3377f3e8f1b86ab86496cbce8ce24d769e080cd5da3d0e4",
       "tx_id": "05c50a3981bd439b22da465ad23b0392854069e5f7563092cbd62d63a4bf7d2c",
-      "latest_tx": "05c50a3981bd439b22da465ad23b0392854069e5f7563092cbd62d63a4bf7d2c",
+      "latest_tx": "ae02201fe0edf9fe13b7981ead347e1a8e8f308f8abf0d67b5b97df7e1c8642c",
       "name": "",
       "protected": false,
       "birth_tx": "05c50a3981bd439b22da465ad23b0392854069e5f7563092cbd62d63a4bf7d2c",
-      "ltx": "05c50a3981bd439b22da465ad23b0392854069e5f7563092cbd62d63a4bf7d2c"
+      "ltx": "05c50a3981bd439b22da465ad23b0392854069e5f7563092cbd62d63a4bf7d2c",
+      "death_reason": "burn",
+      "death_tx": "ae02201fe0edf9fe13b7981ead347e1a8e8f308f8abf0d67b5b97df7e1c8642c"
     },
     "380851549": {
       "card_id": 380851549,
@@ -63,7 +67,7 @@
       "status": "alive",
       "latest_daa": 380851549,
       "kills": 3,
-      "battles": 11,
+      "battles": 14,
       "created_at": "2026-02-07T14:29:42.522500",
       "death_time": "",
       "source_hash": "5357f0b58edd126933976f7e3ae4027d29cfaf45cb736ed45f97a99bb63e1c66",
@@ -138,8 +142,8 @@
       "spd": 102,
       "status": "alive",
       "latest_daa": 380994424,
-      "kills": 8,
-      "battles": 8,
+      "kills": 11,
+      "battles": 11,
       "created_at": "2026-02-07T18:27:20.090357",
       "death_time": "",
       "source_hash": "033e62ffced5b978971a38cfe3f0d693fb0e488ba838a89bbad4e231ae40b476",
@@ -315,9 +319,9 @@
   },
   "last_summon_daa": 381103380,
   "summon_queue": [],
-  "total_mana_pool": 41,
-  "last_checked_daa": 381329765,
-  "last_reward_daa": 381266666,
+  "total_mana_pool": 8,
+  "last_checked_daa": 381610082,
+  "last_reward_daa": 381566666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -342,6 +346,30 @@
       "timestamp": "2026-02-08T01:59:14.661093",
       "total_pool": 51800000000,
       "distributed": 47090909090,
+      "recipients_count": 6
+    },
+    {
+      "daa": 381366666,
+      "checked_at_daa": 381367065,
+      "timestamp": "2026-02-08T04:38:11.330406",
+      "total_pool": 55800000000,
+      "distributed": 11747368421,
+      "recipients_count": 6
+    },
+    {
+      "daa": 381466666,
+      "checked_at_daa": 381466667,
+      "timestamp": "2026-02-08T07:24:26.538323",
+      "total_pool": 50000000000,
+      "distributed": 15789473683,
+      "recipients_count": 6
+    },
+    {
+      "daa": 381566666,
+      "checked_at_daa": 381566979,
+      "timestamp": "2026-02-08T10:11:45.971643",
+      "total_pool": 50000000000,
+      "distributed": 18421052630,
       "recipients_count": 6
     }
   ]
