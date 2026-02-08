@@ -404,28 +404,16 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
         
         # 取戰報的最後幾行（精華部分）
         log_lines = battle_log.split("\n")
-        # 跳過開頭的介紹，取戰鬥過程
-        battle_lines = [l for l in log_lines if l.startswith("⚡") or l.startswith("🗡️") or l.startswith("🧙") or l.startswith("⚔️") or l.startswith("🏹") or l.startswith("💨") or l.startswith("🔥")]
+        # v0.4.1: 新格式以 🔵⚡ 或 🔴⚡ 開頭，也要抓樹枝行 ├─ └─
+        battle_lines = [l for l in log_lines if 
+                        l.startswith("🔵") or l.startswith("🔴") or 
+                        l.startswith("├─") or l.startswith("└─") or
+                        l.startswith("⚡") or l.startswith("🗡️") or 
+                        l.startswith("🧙") or l.startswith("⚔️") or 
+                        l.startswith("🏹") or l.startswith("💨") or l.startswith("🔥")]
         
-        # v0.5: 用顏色區分攻守方（顏色放最前面，方便看攻擊時序）
-        # 攻方藍色 🔵，守方紅色 🔴
-        # 注意：ATBFighter.name 格式是 "名字" 或 "#ID"
-        atk_hero_name = getattr(my_hero, 'name', '') or f"#{my_hero.card_id}"
-        def_hero_name = getattr(target_hero, 'name', '') or f"#{target_hero.card_id}"
-        colored_lines = []
-        for line in battle_lines:
-            if f"[{atk_hero_name}]" in line:
-                line = "🔵" + line  # 攻方藍色放最前面
-            elif f"[{def_hero_name}]" in line:
-                line = "🔴" + line  # 守方紅色放最前面
-            colored_lines.append(line)
-        battle_lines = colored_lines
-        
-        # 最多取 10 行
-        if len(battle_lines) > 10:
-            battle_summary = "\n".join(battle_lines[:5]) + "\n...\n" + "\n".join(battle_lines[-5:])
-        else:
-            battle_summary = "\n".join(battle_lines)
+        # v0.4.1: 完整戰報（純文字，4096 字元限制夠用）
+        battle_summary = "\n".join(battle_lines)
         
         rounds_text = f"<pre>{battle_summary}</pre>" if battle_summary else ""
         score = f"回合:{loops} | 閃避:{stats.get('p1_evades',0)+stats.get('p2_evades',0)} | 大招:{stats.get('p1_skills',0)+stats.get('p2_skills',0)}"
@@ -477,54 +465,8 @@ HP:{getattr(target_hero, 'max_hp', 500)} ⚔️{target_hero.atk} 🛡️{target_
         # 敗者有保護，沒死
         msg += "\n\n🛡️ <i>敗者受保護，免於死亡</i>"
     
-    # 嘗試生成 PvP 戰報頭像（雙方並排）
-    try:
-        from hero_avatar import generate_avatar
-        from PIL import Image, ImageDraw, ImageFont
-        import io
-        
-        # 創建雙方頭像並排圖（放大尺寸！）
-        size = 128  # 每個頭像 128x128
-        gap = 24
-        vs_width = 64
-        total_width = size * 2 + gap + vs_width + gap
-        
-        img = Image.new('RGBA', (total_width, size), (30, 30, 35, 255))
-        
-        # 攻方頭像（左）- 藍框
-        if my_hero.source_hash:
-            atk_avatar = Image.open(io.BytesIO(
-                generate_avatar(my_hero.source_hash, my_hero.rank, my_hero.hero_class, size)
-            ))
-            img.paste(atk_avatar, (0, 0), atk_avatar)
-            # 畫藍框
-            draw = ImageDraw.Draw(img)
-            draw.rectangle([(0, 0), (size-1, size-1)], outline=(100, 150, 255, 255), width=3)
-        
-        # VS 文字（置中）
-        draw = ImageDraw.Draw(img)
-        vs_x = size + gap + vs_width // 2
-        vs_y = size // 2
-        draw.text((vs_x - 16, vs_y - 24), "⚔️", fill=(255, 200, 50, 255))
-        draw.text((vs_x - 12, vs_y + 8), "VS", fill=(255, 255, 255, 200))
-        
-        # 守方頭像（右）- 紅框
-        right_x = size + gap + vs_width + gap
-        if target_hero.source_hash:
-            def_avatar = Image.open(io.BytesIO(
-                generate_avatar(target_hero.source_hash, target_hero.rank, target_hero.hero_class, size)
-            ))
-            img.paste(def_avatar, (right_x, 0), def_avatar)
-            # 畫紅框
-            draw.rectangle([(right_x, 0), (right_x + size - 1, size - 1)], outline=(255, 100, 100, 255), width=3)
-        
-        buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
-        
-        await send_announcement_photo(bot, io.BytesIO(buffer.getvalue()), msg, parse_mode='HTML')
-    except Exception as e:
-        logger.warning(f"PvP avatar failed: {e}")
-        await send_announcement(bot, msg, parse_mode='HTML')
+    # v0.4.1: 暫時關閉圖片，純文字發送完整戰報（避免 caption 1024 字元限制）
+    await send_announcement(bot, msg, parse_mode='HTML')
 
 async def announce_reward(bot, result: dict):
     """公告獎勵發放"""
@@ -1332,7 +1274,52 @@ async def hero_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     alive_heroes = [h for h in target_heroes if h.get("status") == "alive"]
     dead_heroes = [h for h in target_heroes if h.get("status") == "dead"]
     
-    # 免費資訊：只顯示數量
+    # 看自己免費！直接顯示詳細列表
+    is_self = (target_user_id == user.id)
+    
+    if is_self:
+        rank_emojis = {"N": "⚪", "R": "🔵", "SR": "🟣", "SSR": "🟡"}
+        class_emojis = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
+        
+        lines = [f"🔍 *我的英雄*\n"]
+        
+        if alive_heroes:
+            lines.append("🟢 *存活：*")
+            alive_heroes.sort(key=lambda x: x['atk'] + x['def'] + x['spd'], reverse=True)
+            for h in alive_heroes:
+                rank = h.get("rank", "N")
+                rank_emoji = rank_emojis.get(rank, "⚪")
+                c = class_emojis.get(h["hero_class"], "")
+                total_power = h['atk'] + h['def'] + h['spd']
+                protect_mark = "🛡️" if h.get("protected") else ""
+                if total_power < 100:
+                    power_hint = "💀"
+                elif total_power < 150:
+                    power_hint = ""
+                elif total_power < 200:
+                    power_hint = "💪"
+                else:
+                    power_hint = "👑"
+                name_str = f'「{h["name"]}」' if h.get("name") else ""
+                lines.append(f"  `#{h['card_id']}` {rank_emoji}{rank}{c} {protect_mark}⚔️{h['atk']} 🛡️{h['def']} ⚡{h['spd']} {power_hint}{name_str}")
+        
+        if dead_heroes:
+            lines.append("\n☠️ *陣亡：*")
+            for h in dead_heroes[:5]:
+                rank = h.get("rank", "N")
+                rank_emoji = rank_emojis.get(rank, "⚪")
+                c = class_emojis.get(h["hero_class"], "")
+                lines.append(f"  `#{h['card_id']}` {rank_emoji}{rank}{c}")
+            if len(dead_heroes) > 5:
+                lines.append(f"  _...還有 {len(dead_heroes)-5} 隻_")
+        
+        if not alive_heroes and not dead_heroes:
+            lines.append("_還沒有任何英雄～_")
+        
+        await update.message.reply_text("\n".join(lines), parse_mode='Markdown')
+        return
+    
+    # 看別人：免費只顯示數量
     if len(context.args) < 2:
         await update.message.reply_text(
             f"🔍 *玩家偵查：@{target_username}*\n\n"
@@ -2877,6 +2864,72 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
+
+async def admin_safe_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nami_admin_safe_restart - 安全重開檢查（管理員專用）
+    
+    v0.4.3: CI/CD 安全重開機制
+    1. 檢查排隊是否為空
+    2. 檢查錢包鎖是否空閒
+    3. 設定維護模式
+    4. 等待當前操作完成
+    """
+    global MAINTENANCE_MODE
+    user = update.effective_user
+    
+    if not is_admin(user.id):
+        await update.message.reply_text("❌ 此指令僅限管理員使用")
+        return
+    
+    # 檢查系統狀態
+    queue_size = tree_queue.queue_size()
+    wallet_locked = WALLET_LOCK.locked()
+    current_user = tree_queue._current_user
+    
+    if queue_size == 0 and not wallet_locked and current_user is None:
+        # 可以安全重開
+        await update.message.reply_text(
+            "✅ *可以安全重開！*\n\n"
+            "📊 系統狀態：\n"
+            "• 排隊: 0 人\n"
+            "• 錢包鎖: 🔓 空閒\n"
+            "• 當前服務: 無\n\n"
+            "🟢 現在可以執行 CI/CD 重開",
+            parse_mode='Markdown'
+        )
+    else:
+        # 需要等待
+        status_lines = []
+        if queue_size > 0:
+            status_lines.append(f"• 排隊: {queue_size} 人 ⏳")
+        if wallet_locked:
+            status_lines.append("• 錢包鎖: 🔒 使用中")
+        if current_user:
+            status_lines.append(f"• 當前服務: 用戶 {current_user}")
+        
+        # 詢問是否要開啟維護模式
+        if len(context.args) > 0 and context.args[0] == "force":
+            # 強制開啟維護模式
+            MAINTENANCE_MODE = True
+            await update.message.reply_text(
+                "⚠️ *維護模式已開啟*\n\n"
+                "新請求將被阻擋，等待當前操作完成後可重開\n\n"
+                "📊 當前狀態：\n" + "\n".join(status_lines) + "\n\n"
+                "再次執行 `/nami_admin_safe_restart` 檢查是否可重開",
+                parse_mode='Markdown'
+            )
+        else:
+            await update.message.reply_text(
+                "⚠️ *暫時無法安全重開*\n\n"
+                "📊 當前狀態：\n" + "\n".join(status_lines) + "\n\n"
+                "建議：\n"
+                "1. 等待當前操作完成\n"
+                "2. 或執行 `/nami_admin_safe_restart force` 開啟維護模式",
+                parse_mode='Markdown'
+            )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # v0.3 保護機制
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3045,6 +3098,7 @@ def register_hero_commands(app):
     # v0.3 管理員指令
     app.add_handler(CommandHandler("nami_admin_maintenance", admin_maintenance))
     app.add_handler(CommandHandler("nami_admin_status", admin_status))
+    app.add_handler(CommandHandler("nami_admin_safe_restart", admin_safe_restart))
     
     # ═══════════════════════════════════════════════════════════════════════
     # 縮寫指令

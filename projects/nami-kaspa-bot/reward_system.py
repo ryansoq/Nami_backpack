@@ -262,10 +262,11 @@ def format_reward_announcement(result: dict) -> str:
         score = r["score"]
         address = r["address"]
         
-        rarity_emoji = {
-            "common": "⚪", "uncommon": "🟢", "rare": "🔵",
-            "epic": "🟣", "legendary": "🟡", "mythic": "🔴"
-        }.get(hero.rarity, "⚪")
+        # v0.3: 用 rank (N/R/SR/SSR/UR/LR)
+        rank_emoji = {
+            "N": "⚪", "R": "🔵", "SR": "🟣", 
+            "SSR": "🟡", "UR": "🔴", "LR": "✨"
+        }.get(hero.rank, "⚪")
         
         class_emoji = {
             "warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"
@@ -273,8 +274,11 @@ def format_reward_announcement(result: dict) -> str:
         
         status = "✓" if r.get("status") == "success" else "✗"
         
+        # 有別名優先顯示別名，沒有就顯示 card_id
+        hero_display = f"「{hero.name}」" if hero.name else f"#{hero.card_id}"
+        
         lines.append(
-            f"{i}. {status} `#{hero.card_id}` {rarity_emoji}{hero.rarity} {class_emoji}\n"
+            f"{i}. {status} {hero_display} {rank_emoji}{hero.rank} {class_emoji}\n"
             f"   → {reward/1e8:.4f} mana (積分:{score})\n"
             f"   `{address[:25]}...`"
         )

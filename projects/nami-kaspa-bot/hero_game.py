@@ -1280,6 +1280,16 @@ async def burn_hero(user_id: int, hero_id: int, pin: str) -> dict:
     chain.append(death_payload)
     save_hero_chain(chain)
     
+    # 9. 寫入 inscription_store（讓 /nv 能追蹤）
+    from inscription_store import save_death_inscription
+    save_death_inscription(
+        hero_id=hero_id,
+        tx_id=inscription_tx_id,
+        pre_tx=pre_tx,
+        reason="burn",
+        payload=death_payload
+    )
+    
     logger.info(f"🔥 Hero burned: #{hero_id} by user {user_id}, tx: {inscription_tx_id}")
     
     result["success"] = True

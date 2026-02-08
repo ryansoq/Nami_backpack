@@ -1,6 +1,97 @@
 """
-🎮 v0.4 ATB 戰鬥系統
-Active Time Battle - 雙條系統 + 職業大招
+🎮 v0.4.1 ATB 戰鬥系統 (Active Time Battle)
+娜米的英雄奇幻冒險 - 核心戰鬥引擎
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 模組說明
+═══════════════════════════════════════════════════════════════════════════════
+
+這是遊戲的核心戰鬥系統，採用類似 Final Fantasy 的 ATB 機制。
+每個角色有兩個計量條：
+  - 移動條 (Move Gauge): 累積到 1000 可以發動普通攻擊
+  - 技能條 (Skill Gauge): 累積到 1000 可以發動職業大招
+
+═══════════════════════════════════════════════════════════════════════════════
+🔄 戰鬥流程圖
+═══════════════════════════════════════════════════════════════════════════════
+
+  hero_commands.py                    hero_game.py                     atb_battle.py
+  ┌─────────────┐                   ┌─────────────┐                  ┌─────────────┐
+  │ /nami_pvp   │ ──── 呼叫 ────→   │ process_pvp │ ──── 呼叫 ────→  │ atb_battle  │
+  │ 指令處理    │                   │ 戰鬥流程    │                  │ 戰鬥引擎    │
+  └─────────────┘                   └─────────────┘                  └─────────────┘
+        │                                 │                                │
+        │                                 │                                ▼
+        │                                 │                     ┌─────────────────────┐
+        │                                 │                     │ ATBFighter 建立     │
+        │                                 │                     │ (從 Hero 物件)      │
+        │                                 │                     └─────────────────────┘
+        │                                 │                                │
+        │                                 │                                ▼
+        │                                 │                     ┌─────────────────────┐
+        │                                 │                     │ 主戰鬥迴圈          │
+        │                                 │                     │ (最多 80 loop)      │
+        │                                 │                     │                     │
+        │                                 │                     │ 每 loop:            │
+        │                                 │                     │ 1. 累積移動條 +200  │
+        │                                 │                     │ 2. 累積技能條       │
+        │                                 │                     │ 3. 檢查大招觸發     │
+        │                                 │                     │ 4. 檢查普攻觸發     │
+        │                                 │                     └─────────────────────┘
+        │                                 │                                │
+        │                                 │                                ▼
+        │                                 │                     ┌─────────────────────┐
+        │                                 │                     │ 回傳結果            │
+        │                                 │                     │ - winner/loser      │
+        │                                 │                     │ - battle_log        │
+        │                                 │                     │ - stats             │
+        │                                 │                     └─────────────────────┘
+        │                                 │                                │
+        │                                 ◀────────────────────────────────┘
+        │                                 │
+        │                                 ▼
+        │                     ┌─────────────────────────┐
+        │                     │ 處理鏈上記錄            │
+        │                     │ - 付費 TX               │
+        │                     │ - 勝利/死亡 inscription │
+        │                     └─────────────────────────┘
+        │                                 │
+        ◀─────────────────────────────────┘
+        │
+        ▼
+  ┌─────────────────────────┐
+  │ 發送戰報到群組          │
+  │ announce_pvp_result()   │
+  └─────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 職業特色
+═══════════════════════════════════════════════════════════════════════════════
+
+  職業      │ 技能條累積 │ 大招效果           │ 特色
+  ─────────┼───────────┼──────────────────┼────────────────
+  ⚔️ 戰士   │ DEF       │ 衝擊之暈：減對手條 │ 打斷節奏
+  🧙 法師   │ ATK       │ 流星雨：2.5x 傷害  │ 高爆發
+  🗡️ 盜賊   │ SPD       │ 幻影：閃避+背刺    │ 連擊 Combo
+  🏹 弓手   │ SPD       │ 穿透射擊：傷害+暈  │ 平衡型
+
+═══════════════════════════════════════════════════════════════════════════════
+📝 更新日誌
+═══════════════════════════════════════════════════════════════════════════════
+
+v0.4.1 (2026-02-08)
+  - 新增 Combo 連擊計數系統
+  - 簡化戰報格式：HP 顯示在攻擊行後面
+  - 移除樹枝結構，改為全部貼左
+  - 新增最高連擊統計
+
+v0.4.0 (2026-02-06)
+  - 實現 ATB 雙條系統
+  - 新增職業大招
+  - 新增爆發模式 (HP < 30%)
+  - 盜賊背刺機制
+
+═══════════════════════════════════════════════════════════════════════════════
 """
 
 import random
@@ -141,7 +232,7 @@ class ATBFighter:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class BattleLog:
-    """戰鬥日誌記錄器"""
+    """戰鬥日誌記錄器（v0.4.1 樹枝視覺化）"""
     
     def __init__(self):
         self.entries: List[str] = []
@@ -156,12 +247,88 @@ class BattleLog:
             "p1_damage_dealt": 0,
             "p2_damage_dealt": 0,
         }
+        # v0.4.1: combo 追蹤
+        self.last_actor: Optional[str] = None  # "p1" or "p2"
+        self.combo_count: int = 0
+        self.max_combo: int = 0
+        self.pending_actions: List[str] = []  # 暫存同一人的連續動作
     
     def add(self, text: str):
+        """原始添加（用於開場、結束等非戰鬥行）"""
+        self._flush_pending()
         self.entries.append(text)
     
+    def add_action(self, actor: str, is_p1: bool, text: str, 
+                   target_hp: int = None, target_max_hp: int = None,
+                   is_critical: bool = False):
+        """
+        添加戰鬥行動（智能樹枝結構）
+        
+        actor: 行動者名稱
+        is_p1: 是否為 P1
+        text: 行動描述
+        target_hp: 對手當前 HP（用於顯示 HP 條）
+        target_max_hp: 對手最大 HP
+        is_critical: 是否為關鍵時刻（瀕死/KO）
+        """
+        actor_key = "p1" if is_p1 else "p2"
+        actor_emoji = "🔵" if is_p1 else "🔴"
+        target_emoji = "🔴" if is_p1 else "🔵"
+        
+        # 檢查是否換人
+        if self.last_actor != actor_key:
+            # 換人了，先輸出之前的動作
+            self._flush_pending()
+            self.combo_count = 1
+            self.last_actor = actor_key
+        else:
+            # 同一人連擊
+            self.combo_count += 1
+            self.max_combo = max(self.max_combo, self.combo_count)
+        
+        # 組合行動文字
+        combo_text = f" ⚡{self.combo_count} Combo!" if self.combo_count >= 2 else ""
+        
+        # v0.4.1: HP 直接顯示在攻擊行後面（簡潔版）
+        hp_text = ""
+        hp_warning = ""
+        if target_hp is not None and target_max_hp is not None:
+            target_hp_int = int(max(0, target_hp))
+            hp_text = f" (敵HP:{target_hp_int})"
+            if target_hp <= 0:
+                hp_warning = " 💀"
+            elif target_hp / target_max_hp < 0.3:
+                hp_warning = " ⚠️"
+        
+        action_line = f"{actor_emoji}⚡ [{actor}] {text}{combo_text}{hp_text}{hp_warning}"
+        self.pending_actions.append(action_line)
+    
+    def _make_hp_bar(self, current: int, max_hp: int, length: int = 10) -> str:
+        """生成 HP 條"""
+        if max_hp <= 0:
+            return "[░░░░░░░░░░] 0/0"
+        current = int(max(0, current))
+        ratio = current / max_hp
+        filled = int(ratio * length)
+        empty = length - filled
+        return f"[{'█' * filled}{'░' * empty}] {current}/{max_hp}"
+    
+    def _flush_pending(self):
+        """輸出暫存的動作（v0.4.1: 無樹枝，全部貼左）"""
+        if not self.pending_actions:
+            return
+        
+        for action in self.pending_actions:
+            self.entries.append(action)
+        
+        self.pending_actions = []
+    
     def get_full_log(self) -> str:
+        self._flush_pending()
         return "\n".join(self.entries)
+    
+    def get_max_combo(self) -> int:
+        return self.max_combo
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -191,7 +358,7 @@ def calculate_damage(attacker: ATBFighter, defender: ATBFighter) -> Tuple[int, b
     return damage, is_berserk, is_backstab
 
 
-def cast_ultimate(caster: ATBFighter, target: ATBFighter, log: BattleLog) -> int:
+def cast_ultimate(caster: ATBFighter, target: ATBFighter, log: BattleLog, is_p1: bool) -> int:
     """發動職業大招，回傳造成的傷害"""
     skill = ULTIMATE_SKILLS.get(caster.hero_class, {})
     skill_name = skill.get("name", "技能")
@@ -205,20 +372,22 @@ def cast_ultimate(caster: ATBFighter, target: ATBFighter, log: BattleLog) -> int
         multiplier = skill.get("multiplier", 5)
         damage = caster.atk * multiplier
         target.current_hp -= damage
-        log.add(f"{emoji} [{caster.name}]【{skill_name}】！造成 {damage} 傷害 (敵HP:{max(0, target.current_hp)})")
-        log.stats["p1_damage_dealt" if caster == log._p1 else "p2_damage_dealt"] += damage
+        log.add_action(caster.name, is_p1, 
+                      f"{emoji}【{skill_name}】！{damage} 傷害",
+                      target.current_hp, target.max_hp)
+        log.stats["p1_damage_dealt" if is_p1 else "p2_damage_dealt"] += damage
         
     elif skill_type == "stun":
         # 戰士：衝擊之暈（移動條+技能條都減）
         move_reduce = skill.get("move_reduce", 500)
         target.move_gauge = max(0, target.move_gauge - move_reduce)
         target.skill_gauge = max(0, target.skill_gauge - move_reduce)
-        log.add(f"{emoji} [{caster.name}]【{skill_name}】！對手移動條&技能條 -{move_reduce}")
+        log.add_action(caster.name, is_p1, f"{emoji}【{skill_name}】！暈眩 -{move_reduce}")
         
     elif skill_type == "evade":
         # 盜賊：幻影（閃避 1 次攻擊，含大招）
         caster.evade_count += 1
-        log.add(f"{emoji} [{caster.name}]【{skill_name}】！準備閃避")
+        log.add_action(caster.name, is_p1, f"{emoji}【{skill_name}】！準備閃避")
         
     elif skill_type == "damage_stun":
         # 弓箭手：穿透射擊
@@ -227,8 +396,10 @@ def cast_ultimate(caster: ATBFighter, target: ATBFighter, log: BattleLog) -> int
         damage = caster.atk * multiplier
         target.current_hp -= damage
         target.move_gauge = max(0, target.move_gauge - move_reduce)
-        log.add(f"{emoji} [{caster.name}]【{skill_name}】！造成 {damage} 傷害 + 擊退 -{move_reduce} (敵HP:{max(0, target.current_hp)})")
-        log.stats["p1_damage_dealt" if caster == log._p1 else "p2_damage_dealt"] += damage
+        log.add_action(caster.name, is_p1,
+                      f"{emoji}【{skill_name}】！{damage} 傷害 + 暈眩",
+                      target.current_hp, target.max_hp)
+        log.stats["p1_damage_dealt" if is_p1 else "p2_damage_dealt"] += damage
     
     return damage
 
@@ -247,16 +418,16 @@ def process_fighter_turn(attacker: ATBFighter, defender: ATBFighter,
         # 如果是閃避類技能，不用檢查對手閃避
         skill = ULTIMATE_SKILLS.get(attacker.hero_class, {})
         if skill.get("type") == "evade":
-            cast_ultimate(attacker, defender, log)
+            cast_ultimate(attacker, defender, log, is_p1)
         elif defender.is_evading and skill.get("type") in ["damage", "damage_stun"]:
             # 傷害型大招被閃避
             skill_name = skill.get("name", "技能")
             emoji = skill.get("emoji", "✨")
-            log.add(f"{emoji} [{attacker.name}]【{skill_name}】！💨 被閃避！！")
+            log.add_action(attacker.name, is_p1, f"{emoji}【{skill_name}】！💨 被閃避！")
             defender.consume_evade()
             log.stats[f"{'p2' if is_p1 else 'p1'}_evades"] += 1
         else:
-            cast_ultimate(attacker, defender, log)
+            cast_ultimate(attacker, defender, log, is_p1)
         
         if not defender.is_alive:
             return True
@@ -268,7 +439,7 @@ def process_fighter_turn(attacker: ATBFighter, defender: ATBFighter,
         
         if defender.is_evading:
             # 被閃避
-            log.add(f"⚡ [{attacker.name}] 攻擊！💨 被閃避！(剩餘閃避:{defender.evade_count-1})")
+            log.add_action(attacker.name, is_p1, f"攻擊！💨 被閃避！(剩餘:{defender.evade_count-1})")
             defender.consume_evade()
             log.stats[f"{'p2' if is_p1 else 'p1'}_evades"] += 1
         else:
@@ -284,8 +455,11 @@ def process_fighter_turn(attacker: ATBFighter, defender: ATBFighter,
                 action = "🔥狂暴！"
             else:
                 action = ""
-            hp_warning = " ⚠️爆發模式！" if defender.is_rage_mode and defender.is_alive else ""
-            log.add(f"⚡ [{attacker.name}] {action}攻擊！{damage} 傷害 (敵HP:{max(0, defender.current_hp)}){hp_warning}")
+            
+            # 使用 add_action（會自動處理 HP 條和 combo）
+            log.add_action(attacker.name, is_p1, 
+                          f"{action}攻擊！{damage} 傷害",
+                          defender.current_hp, defender.max_hp)
         
         if not defender.is_alive:
             return True
@@ -382,9 +556,10 @@ def atb_battle(p1: ATBFighter, p2: ATBFighter) -> Dict:
         log.add(f"🌲 大地之樹沒收 10 mana")
     
     # 統計
+    combo_text = f" | 🔥最高連擊:{log.get_max_combo()}" if log.get_max_combo() >= 2 else ""
     log.add(f"📊 Loop:{log.stats['loops']} | "
             f"閃避:{log.stats['p1_evades']+log.stats['p2_evades']} | "
-            f"大招:{log.stats['p1_skills']+log.stats['p2_skills']}")
+            f"大招:{log.stats['p1_skills']+log.stats['p2_skills']}{combo_text}")
     
     return result
 
