@@ -744,5 +744,123 @@
     "reason": "burn",
     "payment_tx": "59d3fc60396709beaefd133bb49e44b9a3b572be8866e0601c32c35156eba149",
     "tx_id": "ae02201fe0edf9fe13b7981ead347e1a8e8f308f8abf0d67b5b97df7e1c8642c"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 381635914,
+    "pre_tx": null,
+    "pay_tx": "e49373bde5cdafa2ba666109ea9417b14b2810652f05ab7a0f2e19f102e1f5c4",
+    "src": "7923314c1a760a6b3e431985443c464239c966e23317f5e36326acba63ccd32a",
+    "rank": "R",
+    "tx_id": "adb850138b312c3842b732a4c206a036a988a204b1581581ac7715954a9f8891",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 381641090,
+    "pre_tx": null,
+    "pay_tx": "92840a6ea89b03552db1cf1872a9a5d543dc2c7300cf88489b341f3a889422d1",
+    "src": "267f751fd6b4627dc7db38dade8f27a33fccfe1d788a59a40d225bffadd6ba71",
+    "rank": "N",
+    "tx_id": "ecc7582ee5ff528c25b83b031386d61034b35af14d6fc0c34deb4d8863690020",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 381641090,
+    "pre_tx": "ecc7582ee5ff528c25b83b031386d61034b35af14d6fc0c34deb4d8863690020",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "cf05fc873de1258404841a519fe937057e378a8ce08a1945ec3daeb6fde5c87a",
+    "tx_id": "fa0fd086672de03ce2b27afa36acdf7351827029860345788de4374f4fb4ad61"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 381643955,
+    "pre_tx": null,
+    "pay_tx": "efa2efcbc22a0eb5accc081f9389d375b18a1d30e40866da167b0e965d6e8031",
+    "src": "86e0aa5e98d53c551b6ee2ae1e84af16cdc95ca73536fdbbdaba24aaca16caed",
+    "rank": "N",
+    "tx_id": "4b8db84efaed3701d632afc8f098711b29a2d52a7fb3d10f041e00857e1a012c",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 381643955,
+    "pre_tx": "4b8db84efaed3701d632afc8f098711b29a2d52a7fb3d10f041e00857e1a012c",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "e5314d12a791ab010e84125519c79d09dfcf6ed2be49f788ebc67696575d0cc6",
+    "tx_id": "bb697a13b7971b3c34fa604498f143c2d78dd05211d1d365e695b15ff072a1c6",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 381646699,
+    "pre_tx": null,
+    "pay_tx": "9b6d41935be79dde1266504dfe5ccc81f6ab24362f63f22e6aa5a3771b8840f0",
+    "src": "21247a39e6e257ea277467cba4b2fa924fc0d72a2f3637db38fdcab96fd31842",
+    "rank": "R",
+    "tx_id": "79ea298bf928dd5c076ef68dace24c12e52d0f133df91c4926aaf899c9f428bf",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 381648803,
+    "pre_tx": null,
+    "pay_tx": "9bbf4281039aab4d5fab9710c5595d7a9747544baf8fff6a40e7d1c98e98a979",
+    "src": "e34eff8cf5ea1ea470a38d60263b359e0d0ee4ac74f3ca3ecaaf7526a151149d",
+    "rank": "SR",
+    "tx_id": "c18e0b0a57a9a22df2042fcfe3ad66d57b8d847aee50a1940bdeb1b7a3b57b43",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 381646699,
+    "pre_tx": "79ea298bf928dd5c076ef68dace24c12e52d0f133df91c4926aaf899c9f428bf",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "fe51cb65becd43432a128113991361ae3f77aab3d243c8b17943335edd542cc0",
+    "tx_id": "4e051ebbebc40bc6acb507448052ace00b56d48569522e3997a8e31a224344a7",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 380851549,
+    "pre_tx": "8948bfc4ef35e27a7cada5de242f3982ea6bd53bfcb8ff6920874d23fc22256b",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 380994424,
+    "battle_tx": "ba4b13c7092a453ada388281fedf657c7b69e455ae27cb6b0d43275a407f9848",
+    "tx_id": "dc9063c8316845cb17f1f55eca7cddf016d91d233c967c9d63272eb39699ba3e",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 380994424,
+    "pre_tx": "ba4b13c7092a453ada388281fedf657c7b69e455ae27cb6b0d43275a407f9848",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "5aee9c50b8c6c684d408320a1d9ef382dc440d6aad4b7633a9ad245b436e4e27",
+    "tx_id": "137f2af31e1925b77a90cd9bc5656fddfd14d2de2eaaad7ced62f6e608f99f34",
+    "signer": "tree"
   }
 ]

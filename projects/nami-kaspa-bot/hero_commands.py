@@ -409,8 +409,9 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
         
         # v0.5: 用顏色區分攻守方（顏色放最前面，方便看攻擊時序）
         # 攻方藍色 🔵，守方紅色 🔴
-        atk_hero_name = getattr(my_hero, 'name', '') or str(my_hero.card_id)
-        def_hero_name = getattr(target_hero, 'name', '') or str(target_hero.card_id)
+        # 注意：ATBFighter.name 格式是 "名字" 或 "#ID"
+        atk_hero_name = getattr(my_hero, 'name', '') or f"#{my_hero.card_id}"
+        def_hero_name = getattr(target_hero, 'name', '') or f"#{target_hero.card_id}"
         colored_lines = []
         for line in battle_lines:
             if f"[{atk_hero_name}]" in line:
@@ -1039,6 +1040,25 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 群組公告
         await announce_hero_birth(context.bot, hero, user.username or str(user.id))
+        
+        # v0.4.3: 新手保護 - 第一隻英雄自動設定保護
+        from hero_game import get_protected_hero, set_hero_protection, load_heroes_db
+        if not get_protected_hero(user.id):
+            # 確認這是用戶的第一隻英雄
+            db = load_heroes_db()
+            user_heroes = [h for h in db.get("heroes", {}).values() 
+                          if h.get("owner_id") == user.id and h.get("status") == "alive"]
+            if len(user_heroes) == 1:  # 只有剛召喚的這隻
+                success, _ = set_hero_protection(user.id, hero.card_id)
+                if success:
+                    await update.message.reply_text(
+                        f"🛡️ *新手保護已啟用！*\n\n"
+                        f"你的第一隻英雄已自動設定保護\n"
+                        f"PvP 輸了不會死亡～\n\n"
+                        f"之後更換保護需要 10 mana",
+                        parse_mode='Markdown'
+                    )
+                    logger.info(f"🛡️ 新手保護 | @{user.username or user.id} | #{hero.card_id}")
         
     except TimeoutError as e:
         logger.warning(f"⏰ 召喚超時 | @{user.username or user.id}")
@@ -2863,29 +2883,33 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def hero_protect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /nami_hero_protect <英雄ID> - 設定英雄為受保護狀態
-    /nhp <英雄ID> - 縮寫
+    /nami_hero_protect <英雄ID> [PIN] - 設定英雄為受保護狀態
+    /nhp <英雄ID> [PIN] - 縮寫
     
-    v0.3 新功能：
+    v0.4.2 更新：
+    - 第一次設定保護：免費
+    - 更換保護角色：需要 10 mana
     - 每人可選 1 隻英雄設定保護
     - 被保護的英雄 PvP 輸了不會死亡
-    - 設定新保護會取消舊保護
     """
     user = update.effective_user
     
+    from hero_game import get_protected_hero, load_heroes_db, set_hero_protection
+    
+    PROTECT_COST = 10 * 100_000_000  # 10 mana in sompi
+    
     if not context.args:
         # 顯示目前保護狀態
-        from hero_game import get_protected_hero, load_heroes_db
-        
         protected = get_protected_hero(user.id)
         if protected:
             hero_name = protected.get("name") or f"#{str(protected['card_id'])[:6]}"
             rank = protected.get("rank") or protected.get("rarity", "N")
             await update.message.reply_text(
-                f"🛡️ **你的保護英雄**\n\n"
+                f"🛡️ *你的保護英雄*\n\n"
                 f"{hero_name} ({rank})\n"
                 f"被保護的英雄 PvP 輸了不會死亡\n\n"
-                f"要更換保護對象：`/nhp <英雄ID>`",
+                f"更換保護對象需要 *10 mana*：\n"
+                f"`/nhp <英雄ID> <PIN>`",
                 parse_mode='Markdown'
             )
         else:
@@ -2899,9 +2923,10 @@ async def hero_protect(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     for h in user_heroes
                 ])
                 await update.message.reply_text(
-                    f"🛡️ **設定保護英雄**\n\n"
+                    f"🛡️ *設定保護英雄*\n\n"
                     f"你還沒有設定保護英雄！\n"
                     f"被保護的英雄 PvP 輸了不會死亡\n\n"
+                    f"🆓 *首次設定免費！*\n\n"
                     f"你的英雄：\n{hero_list}\n\n"
                     f"用法：`/nhp <英雄ID>`",
                     parse_mode='Markdown'
@@ -2916,9 +2941,72 @@ async def hero_protect(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 請輸入正確的英雄 ID（數字）")
         return
     
-    from hero_game import set_hero_protection
-    success, message = set_hero_protection(user.id, card_id)
-    await update.message.reply_text(message)
+    # 檢查是否已有保護角色
+    current_protected = get_protected_hero(user.id)
+    
+    if current_protected:
+        # 已有保護角色 → 需要付 10 mana
+        if len(context.args) < 2:
+            current_name = current_protected.get("name") or f"#{current_protected['card_id']}"
+            await update.message.reply_text(
+                f"🛡️ *更換保護角色*\n\n"
+                f"目前保護：{current_name}\n\n"
+                f"更換需要 *10 mana*\n"
+                f"用法：`/nhp {card_id} <PIN>`",
+                parse_mode='Markdown'
+            )
+            return
+        
+        pin = context.args[1]
+        
+        # 驗證 PIN
+        if not verify_hero_pin(user.id, pin):
+            await update.message.reply_text("❌ PIN 錯誤")
+            return
+        
+        # 檢查餘額並付款
+        try:
+            import unified_wallet
+            _, address = unified_wallet.get_wallet(user.id, pin)
+            balance = await unified_wallet.get_balance(address)
+            
+            if balance < PROTECT_COST:
+                need = (PROTECT_COST - balance) / 1e8
+                await update.message.reply_text(f"❌ 餘額不足！需要 10 mana，還差 {need:.2f}")
+                return
+            
+            # 付款給世界之樹
+            await update.message.reply_text("💰 付款中...")
+            tx_id = await unified_wallet.send_to_tree(user.id, pin, PROTECT_COST, f"protect:{card_id}")
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ 付款失敗：{e}")
+            return
+        
+        # 設定保護
+        success, message = set_hero_protection(user.id, card_id)
+        if success:
+            await update.message.reply_text(
+                f"🛡️ *保護已更換！*\n\n"
+                f"{message}\n\n"
+                f"💰 已付 10 mana\n"
+                f"TX: `{tx_id[:32]}...`",
+                parse_mode='Markdown'
+            )
+        else:
+            await update.message.reply_text(f"❌ {message}")
+    else:
+        # 首次設定 → 免費
+        success, message = set_hero_protection(user.id, card_id)
+        if success:
+            await update.message.reply_text(
+                f"🛡️ *保護已設定！*\n\n"
+                f"{message}\n\n"
+                f"🆓 首次設定免費",
+                parse_mode='Markdown'
+            )
+        else:
+            await update.message.reply_text(f"❌ {message}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 註冊指令
