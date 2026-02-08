@@ -1333,5 +1333,159 @@
     "battle_tx": "a1c042f8adbd6bc7eb56ca41e929fe0cb9acdae0786ec3be164f4d02e3118782",
     "tx_id": "6315d1ba173aee02f88c5608cdd3c6185eaa0ba1bab422d9c2428b9593d9a499",
     "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382137390,
+    "pre_tx": null,
+    "pay_tx": "61e60908083e9a8815a94a777d0044b7fbbf5e4e9e4c6ae4d1e9af9add72f12d",
+    "src": "8c7f234248fa12badc01c3d2f4281045d1488d71d1e8e9926e7e7fe77f092e8b",
+    "rank": "R",
+    "tx_id": "7aeea83dff40388d20ae6651565b302c19e6fd14272c2297fc5c1353a2a3b415",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382137651,
+    "pre_tx": null,
+    "pay_tx": "e0f5b87f750d21086a81a8d2141f836d99b63e0cb8fa030ad09acd176374b497",
+    "src": "da67c31da63aacf3fa68973b22c2aed94c6edce51ae2d5e27e8e05b234c8a62f",
+    "rank": "N",
+    "tx_id": "0e1bd06879248a1fc48a843653e8a178752904c9bdc527c3554e3b07fdf98dd4",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382137651,
+    "pre_tx": "0e1bd06879248a1fc48a843653e8a178752904c9bdc527c3554e3b07fdf98dd4",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "49bf129935e2e6549999cd0414468bf9042641ba6ae979f0c2aa145d1d95aa2a",
+    "tx_id": "e1aff368fa195cb318c30cc5f11ccb70ba15da240cad3777213e1d8b0012fce2"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382138205,
+    "pre_tx": null,
+    "pay_tx": "a25f1d5fff768ea8cff5ffb83f4bf15e4c90013bb66aad6e4833817689a8478c",
+    "src": "a005c70c00747bc46517ef54ff83e8a17d7d969c17e634fab2868f7ba8219a2e",
+    "rank": "N",
+    "tx_id": "ed2abca4f6b07713b13394259961510a7341a36fe701f5db8b2628a35be7a652",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382138205,
+    "pre_tx": "ed2abca4f6b07713b13394259961510a7341a36fe701f5db8b2628a35be7a652",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "d0e775f1017b67c3d14edd1e34478be5306d4ca5fff1ffe9d79917c8bee63bda",
+    "tx_id": "35767d0ed04ea305f8deff7bed585deb95935aa95458663da9a579171199d53b"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382138733,
+    "pre_tx": null,
+    "pay_tx": "6b55c0bc5b0c8e697de07adc343264de06be693d77c2e04a8cd2ba3d2943d500",
+    "src": "370f9d29d89addd712aac12313761bf02cf3d9bdedcd6bbd47ba069ae2c195df",
+    "rank": "R",
+    "tx_id": "166df814b37c814fd02360134b2446846d2f14d22f58329e13333e20f6a15e9a",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382138948,
+    "pre_tx": null,
+    "pay_tx": "0d239692fc7f13802e0a8184081844cdc256ef115a5bff4756173dd6539ff4a3",
+    "src": "62f7797f1c1f851f2866e20d8c684c36130be97dc7678e1a0300ffe0df062c6d",
+    "rank": "N",
+    "tx_id": "ae0b410106073057944362264bcc6d681fea0ecee926d1eceb863324dee58b24",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382138948,
+    "pre_tx": "ae0b410106073057944362264bcc6d681fea0ecee926d1eceb863324dee58b24",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "0543c69906b9a393443ff8a2b1cfe87d9b3c5bccadb1aca46b6ea363072be539",
+    "tx_id": "7edcaf9a59cc70f496eac668a0164aa749073af840b38903f90a4a41bbcd3fde"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382139454,
+    "pre_tx": null,
+    "pay_tx": "846a03fc5900bde1173d518ef82cc22a4d0cbe7c0c429787debcffc35052a042",
+    "src": "d15426b6826d201f865008fcc80b6e4aa042f2c33135f821d34176a67f33673a",
+    "rank": "N",
+    "tx_id": "e73e5586aa914a78e7559e127becbb296cda5f1a7e9af1f0646120c664913856",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382139454,
+    "pre_tx": "e73e5586aa914a78e7559e127becbb296cda5f1a7e9af1f0646120c664913856",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "15185e3241ef73c918308639cddbbe73d7f8faddc355ff95e732f3559b692912",
+    "tx_id": "fd854a795fb640cb0de18ec830ade1e3e565b686828d44827d1f4763a55a7bc0"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382139889,
+    "pre_tx": null,
+    "pay_tx": "629831a5f93c7dfde79b34392f3b473224be4cf30b0328b406dff43de1edbe0b",
+    "src": "1903f4069e428c558fc82d2b207071f6cabf267c899cbcd0ae8e038a9ab8edde",
+    "rank": "N",
+    "tx_id": "2ad9ec48955fe6bf24f8b6274fd03f3965f2e7c47195440393937edc5adf1203",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382139889,
+    "pre_tx": "2ad9ec48955fe6bf24f8b6274fd03f3965f2e7c47195440393937edc5adf1203",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "188b234557bf7e4bbe787467b5fb327c9049b7b2ec5fcc86d35c053afbfcd6ac",
+    "tx_id": "fd6dda0cb12e9b301ee6005962849d5716146515b311b58b7d18a68b1d0903b2"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382140337,
+    "pre_tx": null,
+    "pay_tx": "babce939f140622fab48f587ffb5f4d56cd569b263cc1dc201b67aeeb4983582",
+    "src": "fac5ff3bfca11f954e16c995ecb57bdf511f99466d4b9f5aaed6a0fad65ff2a3",
+    "rank": "R",
+    "tx_id": "fb18ff3709b8cf6e44510397f2efd1ede4043607d81211272268cbf88b62e607",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382140337,
+    "pre_tx": "fb18ff3709b8cf6e44510397f2efd1ede4043607d81211272268cbf88b62e607",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "b287093fdfcff5b954e7181f1d1e701f5c9ae7061ffcc1fc05ed1df247555e07",
+    "tx_id": "186dc5d4f68f3e26355180fde187c5bae1724ef94071625ff9589be07e8c4e85"
   }
 ]

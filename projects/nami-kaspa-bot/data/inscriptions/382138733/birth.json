@@ -1,0 +1,22 @@
+{
+  "type": "birth",
+  "hero_id": 382138733,
+  "tx_id": "166df814b37c814fd02360134b2446846d2f14d22f58329e13333e20f6a15e9a",
+  "payment_tx": "6b55c0bc5b0c8e697de07adc343264de06be693d77c2e04a8cd2ba3d2943d500",
+  "source_hash": "370f9d29d89addd712aac12313761bf02cf3d9bdedcd6bbd47ba069ae2c195df",
+  "source_daa": 382138733,
+  "payload": {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382138733,
+    "pre_tx": null,
+    "pay_tx": "6b55c0bc5b0c8e697de07adc343264de06be693d77c2e04a8cd2ba3d2943d500",
+    "src": "370f9d29d89addd712aac12313761bf02cf3d9bdedcd6bbd47ba069ae2c195df",
+    "rank": "R",
+    "tx_id": "166df814b37c814fd02360134b2446846d2f14d22f58329e13333e20f6a15e9a",
+    "signer": "player"
+  },
+  "pre_tx": null,
+  "verified": true,
+  "timestamp": "2026-02-09T02:03:56.345211"
+}

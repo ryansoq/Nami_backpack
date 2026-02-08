@@ -7,14 +7,20 @@ PIN 推導錢包：user_id + PIN → 確定性私鑰
 同一個 user + PIN = 永遠同一個錢包
 
 by Nami 🌊
+
+更新 2026-02-09: 使用 rpc_manager 統一管理 RPC 連線
 """
 
+import asyncio
 import hashlib
 import json
 import logging
 from pathlib import Path
-from kaspa import PrivateKey, Address, PaymentOutput, RpcClient
+from kaspa import PrivateKey, Address, PaymentOutput
 from kaspa import create_transaction, sign_transaction
+
+# 使用統一 RPC 管理器
+from rpc_manager import get_rpc_client, rpc_call, get_balance as rpc_get_balance
 
 logger = logging.getLogger(__name__)
 
@@ -143,18 +149,12 @@ def get_user_address(user_id: int) -> str | None:
     return None
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 餘額查詢
+# 餘額查詢（使用 rpc_manager）
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def get_balance(address: str) -> int:
-    """取得錢包餘額（sompi）"""
-    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-    await client.connect()
-    try:
-        result = await client.get_balance_by_address({"address": address})
-        return result.get("balance", 0)
-    finally:
-        await client.disconnect()
+    """取得錢包餘額（sompi）- 使用統一 RPC 管理器"""
+    return await rpc_get_balance(address)
 
 async def get_balance_tkas(address: str) -> float:
     """取得錢包餘額（tKAS）"""
@@ -195,10 +195,8 @@ async def send_payment(
     pk_hex, from_address = get_wallet(user_id, pin)
     pk = PrivateKey(pk_hex)
     
-    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-    await client.connect()
-    
-    try:
+    # 使用統一 RPC 管理器（自動重連）
+    async with get_rpc_client() as client:
         # 取得 UTXO
         utxo_response = await client.get_utxos_by_addresses({"addresses": [from_address]})
         entries = utxo_response.get("entries", [])
@@ -233,19 +231,13 @@ async def send_payment(
         # 簽名
         signed_tx = sign_transaction(tx, [pk], False)
         
-        # 發送
-        result = await client.submit_transaction({
-            "transaction": signed_tx,
-            "allow_orphan": False
-        })
+        # 發送（使用 rpc_manager 的 submit_transaction）
+        from rpc_manager import submit_transaction
+        tx_id = await submit_transaction(signed_tx, allow_orphan=False)
         
-        tx_id = result.get("transactionId", str(result))
         logger.info(f"Payment sent: {tx_id} ({amount / 1e8:.4f} tKAS from user {user_id})")
         
         return tx_id
-        
-    finally:
-        await client.disconnect()
 
 async def send_to_tree(user_id: int, pin: str, amount: int, memo: str = "") -> str:
     """
@@ -308,72 +300,60 @@ async def send_from_tree(to_address: str, amount: int, memo: str = "") -> str:
     
     tree_pk = PrivateKey(tree_pk_hex)
     
-    # 發送交易
-    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-    await client.connect()
+    # 使用統一 RPC 管理器（自動重連）
+    from rpc_manager import get_utxos, submit_transaction
     
-    try:
-        # 取得 UTXO
-        utxo_response = await client.get_utxos_by_addresses({"addresses": [TREE_ADDRESS]})
-        entries = utxo_response.get("entries", [])
-        
-        if not entries:
-            raise ValueError("大地之樹沒有餘額")
-        
-        # 選擇 UTXO
-        total_needed = amount + TX_FEE
-        selected = []
-        total = 0
-        
-        for e in sorted(entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True):
-            selected.append(e)
-            total += e["utxoEntry"]["amount"]
-            if total >= total_needed:
-                break
-        
-        if total < total_needed:
-            raise ValueError(f"大地之樹餘額不足：需要 {total_needed/1e8:.4f} tKAS")
-        
-        # 建立交易
-        to_addr = Address(to_address)
-        tree_addr = Address(TREE_ADDRESS)
-        
-        change = total - amount - TX_FEE
-        outputs = [PaymentOutput(to_addr, amount)]
-        if change > 0:
-            outputs.append(PaymentOutput(tree_addr, change))
-        
-        tx = create_transaction(
-            utxo_entry_source=selected,
-            outputs=outputs,
-            priority_fee=TX_FEE,
-            payload=memo.encode('utf-8') if memo else None
-        )
-        
-        signed_tx = sign_transaction(tx, [tree_pk], False)
-        result = await client.submit_transaction({"transaction": signed_tx, "allow_orphan": False})
-        tx_id = result.get("transactionId", str(result))
-        
-        logger.info(f"🌲 大地之樹發送 | {amount/1e8:.4f} tKAS → {to_address[:20]}... | TX: {tx_id[:16]}...")
-        
-        return tx_id
-        
-    finally:
-        await client.disconnect()
+    # 取得 UTXO
+    entries = await get_utxos(TREE_ADDRESS)
+    
+    if not entries:
+        raise ValueError("大地之樹沒有餘額")
+    
+    # 選擇 UTXO
+    total_needed = amount + TX_FEE
+    selected = []
+    total = 0
+    
+    for e in sorted(entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True):
+        selected.append(e)
+        total += e["utxoEntry"]["amount"]
+        if total >= total_needed:
+            break
+    
+    if total < total_needed:
+        raise ValueError(f"大地之樹餘額不足：需要 {total_needed/1e8:.4f} tKAS")
+    
+    # 建立交易
+    to_addr = Address(to_address)
+    tree_addr = Address(TREE_ADDRESS)
+    
+    change = total - amount - TX_FEE
+    outputs = [PaymentOutput(to_addr, amount)]
+    if change > 0:
+        outputs.append(PaymentOutput(tree_addr, change))
+    
+    tx = create_transaction(
+        utxo_entry_source=selected,
+        outputs=outputs,
+        priority_fee=TX_FEE,
+        payload=memo.encode('utf-8') if memo else None
+    )
+    
+    signed_tx = sign_transaction(tx, [tree_pk], False)
+    tx_id = await submit_transaction(signed_tx, allow_orphan=False)
+    
+    logger.info(f"🌲 大地之樹發送 | {amount/1e8:.4f} tKAS → {to_address[:20]}... | TX: {tx_id[:16]}...")
+    
+    return tx_id
 
 
 async def get_tree_balance() -> int:
-    """取得大地之樹餘額"""
-    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-    await client.connect()
+    """取得大地之樹餘額 - 使用統一 RPC 管理器"""
+    from rpc_manager import get_utxos
     
-    try:
-        utxo_response = await client.get_utxos_by_addresses({"addresses": [TREE_ADDRESS]})
-        entries = utxo_response.get("entries", [])
-        total = sum(e["utxoEntry"]["amount"] for e in entries)
-        return total
-    finally:
-        await client.disconnect()
+    entries = await get_utxos(TREE_ADDRESS)
+    total = sum(e["utxoEntry"]["amount"] for e in entries)
+    return total
 
 
 async def refund_to_player(to_address: str, amount: int) -> str:
@@ -434,51 +414,42 @@ async def self_inscription(
     if len(payload_bytes) > 1000:
         raise ValueError(f"Payload 太大: {len(payload_bytes)} bytes (最大 1000)")
     
-    client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-    await client.connect()
+    # 使用統一 RPC 管理器
+    from rpc_manager import get_utxos, submit_transaction
     
-    try:
-        # 取得 UTXO
-        utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
-        entries = utxo_response.get("entries", [])
-        
-        if not entries:
-            raise ValueError("錢包沒有餘額（需要手續費）")
-        
-        # 計算總餘額
-        total = sum(e["utxoEntry"]["amount"] for e in entries)
-        required = amount + TX_FEE
-        if total < required:
-            raise ValueError(f"餘額不足：需要 {required / 1e8:.4f} tKAS，只有 {total / 1e8:.4f} tKAS")
-        
-        # 建立輸出（打給自己）
-        to_addr = Address(address)
-        outputs = [PaymentOutput(to_addr, amount)] if amount > 0 else []
-        
-        # 建立交易（自己 → 自己 + payload）
-        tx = create_transaction(
-            utxo_entry_source=entries,
-            outputs=outputs,
-            priority_fee=TX_FEE,
-            payload=payload_bytes
-        )
-        
-        # 簽名（用自己的私鑰）
-        signed_tx = sign_transaction(tx, [pk], False)
-        
-        # 發送
-        result = await client.submit_transaction({
-            "transaction": signed_tx,
-            "allow_orphan": False
-        })
-        
-        tx_id = result.get("transactionId", str(result))
-        logger.info(f"Self-inscription: {tx_id} (user {user_id}, payload {len(payload_bytes)} bytes)")
-        
-        return tx_id
-        
-    finally:
-        await client.disconnect()
+    # 取得 UTXO
+    entries = await get_utxos(address)
+    
+    if not entries:
+        raise ValueError("錢包沒有餘額（需要手續費）")
+    
+    # 計算總餘額
+    total = sum(e["utxoEntry"]["amount"] for e in entries)
+    required = amount + TX_FEE
+    if total < required:
+        raise ValueError(f"餘額不足：需要 {required / 1e8:.4f} tKAS，只有 {total / 1e8:.4f} tKAS")
+    
+    # 建立輸出（打給自己）
+    to_addr = Address(address)
+    outputs = [PaymentOutput(to_addr, amount)] if amount > 0 else []
+    
+    # 建立交易（自己 → 自己 + payload）
+    tx = create_transaction(
+        utxo_entry_source=entries,
+        outputs=outputs,
+        priority_fee=TX_FEE,
+        payload=payload_bytes
+    )
+    
+    # 簽名（用自己的私鑰）
+    signed_tx = sign_transaction(tx, [pk], False)
+    
+    # 發送
+    tx_id = await submit_transaction(signed_tx, allow_orphan=False)
+    
+    logger.info(f"Self-inscription: {tx_id} (user {user_id}, payload {len(payload_bytes)} bytes)")
+    
+    return tx_id
 
 async def mint_hero_inscription_only(
     user_id: int,
@@ -518,17 +489,16 @@ async def mint_hero_inscription_only(
     if len(payload_bytes) > 1000:
         raise ValueError(f"Payload 太大: {len(payload_bytes)} bytes (最大 1000)")
     
+    # 使用統一 RPC 管理器（含自動重連）
+    from rpc_manager import get_utxos, submit_transaction
+    
     max_retries = 3
     last_error = None
     
     for attempt in range(max_retries):
-        client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-        await client.connect()
-        
         try:
-            # 取得 UTXO
-            utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
-            all_entries = utxo_response.get("entries", [])
+            # 取得 UTXO（使用 rpc_manager，自動重連）
+            all_entries = await get_utxos(address)
             
             if not all_entries:
                 raise ValueError("錢包沒有餘額")
@@ -561,8 +531,7 @@ async def mint_hero_inscription_only(
             )
             
             signed_tx = sign_transaction(tx, [pk], False)
-            result = await client.submit_transaction({"transaction": signed_tx, "allow_orphan": False})
-            inscription_tx_id = result.get("transactionId", str(result))
+            inscription_tx_id = await submit_transaction(signed_tx, allow_orphan=False)
             
             logger.info(f"✅ Inscription TX 成功: {inscription_tx_id}")
             
@@ -580,9 +549,6 @@ async def mint_hero_inscription_only(
                     continue
             
             raise
-            
-        finally:
-            await client.disconnect()
     
     raise Exception(f"Inscription TX 發送失敗（重試 {max_retries} 次）: {last_error}")
 
@@ -631,64 +597,57 @@ async def mint_hero_inscription(
     
     payment_tx_id = None
     
+    # 使用統一 RPC 管理器（自動重連）
+    from rpc_manager import get_utxos, submit_transaction
+    
     # ═══════════════════════════════════════════════════════════════════════
     # TX1: 付費給大地之樹（驅動費）
     # ═══════════════════════════════════════════════════════════════════════
     if not skip_payment:
         logger.info(f"📤 TX1: 付費 {mint_cost / 1e8:.2f} tKAS 給大地之樹...")
         
-        client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-        await client.connect()
+        # 取得 UTXO（用大額的來付費）
+        entries = await get_utxos(address)
         
-        try:
-            # 取得 UTXO（用大額的來付費）
-            utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
-            entries = utxo_response.get("entries", [])
-            
-            if not entries:
-                raise ValueError("錢包沒有餘額")
-            
-            # 找足夠支付的 UTXO
-            total_needed = mint_cost + TX_FEE
-            selected = []
-            total = 0
-            
-            for e in sorted(entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True):
-                selected.append(e)
-                total += e["utxoEntry"]["amount"]
-                if total >= total_needed:
-                    break
-            
-            if total < total_needed:
-                raise ValueError(f"餘額不足：需要 {total_needed / 1e8:.4f} tKAS")
-            
-            # 建立付費交易
-            tree_addr = Address(TREE_ADDRESS)
-            self_addr = Address(address)
-            
-            change = total - mint_cost - TX_FEE
-            outputs = [PaymentOutput(tree_addr, mint_cost)]
-            if change > 0:
-                outputs.append(PaymentOutput(self_addr, change))
-            
-            tx = create_transaction(
-                utxo_entry_source=selected,
-                outputs=outputs,
-                priority_fee=TX_FEE
-            )
-            
-            signed_tx = sign_transaction(tx, [pk], False)
-            result = await client.submit_transaction({"transaction": signed_tx, "allow_orphan": False})
-            payment_tx_id = result.get("transactionId", str(result))
-            
-            logger.info(f"✅ TX1 成功: {payment_tx_id}")
-            
-        finally:
-            await client.disconnect()
+        if not entries:
+            raise ValueError("錢包沒有餘額")
+        
+        # 找足夠支付的 UTXO
+        total_needed = mint_cost + TX_FEE
+        selected = []
+        total = 0
+        
+        for e in sorted(entries, key=lambda x: x["utxoEntry"]["amount"], reverse=True):
+            selected.append(e)
+            total += e["utxoEntry"]["amount"]
+            if total >= total_needed:
+                break
+        
+        if total < total_needed:
+            raise ValueError(f"餘額不足：需要 {total_needed / 1e8:.4f} tKAS")
+        
+        # 建立付費交易
+        tree_addr = Address(TREE_ADDRESS)
+        self_addr = Address(address)
+        
+        change = total - mint_cost - TX_FEE
+        outputs = [PaymentOutput(tree_addr, mint_cost)]
+        if change > 0:
+            outputs.append(PaymentOutput(self_addr, change))
+        
+        tx = create_transaction(
+            utxo_entry_source=selected,
+            outputs=outputs,
+            priority_fee=TX_FEE
+        )
+        
+        signed_tx = sign_transaction(tx, [pk], False)
+        payment_tx_id = await submit_transaction(signed_tx, allow_orphan=False)
+        
+        logger.info(f"✅ TX1 成功: {payment_tx_id}")
         
         # 等待讓 UTXO 更新（mempool 確認需要時間）
-        import asyncio
-        await asyncio.sleep(5)  # 從 1 秒增加到 5 秒
+        await asyncio.sleep(5)
     
     # ═══════════════════════════════════════════════════════════════════════
     # TX2: Inscription（自己 → 自己 + payload）帶重試機制
@@ -708,13 +667,9 @@ async def mint_hero_inscription(
     last_error = None
     
     for attempt in range(max_retries):
-        client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-        await client.connect()
-        
         try:
             # 取得 UTXO（需要小額的來發 inscription）
-            utxo_response = await client.get_utxos_by_addresses({"addresses": [address]})
-            all_entries = utxo_response.get("entries", [])
+            all_entries = await get_utxos(address)
             
             if not all_entries:
                 raise ValueError("錢包沒有餘額（需要小額 UTXO 發 inscription）")
@@ -749,8 +704,7 @@ async def mint_hero_inscription(
             )
             
             signed_tx = sign_transaction(tx, [pk], False)
-            result = await client.submit_transaction({"transaction": signed_tx, "allow_orphan": False})
-            inscription_tx_id = result.get("transactionId", str(result))
+            inscription_tx_id = await submit_transaction(signed_tx, allow_orphan=False)
             
             logger.info(f"✅ TX2 成功: {inscription_tx_id}")
             logger.info(f"🎴 Hero mint 完成 | user={user_id} | payment={payment_tx_id} | inscription={inscription_tx_id}")
@@ -771,9 +725,6 @@ async def mint_hero_inscription(
             
             # 其他錯誤直接拋出
             raise
-            
-        finally:
-            await client.disconnect()
     
     # 重試都失敗
     raise Exception(f"TX2 發送失敗（重試 {max_retries} 次）: {last_error}")

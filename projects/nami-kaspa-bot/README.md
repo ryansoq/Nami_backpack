@@ -32,6 +32,12 @@ Telegram Bot: [@Nami_Kaspa_Bot](https://t.me/Nami_Kaspa_Bot)
 - **🔗 命運之塊**：出生、戰鬥、死亡都刻在鏈上
 - **💰 大地祝福**：存活英雄可獲得定期獎勵分潤
 
+## 📚 文檔
+
+- **[執行流程圖](docs/FLOW_DIAGRAMS.md)** - 召喚、PvP、驗證等核心流程
+- **[遊戲設計 v0.4](docs/GAME_DESIGN_v0.4.md)** - ATB 戰鬥設計
+- **[遊戲指南](docs/GAME_GUIDE.md)** - 玩家入門指南
+
 ---
 
 ## 🏗️ 系統架構
