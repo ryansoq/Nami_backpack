@@ -1913,8 +1913,8 @@ _在區塊鏈的盡頭，大地之樹守護著英雄們的命運_
 
 *💰 費用*
 🌟 召喚英雄：10 mana
-⚔️ PvP 攻擊：2 mana
-🔥 銷毀英雄：免費（退回 10 mana）
+⚔️ PvP 攻擊：10 mana
+🔥 銷毀英雄：10 mana
 
 *🏆 Rank 系統*
 ⚪ N (普通) 70%
@@ -1940,9 +1940,9 @@ _在區塊鏈的盡頭，大地之樹守護著英雄們的命運_
 • payment\_tx → DAA → 命運區塊 → 屬性
 • 任何人可用 `/nv` 驗證，無法作弊
 
-*🌲 大地祝福（PoS 獎勵）*
-• 存活英雄定期獲得分潤
-• 權重 = Rank × 存活時間 × 擊殺數
+*🌲 大地祝福（積分獎勵）*
+• DAA 結尾 66666 發放獎勵
+• 積分 = 存活天數 + 稀有度 + 擊殺×2
 • 只有活著的英雄才能獲得祝福！
 
 *📋 常用指令*
@@ -2030,7 +2030,7 @@ async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{rarity_emoji} {hero.rarity} {class_name}\n"
         f"⚔️ {hero.atk} | 🛡️ {hero.def_} | ⚡ {hero.spd}\n\n"
         f"🔥 銷毀後無法復原！\n"
-        f"💰 將退還 *5 mana*\n\n"
+        f"💰 需支付 *10 mana* 刻上死亡銘文\n\n"
         f"⏱️ 60 秒內有效"
     )
     
