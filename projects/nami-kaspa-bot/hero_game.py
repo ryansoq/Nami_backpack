@@ -1337,24 +1337,24 @@ async def process_battle(attacker: Hero, defender: Hero,
     
     from datetime import datetime
     if attacker_wins:
-        attacker.kills += 1
-        # v0.3: 保護機制 - 受保護的英雄不會死
+        # v0.4.1: 只有真的造成死亡才 +kill（有死亡銘文 = 有 kill）
         if getattr(defender, 'protected', False):
-            logger.info(f"🛡️ 防守者 #{defender.card_id} 受保護，免於死亡")
-            # 不改變 status
+            logger.info(f"🛡️ 防守者 #{defender.card_id} 受保護，免於死亡（攻方無 +kill）")
+            # 不死 = 不加 kill
         else:
             defender.status = "dead"
             defender.death_time = datetime.now().isoformat()
+            attacker.kills += 1  # 有死亡銘文才 +kill
         result = "win"
     else:
-        defender.kills += 1
-        # v0.3: 保護機制 - 受保護的英雄不會死
+        # v0.4.1: 只有真的造成死亡才 +kill
         if getattr(attacker, 'protected', False):
-            logger.info(f"🛡️ 攻擊者 #{attacker.card_id} 受保護，免於死亡")
-            # 不改變 status
+            logger.info(f"🛡️ 攻擊者 #{attacker.card_id} 受保護，免於死亡（守方無 +kill）")
+            # 不死 = 不加 kill
         else:
             attacker.status = "dead"
             attacker.death_time = datetime.now().isoformat()
+            defender.kills += 1  # 有死亡銘文才 +kill
         result = "lose"
     
     attacker.latest_daa = result_daa
@@ -1488,16 +1488,16 @@ async def process_pvp_onchain(
     result["pvp_reward"] = pvp_reward
     
     if attacker_wins:
-        attacker.kills += 1
-        
-        # v0.3: 保護機制檢查
+        # v0.4.1: 保護機制檢查 - 只有真的死亡才 +kill
         defender_protected = getattr(defender, 'protected', False)
         if defender_protected:
-            logger.info(f"🛡️ 防守者 #{defender.card_id} 受保護，免於死亡")
+            logger.info(f"🛡️ 防守者 #{defender.card_id} 受保護，免於死亡（攻方無 +kill）")
             result["defender_protected"] = True
+            # 不死 = 不加 kill
         else:
             defender.status = "dead"
             defender.death_time = datetime.now().isoformat()
+            attacker.kills += 1  # v0.4.1: 有死亡銘文才 +kill
             result["defender_protected"] = False
             
         result["winner"] = attacker
@@ -1591,16 +1591,16 @@ async def process_pvp_onchain(
             logger.warning(f"銘文記錄失敗（非致命）: {e}")
         
     else:
-        defender.kills += 1
-        
-        # v0.3: 保護機制檢查
+        # v0.4.1: 保護機制檢查 - 只有真的死亡才 +kill
         attacker_protected = getattr(attacker, 'protected', False)
         if attacker_protected:
-            logger.info(f"🛡️ 攻擊者 #{attacker.card_id} 受保護，免於死亡")
+            logger.info(f"🛡️ 攻擊者 #{attacker.card_id} 受保護，免於死亡（守方無 +kill）")
             result["attacker_protected"] = True
+            # 不死 = 不加 kill
         else:
             attacker.status = "dead"
             attacker.death_time = datetime.now().isoformat()
+            defender.kills += 1  # v0.4.1: 有死亡銘文才 +kill
             result["attacker_protected"] = False
             
         result["winner"] = defender
