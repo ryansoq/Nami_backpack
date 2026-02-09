@@ -19,6 +19,9 @@ from enum import Enum
 # v0.4 ATB 戰鬥系統
 from atb_battle import ATBFighter, atb_battle, RANK_HP
 
+# v0.5 Canvas 戰鬥回放
+from battle_canvas import export_battle_to_canvas
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1728,6 +1731,25 @@ async def process_pvp_onchain(
                 result["reward_error"] = str(e)
     
     logger.info(f"⚔️ PvP 完成: #{attacker.card_id} vs #{defender.card_id} -> {'攻擊者勝' if attacker_wins else '防守者勝'}")
+    
+    # 🎬 輸出到 Canvas 戰鬥回放系統
+    try:
+        canvas_success = export_battle_to_canvas(
+            attacker=attacker,
+            defender=defender,
+            battle_detail=battle_detail,
+            attacker_wins=attacker_wins,
+            battle_id=f"pvp_{attacker.card_id}_vs_{defender.card_id}_{int(datetime.now().timestamp())}"
+        )
+        if canvas_success:
+            logger.info("🎬 Canvas 戰鬥回放已推送！")
+            result["canvas_exported"] = True
+        else:
+            logger.warning("⚠️ Canvas 推送失敗（戰鬥仍有效）")
+            result["canvas_exported"] = False
+    except Exception as e:
+        logger.error(f"❌ Canvas 輸出錯誤: {e}")
+        result["canvas_exported"] = False
     
     return result
 
