@@ -404,8 +404,8 @@
       "spd": 129,
       "status": "alive",
       "latest_daa": 381648803,
-      "kills": 2,
-      "battles": 8,
+      "kills": 3,
+      "battles": 9,
       "created_at": "2026-02-08T12:27:53.685432",
       "death_time": "",
       "source_hash": "e34eff8cf5ea1ea470a38d60263b359e0d0ee4ac74f3ca3ecaaf7526a151149d",
@@ -1128,16 +1128,39 @@
       "atk": 78,
       "def": 48,
       "spd": 100,
-      "status": "alive",
+      "status": "dead",
       "latest_daa": 382771619,
       "kills": 0,
-      "battles": 0,
+      "battles": 1,
       "created_at": "2026-02-09T19:38:35.373569",
-      "death_time": "",
+      "death_time": "2026-02-09T20:01:42.561556",
       "source_hash": "362a645b601e58a19cd7a6868bc9c8b54581d0f2d9ae98f7efba54462a904a48",
       "payment_tx": "b137edfe4129c74323e8cf07b8e952dbf4337e59bcdf85a5f73e01ba8099837c",
       "tx_id": "b843d3387e646da5d108f00e255d9b7c680d55c1c9a2f4142b0dddab75c5e2c8",
-      "latest_tx": "b843d3387e646da5d108f00e255d9b7c680d55c1c9a2f4142b0dddab75c5e2c8",
+      "latest_tx": "45dbd605ff5d4e086c0ef6d8dfabfcca371ed6682de2991364db62df8fc3c2db",
+      "name": "",
+      "protected": false
+    },
+    "382787421": {
+      "card_id": 382787421,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "mage",
+      "rank": "SR",
+      "rarity": "SR",
+      "atk": 72,
+      "def": 57,
+      "spd": 141,
+      "status": "alive",
+      "latest_daa": 382787421,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-09T20:05:19.631289",
+      "death_time": "",
+      "source_hash": "2ea2be082ba91be2182da01cd8f251606dd6d5cd15bf29f62c7be09c42f18c9d",
+      "payment_tx": "6db8136729329173d4cf739c1c21149df810a72d990cbaf38924443a0b2b55b3",
+      "tx_id": "d1eb615969599ecb1582ca4b8280ba204c610a577cb265b555505e832b74f030",
+      "latest_tx": "d1eb615969599ecb1582ca4b8280ba204c610a577cb265b555505e832b74f030",
       "name": "",
       "protected": false
     }
@@ -1172,7 +1195,8 @@
       382139889,
       382140337,
       382142682,
-      382771619
+      382771619,
+      382787421
     ],
     "684243833": [
       380994228,
@@ -1195,10 +1219,10 @@
       381962324
     ]
   },
-  "last_summon_daa": 382771619,
+  "last_summon_daa": 382787421,
   "summon_queue": [],
-  "total_mana_pool": 10,
-  "last_checked_daa": 382784081,
+  "total_mana_pool": 27,
+  "last_checked_daa": 382787167,
   "last_reward_daa": 382766666,
   "reward_history": [
     {

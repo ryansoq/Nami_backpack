@@ -80,8 +80,10 @@
         }
         
         #battleCanvas {
-            flex: 1;
             width: 100%;
+            height: 180px;
+            min-height: 150px;
+            max-height: 200px;
             image-rendering: pixelated;
         }
         
@@ -123,10 +125,11 @@
         .hp-bar-mini .fill.danger { background: #e74c3c; }
         
         .battle-log {
-            max-height: 200px;
+            flex: 1;
+            min-height: 150px;
             overflow-y: auto;
-            font-size: 9px;
-            padding: 5px;
+            font-size: 10px;
+            padding: 8px;
             background: rgba(0,0,0,0.5);
             border-top: 1px solid #333;
         }
@@ -323,7 +326,7 @@ function resizeCanvases() {
     const worldZone = document.querySelector('.world-zone');
     
     battleCanvas.width = battleZone.clientWidth;
-    battleCanvas.height = battleZone.clientHeight - 150;
+    battleCanvas.height = 180; // 固定高度
     
     worldCanvas.width = worldZone.clientWidth;
     worldCanvas.height = worldZone.clientHeight;

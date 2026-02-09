@@ -1520,5 +1520,29 @@
     "rank": "SR",
     "tx_id": "b843d3387e646da5d108f00e255d9b7c680d55c1c9a2f4142b0dddab75c5e2c8",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382771619,
+    "pre_tx": "b843d3387e646da5d108f00e255d9b7c680d55c1c9a2f4142b0dddab75c5e2c8",
+    "pay_tx": null,
+    "src": "6b567b728dfba80b06bc3d1430b601dcf2968dee475a9752bb434eabecc44d8f",
+    "reason": "pvp",
+    "killer": 381648803,
+    "battle_tx": "e1ce3ab9baf47f1c74084131669d291698d7f9085c704cc9465fac08fee4e574",
+    "tx_id": "45dbd605ff5d4e086c0ef6d8dfabfcca371ed6682de2991364db62df8fc3c2db",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382787421,
+    "pre_tx": null,
+    "pay_tx": "6db8136729329173d4cf739c1c21149df810a72d990cbaf38924443a0b2b55b3",
+    "src": "2ea2be082ba91be2182da01cd8f251606dd6d5cd15bf29f62c7be09c42f18c9d",
+    "rank": "SR",
+    "tx_id": "d1eb615969599ecb1582ca4b8280ba204c610a577cb265b555505e832b74f030",
+    "signer": "player"
   }
 ]
