@@ -1544,5 +1544,51 @@
     "rank": "SR",
     "tx_id": "d1eb615969599ecb1582ca4b8280ba204c610a577cb265b555505e832b74f030",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382787421,
+    "pre_tx": "d1eb615969599ecb1582ca4b8280ba204c610a577cb265b555505e832b74f030",
+    "pay_tx": null,
+    "src": "5ab80553972c984c1c37c525cffcbe6242cea1d97fdde6f8f5f08d30d69f5ba3",
+    "reason": "pvp",
+    "killer": 381648803,
+    "battle_tx": "e6b10f95eda320203b7f0d0d5ead5ffa875b46026cbc09c1de745468578aebf4",
+    "tx_id": "ce54f51512302131fa3cfd2a37780fdd4ea499793eb3dbc6d9b3ecf38116d785",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382789020,
+    "pre_tx": null,
+    "pay_tx": "6b86e15eb05334956c300ecce613c62806a831750d6eafcb58da124dc34fd671",
+    "src": "19b697ebfcb904e1327de73b5ec15b1207694a89fabdb8d4c81165914365c699",
+    "rank": "R",
+    "tx_id": "a6849472c7b33200647615db0859d7e8df246a245d938c2270add8debeb54d7d",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382789020,
+    "pre_tx": "a6849472c7b33200647615db0859d7e8df246a245d938c2270add8debeb54d7d",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "edc1517943673b732c9d53bc2a9e3dd6b8e5f16a149395b87b1a3e365d1935ca",
+    "tx_id": "558240c8dc14f495677d87e141c83c159242d264e733e4de729c214b301050f6"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382789579,
+    "pre_tx": null,
+    "pay_tx": "da969a767d4b2158795b48ec5dec2996647e8197aef23ae8dbe500b41da1478e",
+    "src": "a34234f8771760c6951a0719d33e063e8db769daea4f98f01329098e2c739563",
+    "rank": "R",
+    "tx_id": "5f0f24ff796afffad32ad058b33cebe8627e9a02c0de302e95e53c27d1093e12",
+    "signer": "player"
   }
 ]
