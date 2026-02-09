@@ -232,7 +232,7 @@ class ATBFighter:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class BattleLog:
-    """戰鬥日誌記錄器（v0.4.1 樹枝視覺化）"""
+    """戰鬥日誌記錄器（v0.4.1 樹枝視覺化 + v0.5 Canvas 事件）"""
     
     def __init__(self):
         self.entries: List[str] = []
@@ -252,6 +252,31 @@ class BattleLog:
         self.combo_count: int = 0
         self.max_combo: int = 0
         self.pending_actions: List[str] = []  # 暫存同一人的連續動作
+        
+        # v0.5: Canvas 結構化事件
+        self.events: List[Dict] = []
+        self.current_tick: int = 0
+    
+    def set_tick(self, tick: int):
+        """設定當前 tick（由戰鬥主迴圈呼叫）"""
+        self.current_tick = tick
+    
+    def add_event(self, event_type: str, who: str = None, **kwargs):
+        """
+        添加 Canvas 結構化事件
+        
+        event_type: battle_start, attack, skill, evade, death, battle_end
+        who: "attacker" or "defender" (p1=attacker, p2=defender)
+        kwargs: damage, skill_name, msg, etc.
+        """
+        event = {
+            "tick": self.current_tick,
+            "type": event_type,
+        }
+        if who:
+            event["who"] = who
+        event.update(kwargs)
+        self.events.append(event)
     
     def add(self, text: str):
         """原始添加（用於開場、結束等非戰鬥行）"""
@@ -409,6 +434,8 @@ def process_fighter_turn(attacker: ATBFighter, defender: ATBFighter,
     """處理單一戰鬥者的回合，回傳對手是否死亡"""
     
     prefix = "p1" if is_p1 else "p2"
+    who = "attacker" if is_p1 else "defender"  # v0.5 Canvas
+    target = "defender" if is_p1 else "attacker"
     
     # 先處理大招（優先級高）
     if attacker.skill_gauge >= SKILL_GAUGE_MAX:
@@ -417,17 +444,30 @@ def process_fighter_turn(attacker: ATBFighter, defender: ATBFighter,
         
         # 如果是閃避類技能，不用檢查對手閃避
         skill = ULTIMATE_SKILLS.get(attacker.hero_class, {})
+        skill_name = skill.get("name", "技能")
+        
         if skill.get("type") == "evade":
             cast_ultimate(attacker, defender, log, is_p1)
+            # v0.5 Canvas 事件（閃避技能）
+            log.add_event("skill", who=who, skill_name=skill_name, 
+                         damage=0, msg=f"{attacker.name} 發動【{skill_name}】！準備閃避")
         elif defender.is_evading and skill.get("type") in ["damage", "damage_stun"]:
             # 傷害型大招被閃避
-            skill_name = skill.get("name", "技能")
             emoji = skill.get("emoji", "✨")
             log.add_action(attacker.name, is_p1, f"{emoji}【{skill_name}】！💨 被閃避！")
             defender.consume_evade()
             log.stats[f"{'p2' if is_p1 else 'p1'}_evades"] += 1
+            # v0.5 Canvas 事件（被閃避）
+            log.add_event("evade", who=target, 
+                         msg=f"{defender.name} 閃避了 {attacker.name} 的【{skill_name}】！")
         else:
+            old_hp = defender.current_hp
             cast_ultimate(attacker, defender, log, is_p1)
+            damage_dealt = old_hp - defender.current_hp
+            # v0.5 Canvas 事件
+            log.add_event("skill", who=who, target=target, skill_name=skill_name,
+                         damage=max(0, damage_dealt), 
+                         msg=f"{attacker.name} 發動【{skill_name}】！造成 {max(0, damage_dealt)} 傷害")
         
         if not defender.is_alive:
             return True
@@ -442,6 +482,9 @@ def process_fighter_turn(attacker: ATBFighter, defender: ATBFighter,
             log.add_action(attacker.name, is_p1, f"攻擊！💨 被閃避！(剩餘:{defender.evade_count-1})")
             defender.consume_evade()
             log.stats[f"{'p2' if is_p1 else 'p1'}_evades"] += 1
+            # v0.5 Canvas 事件
+            log.add_event("evade", who=target, 
+                         msg=f"{defender.name} 閃避了 {attacker.name} 的攻擊！")
         else:
             # 正常傷害
             damage, is_berserk, is_backstab = calculate_damage(attacker, defender)
@@ -460,6 +503,11 @@ def process_fighter_turn(attacker: ATBFighter, defender: ATBFighter,
             log.add_action(attacker.name, is_p1, 
                           f"{action}攻擊！{damage} 傷害",
                           defender.current_hp, defender.max_hp)
+            
+            # v0.5 Canvas 事件
+            attack_type = "backstab" if is_backstab else "berserk" if is_berserk else "attack"
+            log.add_event(attack_type, who=who, target=target, damage=damage,
+                         msg=f"{attacker.name} {action}攻擊！造成 {damage} 傷害")
         
         if not defender.is_alive:
             return True
@@ -486,6 +534,7 @@ def atb_battle(p1: ATBFighter, p2: ATBFighter) -> Dict:
     
     # 開場
     log.add(f"⚔️ ATB 決鬥開始！")
+    log.add_event("battle_start", msg="⚔️ ATB 戰鬥開始！")
     log.add("═" * 35)
     log.add(f"")
     log.add(f"🔵 {p1.name} ({p1.get_class_emoji()}{p1.get_class_name()} {p1.rank})")
@@ -500,6 +549,7 @@ def atb_battle(p1: ATBFighter, p2: ATBFighter) -> Dict:
     # 主戰鬥迴圈
     for loop in range(MAX_LOOPS):
         log.stats["loops"] = loop + 1
+        log.set_tick(loop * 10)  # v0.5: 每 loop = 10 tick
         
         # ─── 累積移動條（固定 200）───
         p1.move_gauge += MOVE_GAIN
@@ -542,11 +592,17 @@ def atb_battle(p1: ATBFighter, p2: ATBFighter) -> Dict:
         result["loser"] = p1
         result["draw"] = False
         log.add(f"🏆 勝者：{p2.name} (剩餘 HP: {p2.current_hp})")
+        # v0.5 Canvas 事件
+        log.add_event("death", who="attacker", msg=f"💀 {p1.name} 倒下了...")
+        log.add_event("battle_end", winner="defender", msg=f"🏆 {p2.name} 獲得勝利！")
     elif not p2.is_alive:
         result["winner"] = p1
         result["loser"] = p2
         result["draw"] = False
         log.add(f"🏆 勝者：{p1.name} (剩餘 HP: {p1.current_hp})")
+        # v0.5 Canvas 事件
+        log.add_event("death", who="defender", msg=f"💀 {p2.name} 倒下了...")
+        log.add_event("battle_end", winner="attacker", msg=f"🏆 {p1.name} 獲得勝利！")
     else:
         # 平手
         result["winner"] = None
@@ -554,6 +610,7 @@ def atb_battle(p1: ATBFighter, p2: ATBFighter) -> Dict:
         result["draw"] = True
         log.add(f"⏰ 時間到！平手！")
         log.add(f"🌲 大地之樹沒收 10 mana")
+        log.add_event("battle_end", winner=None, msg="⏰ 時間到！平手！")
     
     # 統計
     combo_text = f" | 🔥最高連擊:{log.get_max_combo()}" if log.get_max_combo() >= 2 else ""

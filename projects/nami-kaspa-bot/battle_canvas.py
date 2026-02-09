@@ -212,13 +212,19 @@ def export_battle_to_canvas(
         if not battle_id:
             battle_id = f"pvp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
+        # v0.5: 優先使用 ATB 引擎產生的真實事件
+        events = battle_detail.get("events", [])
+        if not events:
+            # 後備：用統計數據重建事件
+            events = generate_battle_events(attacker, defender, battle_detail, attacker_wins)
+        
         # 建立 Canvas 格式的戰鬥記錄
         canvas_battle = {
             "id": battle_id,
             "timestamp": datetime.now().isoformat(),
             "attacker": hero_to_canvas_format(attacker),
             "defender": hero_to_canvas_format(defender),
-            "events": generate_battle_events(attacker, defender, battle_detail, attacker_wins),
+            "events": events,
             "result": {
                 "winner": "attacker" if attacker_wins else "defender",
                 "winner_name": attacker.name if attacker_wins else defender.name,

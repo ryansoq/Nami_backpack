@@ -632,11 +632,12 @@ def calculate_battle_result_atb(attacker: Hero, defender: Hero, block_hash: str)
     attacker_wins = not result["draw"] and result.get("winner") and result["winner"].card_id == attacker.card_id
     
     battle_detail = {
-        "atb_version": "0.4",
+        "atb_version": "0.5",
         "loops": result["loops"],
         "draw": result["draw"],
         "battle_log": result["logs"].get_full_log(),
         "stats": result["stats"],
+        "events": result["logs"].events,  # v0.5 Canvas 真實事件
     }
     
     if not result["draw"]:
