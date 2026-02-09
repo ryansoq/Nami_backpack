@@ -15,7 +15,7 @@ import io
 # 8x8 迷你模板
 # 0=透明, 1=輪廓, 2=皮膚, 3=主色(衣服), 5=武器
 TEMPLATES = {
-    'warrior': [
+    'knight': [
         "01111100",
         "01232100",
         "00121000",
@@ -90,7 +90,7 @@ def generate_avatar(block_hash: str, rank: str, hero_class: str, size: int = 16)
     Args:
         block_hash: 命運區塊 hash（決定外觀細節）
         rank: N/R/SR/SSR/UR/LR（決定顏色主題）
-        hero_class: warrior/mage/archer/rogue（決定模板）
+        hero_class: knight/mage/archer/rogue（決定模板）
         size: 輸出尺寸（預設 16，會從 8x8 放大）
     
     Returns:
@@ -117,7 +117,7 @@ def generate_avatar(block_hash: str, rank: str, hero_class: str, size: int = 16)
     }
     
     # 取得模板
-    template = TEMPLATES.get(hero_class, TEMPLATES['warrior'])
+    template = TEMPLATES.get(hero_class, TEMPLATES['knight'])
     
     # 創建 8x8 圖片
     img = Image.new('RGBA', (8, 8), (0, 0, 0, 0))
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # 測試
     test_hash = "7a6a9e601ff40dedd1cb55e445876c1af6ec5d3d581496c6f4ea56e74ef0b7db"
     
-    for hero_class in ['warrior', 'mage', 'archer', 'rogue']:
+    for hero_class in ['knight', 'mage', 'archer', 'rogue']:
         for rank in ['N', 'SSR']:
             img = generate_avatar(test_hash, rank, hero_class, 16)
             print(f"{rank} {hero_class}: {len(img)} bytes")

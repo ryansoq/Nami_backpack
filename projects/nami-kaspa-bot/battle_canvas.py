@@ -83,7 +83,7 @@ def generate_battle_events(attacker, defender, battle_detail: Dict, attacker_win
     
     # 技能名稱對應
     skill_names = {
-        "warrior": "烈焰斬",
+        "knight": "烈焰斬",
         "mage": "流星雨",
         "archer": "穿透射擊",
         "knight": "聖光護盾",

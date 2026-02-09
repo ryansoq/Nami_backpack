@@ -281,12 +281,41 @@ const game = {
 
 // 職業配色
 const CLASS_COLORS = {
-    warrior: { main: '#c0392b', accent: '#e74c3c', name: '戰士' },
+    knight: { main: '#f39c12', accent: '#f1c40f', name: '騎士' },
     mage: { main: '#2980b9', accent: '#3498db', name: '法師' },
     archer: { main: '#27ae60', accent: '#2ecc71', name: '弓手' },
-    knight: { main: '#f39c12', accent: '#f1c40f', name: '騎士' },
     rogue: { main: '#8e44ad', accent: '#9b59b6', name: '盜賊' }
 };
+
+// 稀有度背景效果
+const RARITY_EFFECTS = {
+    common: { glow: null, color: '#7f8c8d', particles: 0 },
+    uncommon: { glow: 'rgba(127,140,141,0.3)', color: '#95a5a6', particles: 2 },
+    rare: { glow: 'rgba(52,152,219,0.4)', color: '#3498db', particles: 4 },
+    epic: { glow: 'rgba(155,89,182,0.5)', color: '#9b59b6', particles: 6 },
+    legendary: { glow: 'rgba(241,196,15,0.6)', color: '#f1c40f', particles: 8 },
+    mythic: { glow: 'rgba(231,76,60,0.7)', color: '#e74c3c', particles: 12 }
+};
+
+// 載入職業圖片
+const heroImages = {};
+const imageUrls = {
+    knight: 'knight.png',
+    mage: 'mage.png', 
+    archer: 'archer.png',
+    rogue: 'rogue.png'
+};
+
+let imagesLoaded = 0;
+Object.entries(imageUrls).forEach(([key, url]) => {
+    const img = new Image();
+    img.onload = () => {
+        imagesLoaded++;
+        console.log(`✅ 載入 ${key} 圖片`);
+    };
+    img.src = url;
+    heroImages[key] = img;
+});
 
 // ============ 調整 Canvas 大小 ============
 function resizeCanvases() {
@@ -350,62 +379,54 @@ class BattleFighter {
     draw(ctx) {
         const x = Math.floor(this.x);
         const y = Math.floor(this.y);
+        const img = heroImages[this.data.class];
+        const rarity = this.data.rarity?.toLowerCase() || 'common';
+        const effect = RARITY_EFFECTS[rarity] || RARITY_EFFECTS.common;
         
         ctx.save();
         
         if (this.state === 'dead') ctx.globalAlpha = 0.4;
         if (this.state === 'hurt' && this.stateTimer % 4 < 2) ctx.globalAlpha = 0.3;
         
-        ctx.translate(x, y);
-        ctx.scale(this.direction, 1);
-        
-        const c = this.classData;
         const bounce = this.state === 'idle' ? Math.sin(this.animFrame) * 2 : 0;
+        const size = 64; // 圖片大小
+        
+        // 稀有度光暈
+        if (effect.glow) {
+            ctx.shadowColor = effect.color;
+            ctx.shadowBlur = 15 + Math.sin(Date.now() / 300) * 5;
+            ctx.fillStyle = effect.glow;
+            ctx.beginPath();
+            ctx.arc(x, y - size/2 + bounce, size/2 + 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
         
         // 陰影
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
-        ctx.ellipse(0, 8, 15, 5, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y + 5, 20, 6, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // 身體
-        ctx.fillStyle = c.main;
-        ctx.fillRect(-8, -30 + bounce, 16, 22);
-        
-        // 頭
-        ctx.fillStyle = '#fdbf6f';
-        ctx.fillRect(-7, -42 + bounce, 14, 12);
-        
-        // 頭髮
-        ctx.fillStyle = c.accent;
-        ctx.fillRect(-8, -46 + bounce, 16, 5);
-        
-        // 眼睛
-        ctx.fillStyle = '#000';
-        if (this.state === 'dead') {
-            ctx.fillRect(-4, -38 + bounce, 3, 1);
-            ctx.fillRect(1, -38 + bounce, 3, 1);
+        // 繪製圖片
+        if (img && img.complete) {
+            ctx.save();
+            ctx.translate(x, y - size/2 + bounce);
+            if (this.direction < 0) ctx.scale(-1, 1);
+            ctx.drawImage(img, -size/2, -size/2, size, size);
+            ctx.restore();
         } else {
-            ctx.fillRect(-4, -38 + bounce, 3, 3);
-            ctx.fillRect(1, -38 + bounce, 3, 3);
+            // 備用：畫方塊
+            ctx.fillStyle = this.classData.main;
+            ctx.fillRect(x - 15, y - 50 + bounce, 30, 50);
         }
-        
-        // 手臂
-        ctx.fillStyle = c.main;
-        ctx.fillRect(-13, -26 + bounce, 5, 10);
-        ctx.fillRect(8, -26 + bounce, 5, 10);
-        
-        // 腿
-        ctx.fillStyle = '#2c3e50';
-        ctx.fillRect(-6, -8, 5, 10);
-        ctx.fillRect(1, -8, 5, 10);
         
         // 攻擊特效
         if (this.state === 'attack' || this.state === 'skill') {
             ctx.fillStyle = this.state === 'skill' ? '#9b59b6' : '#ff6600';
             ctx.globalAlpha = 0.7;
             ctx.beginPath();
-            ctx.arc(15, -20, 10, 0, Math.PI * 2);
+            ctx.arc(x + this.direction * 30, y - 30, 15, 0, Math.PI * 2);
             ctx.fill();
         }
         
@@ -484,42 +505,46 @@ class WorldHero {
     draw(ctx) {
         const x = Math.floor(this.x);
         const y = Math.floor(this.y);
+        const img = heroImages[this.data.class];
+        const rarity = this.data.rarity?.toLowerCase() || 'common';
+        const effect = RARITY_EFFECTS[rarity] || RARITY_EFFECTS.common;
+        
+        const bounce = this.state === 'walk' ? Math.sin(this.animFrame * 2) * 2 : Math.sin(this.animFrame) * 1;
+        const size = 48; // 世界區較小
         
         ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(this.direction, 1);
         
-        const c = this.classData;
-        const bounce = this.state === 'walk' ? Math.sin(this.animFrame * 2) * 2 : Math.sin(this.animFrame) * 1;
+        // 稀有度光暈（較淡）
+        if (effect.glow) {
+            ctx.globalAlpha = 0.5;
+            ctx.shadowColor = effect.color;
+            ctx.shadowBlur = 8 + Math.sin(Date.now() / 500) * 3;
+            ctx.fillStyle = effect.glow;
+            ctx.beginPath();
+            ctx.arc(x, y - size/2 + bounce, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
         
         // 陰影
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath();
-        ctx.ellipse(0, 5, 10, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y + 3, 12, 4, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // 身體（較小）
-        ctx.fillStyle = c.main;
-        ctx.fillRect(-5, -20 + bounce, 10, 15);
-        
-        // 頭
-        ctx.fillStyle = '#fdbf6f';
-        ctx.fillRect(-4, -28 + bounce, 8, 8);
-        
-        // 頭髮
-        ctx.fillStyle = c.accent;
-        ctx.fillRect(-5, -30 + bounce, 10, 3);
-        
-        // 眼睛
-        ctx.fillStyle = '#000';
-        ctx.fillRect(-2, -26 + bounce, 2, 2);
-        ctx.fillRect(1, -26 + bounce, 2, 2);
-        
-        // 腿
-        ctx.fillStyle = '#2c3e50';
-        const legOffset = this.state === 'walk' ? Math.sin(this.animFrame * 2) * 2 : 0;
-        ctx.fillRect(-4, -5, 3, 6 + legOffset);
-        ctx.fillRect(1, -5, 3, 6 - legOffset);
+        // 繪製圖片
+        if (img && img.complete) {
+            ctx.save();
+            ctx.translate(x, y - size/2 + bounce);
+            if (this.direction < 0) ctx.scale(-1, 1);
+            ctx.drawImage(img, -size/2, -size/2, size, size);
+            ctx.restore();
+        } else {
+            // 備用
+            ctx.fillStyle = this.classData.main;
+            ctx.fillRect(x - 10, y - 35 + bounce, 20, 35);
+        }
         
         ctx.restore();
         
@@ -528,20 +553,22 @@ class WorldHero {
             ctx.globalAlpha = Math.min(1, this.speechTimer / 20);
             ctx.fillStyle = 'rgba(0,0,0,0.8)';
             ctx.beginPath();
-            ctx.roundRect(x - 12, y - 45, 24, 16, 4);
+            ctx.roundRect(x - 15, y - size - 15, 30, 18, 4);
             ctx.fill();
             ctx.fillStyle = '#fff';
             ctx.font = '10px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(this.speechBubble, x, y - 33);
+            ctx.fillText(this.speechBubble, x, y - size - 2);
             ctx.globalAlpha = 1;
         }
         
-        // 名字
+        // 名字 + 稀有度
         ctx.font = '8px Courier New';
         ctx.textAlign = 'center';
+        ctx.fillStyle = effect.color;
+        ctx.fillText(`[${rarity.toUpperCase().charAt(0)}]`, x, y + 12);
         ctx.fillStyle = '#ffd700';
-        ctx.fillText(this.data.name || `#${this.data.card_id}`, x, y + 15);
+        ctx.fillText(this.data.name || `#${this.data.card_id}`, x, y + 22);
     }
 }
 
@@ -831,19 +858,25 @@ function toggleAutoFetch() {
 }
 
 function spawnTestHero() {
-    const classes = ['warrior', 'mage', 'archer', 'knight', 'rogue'];
-    const names = ['小明', '小華', '阿強', '小美', '大雄'];
+    const classes = ['knight', 'mage', 'archer', 'rogue'];
+    const names = ['小明', '小華', '阿強', '小美', '大雄', '火焰', '冰霜', '暗影', '聖光'];
+    const rarities = ['common', 'common', 'uncommon', 'uncommon', 'rare', 'rare', 'epic', 'legendary', 'mythic'];
     const x = 100 + Math.random() * (worldCanvas.width - 200);
     const y = worldCanvas.height * 0.82;
     
+    const heroClass = classes[Math.floor(Math.random() * classes.length)];
+    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
+    const suffix = { knight: '騎士', mage: '法師', archer: '弓手', rogue: '盜賊' }[heroClass];
+    
     game.worldHeroes.push(new WorldHero({
         card_id: Date.now(),
-        name: names[Math.floor(Math.random() * names.length)],
-        class: classes[Math.floor(Math.random() * classes.length)],
-        rarity: 'R'
+        name: names[Math.floor(Math.random() * names.length)] + suffix,
+        class: heroClass,
+        rarity: rarity
     }, x, y));
     
     document.getElementById('aliveCount').textContent = game.worldHeroes.length;
+    console.log(`✨ 召喚 ${rarity} ${heroClass}`);
 }
 
 // ============ 主迴圈 ============

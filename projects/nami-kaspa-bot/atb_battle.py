@@ -70,7 +70,7 @@
 
   職業      │ 技能條累積 │ 大招效果           │ 特色
   ─────────┼───────────┼──────────────────┼────────────────
-  ⚔️ 戰士   │ DEF       │ 衝擊之暈：減對手條 │ 打斷節奏
+  ⚔️ 騎士   │ DEF       │ 衝擊之暈：減對手條 │ 打斷節奏
   🧙 法師   │ ATK       │ 流星雨：2.5x 傷害  │ 高爆發
   🗡️ 盜賊   │ SPD       │ 幻影：閃避+背刺    │ 連擊 Combo
   🏹 弓手   │ SPD       │ 穿透射擊：傷害+暈  │ 平衡型
@@ -120,7 +120,7 @@ RANK_HP = {
 # 職業大招設定
 ULTIMATE_SKILLS = {
     "mage": {"name": "流星雨", "emoji": "🧙", "type": "damage", "multiplier": 2.5},  # 5→2.5
-    "warrior": {"name": "衝擊之暈", "emoji": "⚔️", "type": "stun", "move_reduce": 500},
+    "knight": {"name": "衝擊之暈", "emoji": "⚔️", "type": "stun", "move_reduce": 500},
     "rogue": {"name": "幻影", "emoji": "🗡️", "type": "evade"},
     "archer": {"name": "穿透射擊", "emoji": "🏹", "type": "damage_stun", "multiplier": 3, "move_reduce": 200},
 }
@@ -128,7 +128,7 @@ ULTIMATE_SKILLS = {
 # 職業中文名
 CLASS_NAMES = {
     "mage": "法師",
-    "warrior": "戰士", 
+    "knight": "騎士", 
     "rogue": "盜賊",
     "archer": "弓箭手",
 }
@@ -199,7 +199,7 @@ class ATBFighter:
         """取得技能條累積值（根據職業）"""
         if self.hero_class == "mage":
             return self.atk
-        elif self.hero_class == "warrior":
+        elif self.hero_class == "knight":
             return self.def_
         elif self.hero_class == "rogue":
             return self.spd  # SPD（盜賊要快才能閃）
@@ -372,8 +372,8 @@ def calculate_damage(attacker: ATBFighter, defender: ATBFighter) -> Tuple[int, b
         damage = max(1, attacker.atk * 3 - defender.def_ + variance)
         is_backstab = True
         attacker.backstab_ready = False
-    # 戰士狂暴：ATK × 3 - DEF（先乘後減）
-    elif attacker.hero_class == "warrior" and attacker.is_rage_mode:
+    # 騎士狂暴：ATK × 3 - DEF（先乘後減）
+    elif attacker.hero_class == "knight" and attacker.is_rage_mode:
         damage = max(1, attacker.atk * 3 - defender.def_ + variance)
         is_berserk = True
     # 普通攻擊
@@ -403,7 +403,7 @@ def cast_ultimate(caster: ATBFighter, target: ATBFighter, log: BattleLog, is_p1:
         log.stats["p1_damage_dealt" if is_p1 else "p2_damage_dealt"] += damage
         
     elif skill_type == "stun":
-        # 戰士：衝擊之暈（移動條+技能條都減）
+        # 騎士：衝擊之暈（移動條+技能條都減）
         move_reduce = skill.get("move_reduce", 500)
         target.move_gauge = max(0, target.move_gauge - move_reduce)
         target.skill_gauge = max(0, target.skill_gauge - move_reduce)

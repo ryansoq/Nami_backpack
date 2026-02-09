@@ -239,8 +239,8 @@ async def announce_hero_birth(bot, hero, username: str):
         "epic": "💎⭐⭐⭐⭐ SSR 極稀", "legendary": "✨⭐⭐⭐⭐⭐ UR 傳說", "mythic": "🔱⭐⭐⭐⭐⭐⭐ LR 神話"
     }.get(rank, f"⭐ {rank}")
     
-    class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
-    class_emoji = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
+    class_name = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
+    class_emoji = {"knight": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
     
     # v0.3 特效標題
     header = ""
@@ -293,8 +293,8 @@ async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, d
         "epic": "💎 SSR", "legendary": "✨ UR", "mythic": "🔱 LR"
     }.get(rank, f"⭐ {rank}")
     
-    class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
-    class_emoji = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
+    class_name = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}.get(hero.hero_class, "")
+    class_emoji = {"knight": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(hero.hero_class, "")
     
     if reason == "burn":
         cause = "🔥 自焚銷毀"
@@ -340,7 +340,7 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
         }.get(rank, f"⭐{rank}")
     
     class_names = {
-        "warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"
+        "knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"
     }
     rarity_mult = {
         "common": "x1.0", "uncommon": "x1.2", "rare": "x1.5",
@@ -817,7 +817,7 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 列出玩家的英雄，引導燒掉
         rarity_names = {"common": "⚪普通", "uncommon": "🟢優秀", "rare": "🔵稀有",
                         "epic": "🟣史詩", "legendary": "🟡傳說", "mythic": "🔴神話"}
-        class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+        class_names = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
         
         hero_list = []
         for h in user_alive_heroes:
@@ -1279,7 +1279,7 @@ async def hero_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if is_self:
         rank_emojis = {"N": "⚪", "R": "🔵", "SR": "🟣", "SSR": "🟡"}
-        class_emojis = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
+        class_emojis = {"knight": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
         
         lines = [f"🔍 *我的英雄*\n"]
         
@@ -1367,7 +1367,7 @@ async def hero_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 格式化英雄列表
         rank_emojis = {"N": "⚪", "R": "🔵", "SR": "🟣", "SSR": "🟡"}
-        class_emojis = {"warrior": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
+        class_emojis = {"knight": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}
         
         lines = [f"🔍 *@{target_username} 的英雄*\n"]
         lines.append(f"💰 偵查費：10 mana | TX: `{tx_id[:12]}...`\n")
@@ -1584,7 +1584,7 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_hero = Hero.from_dict(target_hero_data)
     
     # 中文翻譯
-    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}
+    class_names = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}
     
     my_class = class_names.get(my_hero.hero_class, my_hero.hero_class)
     target_class = class_names.get(target_hero.hero_class, target_hero.hero_class)
@@ -1643,7 +1643,7 @@ async def execute_pvp(user, my_hero_id: int, target_hero_id: int, pin: str,
     target_hero = Hero.from_dict(target_hero_data)
     
     # 中文翻譯
-    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}
+    class_names = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}
     rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
                     "epic": "史詩", "legendary": "傳說", "mythic": "神話",
                     "N": "普通", "R": "稀有", "SR": "史詩", "SSR": "傳說"}
@@ -1923,7 +1923,7 @@ _在區塊鏈的盡頭，大地之樹守護著英雄們的命運_
 🟡 SSR (傳說) 2%
 
 *⚔️ 職業與大招*
-⚔️ 戰士 — 衝擊之暈（減敵方雙條）
+⚔️ 騎士 — 衝擊之暈（減敵方雙條）
 🧙 法師 — 流星雨（ATK ×2.5 傷害）
 🗡️ 盜賊 — 幻影（閃避 + 背刺反擊）
 🏹 弓手 — 穿透射擊（傷害 + 暈眩）
@@ -2021,7 +2021,7 @@ async def hero_burn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # 顯示英雄資訊
     rarity_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "🌟🌟🌟🌟"}.get(hero.rarity, "⭐")
-    class_name = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}.get(hero.hero_class, hero.hero_class)
+    class_name = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "priest": "牧師"}.get(hero.hero_class, hero.hero_class)
     hero_name = hero.name if hero.name else f"#{hero_id}"
     
     confirm_text = (
@@ -2353,7 +2353,7 @@ async def hero_remint(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_heroes_db(db)
         
         # 中文翻譯
-        class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+        class_names = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
         rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
                         "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
         class_zh = class_names.get(hero.hero_class, hero.hero_class)
@@ -2456,7 +2456,7 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "UR": "✨", "legendary": "✨",
             "LR": "🔱", "mythic": "🔱"
         }
-        class_emoji = {"warrior": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
+        class_emoji = {"knight": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
         
         for i, (hid, h) in enumerate(alive_heroes[:5], 1):
             name = h.get("name")

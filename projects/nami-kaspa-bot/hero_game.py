@@ -55,7 +55,7 @@ BOT_WALLET_FILE = Path(__file__).parent.parent.parent.parent / "clawd/.secrets/t
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class HeroClass(Enum):
-    WARRIOR = ("warrior", "⚔️ 戰士", "高防扛傷")
+    KNIGHT = ("knight", "⚔️ 騎士", "高防扛傷")
     MAGE = ("mage", "🔮 魔法師", "高攻爆發")
     ARCHER = ("archer", "🏹 弓箭手", "高速先手")
     ROGUE = ("rogue", "🗡️ 盜賊", "暴擊閃避")
@@ -109,7 +109,7 @@ class Hero:
     card_id: int          # DAA = 唯一 ID
     owner_id: int         # TG user_id
     owner_address: str    # Kaspa 地址
-    hero_class: str       # warrior/mage/archer/rogue
+    hero_class: str       # knight/mage/archer/rogue
     rank: str             # v0.3: N/R/SR/SSR/UR/LR
     atk: int
     def_: int
@@ -511,13 +511,13 @@ def calculate_class_from_hash(block_hash: str) -> str:
         block_hash: 區塊 hash (64 字元)
     
     Returns:
-        hero_class: "warrior" | "mage" | "archer" | "rogue"
+        hero_class: "knight" | "mage" | "archer" | "rogue"
     """
     h = block_hash.lower().replace("0x", "")
     
     # 職業: hash[16:20] % 4
     class_val = int(h[16:20], 16) % 4
-    classes = ["warrior", "mage", "archer", "rogue"]
+    classes = ["knight", "mage", "archer", "rogue"]
     return classes[class_val]
 
 def calculate_stats_from_hash(block_hash: str, rank: str) -> Tuple[int, int, int]:
@@ -1790,7 +1790,7 @@ def format_hero_card(hero: Hero) -> str:
     v0.3: 格式化英雄卡片顯示（HTML 格式）
     
     顯示格式：
-    💎⭐⭐⭐⭐ SSR 極稀 - 戰士 ⚔️
+    💎⭐⭐⭐⭐ SSR 極稀 - 騎士 ⚔️
     """
     from datetime import datetime
     
@@ -1858,7 +1858,7 @@ def format_hero_list(heroes: list[Hero]) -> str:
     v0.3: 格式化英雄列表（Markdown 格式）
     
     顯示格式：
-    🟢🛡️ #123456 💎⭐⭐⭐⭐ SSR 戰士⚔️ 3殺 ⏳2d
+    🟢🛡️ #123456 💎⭐⭐⭐⭐ SSR 騎士⚔️ 3殺 ⏳2d
     """
     from datetime import datetime
     
@@ -1922,12 +1922,12 @@ def format_hero_list(heroes: list[Hero]) -> str:
 
 def get_class_emoji(hero_class: str) -> str:
     """獲取職業 emoji"""
-    emoji_map = {"warrior": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
+    emoji_map = {"knight": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
     return emoji_map.get(hero_class, "🎴")
 
 def get_class_name(hero_class: str) -> str:
     """獲取職業中文名"""
-    name_map = {"warrior": "戰士", "mage": "魔法師", "archer": "弓箭手", "rogue": "盜賊"}
+    name_map = {"knight": "騎士", "mage": "魔法師", "archer": "弓箭手", "rogue": "盜賊"}
     return name_map.get(hero_class, hero_class)
 
 def get_rarity_display(rarity: str) -> str:
@@ -2368,7 +2368,7 @@ TX: `{tx_id[:32]}...`
         spd = payload.get("s", "?")
     
     # 翻譯對照
-    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+    class_names = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
     rank_names = {
         # v0.3 Rank
         "N": "⭐ N 普通", "R": "⭐⭐ R 稀有", "SR": "⭐⭐⭐ SR 超稀",
@@ -2607,7 +2607,7 @@ def format_hero_verify_result(result: dict) -> str:
     spd = birth.get("s") or local_hero.get("spd", "?")
     
     # 翻譯對照
-    class_names = {"warrior": "戰士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
+    class_names = {"knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"}
     rarity_names = {"common": "普通", "uncommon": "優秀", "rare": "稀有",
                     "epic": "史詩", "legendary": "傳說", "mythic": "神話"}
     class_zh = class_names.get(hero_class, hero_class)
