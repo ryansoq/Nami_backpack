@@ -1541,6 +1541,9 @@ async def process_pvp_onchain(
         )
         result["win_tx"] = win_tx
         attacker.latest_tx = win_tx
+        # 同時更新 db，確保下次讀取時 latest_tx 是最新的
+        if str(attacker.card_id) in db.get("heroes", {}):
+            db["heroes"][str(attacker.card_id)]["latest_tx"] = win_tx
         logger.info(f"   Win TX: {win_tx}")
         
         # 等待 UTXO 確認（大地之樹需要發死亡交易）
@@ -1566,6 +1569,10 @@ async def process_pvp_onchain(
             defender.death_tx = death_tx
             defender.death_reason = "pvp"
             defender.ltx = death_tx
+            # 同時更新 db
+            if str(defender.card_id) in db.get("heroes", {}):
+                db["heroes"][str(defender.card_id)]["latest_tx"] = death_tx
+                db["heroes"][str(defender.card_id)]["death_tx"] = death_tx
             logger.info(f"   Death TX: {death_tx}")
             
             # 記錄到 hero_chain
@@ -1644,6 +1651,10 @@ async def process_pvp_onchain(
             attacker.death_tx = death_tx
             attacker.death_reason = "pvp"
             attacker.ltx = death_tx
+            # 同時更新 db
+            if str(attacker.card_id) in db.get("heroes", {}):
+                db["heroes"][str(attacker.card_id)]["latest_tx"] = death_tx
+                db["heroes"][str(attacker.card_id)]["death_tx"] = death_tx
             logger.info(f"   Death TX: {death_tx}")
             
             # 記錄到 hero_chain
