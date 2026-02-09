@@ -205,3 +205,72 @@ birth_tx ← pvp_win_tx ← pvp_win_tx ← ... (活著)
 ---
 
 *願大地之樹保佑你的英雄！* 🌲✨
+
+---
+
+## v0.5 計劃：爬塔 PvE 系統 🗼
+
+### 核心概念
+- 無限層塔，越高越難
+- **每日塔**：全服同一個 seed，比誰爬得高！
+- 怪物根據「層數 + block hash」生成
+- ATB 戰鬥（跟 PvP 一樣）
+
+### 怪物生成
+```python
+def generate_monster(floor: int, block_hash: str):
+    base = floor * 5
+    seed = int(block_hash[:8], 16)
+    
+    atk = base + (seed % 20) - 10
+    def_ = base + ((seed >> 8) % 20) - 10
+    spd = base + ((seed >> 16) % 20) - 10
+    
+    # Boss（hash 尾數 = 0）
+    if block_hash[-1] == '0':
+        atk = int(atk * 1.5)
+        
+    return Monster(atk, def_, spd, floor)
+```
+
+### 費用 & 結果
+| 項目 | 費用 | 結果 |
+|------|------|------|
+| 挑戰 | 5 mana | 勝利→怪殺+1，下一層 / 失敗→回第1層 |
+
+### 獎勵機制
+- 每層勝利 → 怪殺 +1
+- 每 10 層 → 里程碑寶箱
+- 每 50 層 → 稀有獎勵
+
+### 統一積分系統
+```
+總積分 = PvP殺數×2 + 怪殺數×1
+
+DAA 66666 開獎：按總積分比例分配！
+```
+
+### 銘文格式
+```json
+{
+  "type": "pve_clear",
+  "hero_id": 381648803,
+  "floor": 10,
+  "tower_seed": "daily_2026-02-10",
+  "monster_hash": "...",
+  "payment_tx": "...",
+  "source_hash": "..."
+}
+```
+
+### 指令
+| 指令 | 縮寫 | 說明 |
+|------|------|------|
+| `/nami_tower <ID>` | `/nt` | 查看進度 |
+| `/nami_climb <ID> <PIN>` | `/nc` | 挑戰下一層 |
+| `/nami_tower_top` | `/ntt` | 排行榜 |
+
+### 特色玩法
+- 🎲 **每日塔**：00:00 重置，全服同 seed 競爭
+- 👹 **週末 Boss**：每週六超強 Boss，大獎
+
