@@ -20,6 +20,9 @@ CANVAS_BATTLE_PATH = os.path.expanduser(
 )
 NAMI_BACKPACK_PATH = os.path.expanduser("~/nami-backpack")
 
+# 🔧 開關：是否推送到 GitHub（避免一直 push）
+ENABLE_WEB_PUSH = False
+
 
 def hero_to_canvas_format(hero) -> Dict[str, Any]:
     """把 Hero 物件轉換成 Canvas 格式"""
@@ -256,6 +259,10 @@ def export_battle_to_canvas(
 
 def push_to_github(battle_id: str) -> bool:
     """推送到 GitHub"""
+    if not ENABLE_WEB_PUSH:
+        logger.info(f"⏸️ Web push 已禁用，跳過 GitHub 推送")
+        return True
+    
     try:
         os.chdir(NAMI_BACKPACK_PATH)
         
