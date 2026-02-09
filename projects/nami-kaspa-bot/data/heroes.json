@@ -311,7 +311,7 @@
       "status": "alive",
       "latest_daa": 381635914,
       "kills": 6,
-      "battles": 10,
+      "battles": 11,
       "created_at": "2026-02-08T12:06:12.023288",
       "death_time": "",
       "source_hash": "7923314c1a760a6b3e431985443c464239c966e23317f5e36326acba63ccd32a",
@@ -405,7 +405,7 @@
       "status": "alive",
       "latest_daa": 381648803,
       "kills": 2,
-      "battles": 6,
+      "battles": 7,
       "created_at": "2026-02-08T12:27:53.685432",
       "death_time": "",
       "source_hash": "e34eff8cf5ea1ea470a38d60263b359e0d0ee4ac74f3ca3ecaaf7526a151149d",
@@ -1173,8 +1173,8 @@
   },
   "last_summon_daa": 382142682,
   "summon_queue": [],
-  "total_mana_pool": 0,
-  "last_checked_daa": 382733537,
+  "total_mana_pool": 8,
+  "last_checked_daa": 382738203,
   "last_reward_daa": 382666666,
   "reward_history": [
     {

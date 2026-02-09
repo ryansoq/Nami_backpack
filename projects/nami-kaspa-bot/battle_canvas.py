@@ -29,7 +29,7 @@ def hero_to_canvas_format(hero) -> Dict[str, Any]:
         "class": hero.hero_class,
         "rarity": hero.rarity,
         "atk": hero.atk,
-        "def": hero.defense,
+        "def": hero.def_,
         "spd": hero.spd
     }
 
