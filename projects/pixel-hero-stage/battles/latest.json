@@ -1,0 +1,41 @@
+{
+  "id": "demo_battle_001",
+  "timestamp": "2026-02-09T18:30:00+08:00",
+  "attacker": {
+    "card_id": 381858178,
+    "name": "火焰劍士",
+    "class": "warrior",
+    "rarity": "SSR",
+    "atk": 85,
+    "def": 60,
+    "spd": 70
+  },
+  "defender": {
+    "card_id": 381900234,
+    "name": "冰霜法師",
+    "class": "mage",
+    "rarity": "SR",
+    "atk": 90,
+    "def": 45,
+    "spd": 55
+  },
+  "events": [
+    { "tick": 0, "type": "battle_start", "msg": "戰鬥開始！" },
+    { "tick": 30, "type": "atb_full", "who": "attacker", "bar": "move" },
+    { "tick": 30, "type": "attack", "who": "attacker", "target": "defender", "damage": 25, "msg": "火焰劍士 發動普攻！造成 25 傷害" },
+    { "tick": 60, "type": "atb_full", "who": "defender", "bar": "move" },
+    { "tick": 60, "type": "attack", "who": "defender", "target": "attacker", "damage": 22, "msg": "冰霜法師 發動普攻！造成 22 傷害" },
+    { "tick": 90, "type": "atb_full", "who": "attacker", "bar": "skill" },
+    { "tick": 90, "type": "skill", "who": "attacker", "skill_name": "烈焰斬", "target": "defender", "damage": 45, "msg": "火焰劍士 發動【烈焰斬】！造成 45 傷害" },
+    { "tick": 120, "type": "atb_full", "who": "attacker", "bar": "move" },
+    { "tick": 120, "type": "attack", "who": "attacker", "target": "defender", "damage": 28, "msg": "火焰劍士 發動普攻！造成 28 傷害" },
+    { "tick": 150, "type": "death", "who": "defender", "msg": "冰霜法師 倒下了..." },
+    { "tick": 150, "type": "battle_end", "winner": "attacker", "msg": "🏆 火焰劍士 獲得勝利！" }
+  ],
+  "result": {
+    "winner": "attacker",
+    "winner_name": "火焰劍士",
+    "loser_name": "冰霜法師",
+    "total_ticks": 150
+  }
+}
