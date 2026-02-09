@@ -228,7 +228,7 @@ async def send_announcement_photo(bot, photo, caption: str, parse_mode: str = 'M
         logger.error(f"公告圖片發送失敗: {e}")
 
 async def announce_hero_birth(bot, hero, username: str):
-    """v0.3: 公告英雄誕生（星星格式）"""
+    """v0.3: 公告英雄誕生（星星格式 + 圖片）"""
     # v0.3 Rank 顯示
     rank = getattr(hero, 'rank', hero.rarity)
     rank_display = {
@@ -280,6 +280,25 @@ async def announce_hero_birth(bot, hero, username: str):
 快速指令：
 <code>/nami_verify {hero.card_id}</code>"""
     
+    # 嘗試附上英雄圖片
+    try:
+        hero_images_dir = Path(__file__).parent / "hero_images"
+        class_image_map = {
+            "knight": "knight.png",
+            "mage": "mage.png",
+            "archer": "archer.png",
+            "rogue": "rogue.png"
+        }
+        image_file = class_image_map.get(hero.hero_class)
+        image_path = hero_images_dir / image_file if image_file else None
+        
+        if image_path and image_path.exists():
+            await send_announcement_photo(bot, open(image_path, 'rb'), msg, parse_mode='HTML')
+            return
+    except Exception as e:
+        logger.warning(f"群聊公告圖片失敗: {e}")
+    
+    # fallback 純文字
     await send_announcement(bot, msg, parse_mode='HTML')
 
 async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, death_tx: str = None):
