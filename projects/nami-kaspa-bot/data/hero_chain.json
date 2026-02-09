@@ -1590,5 +1590,40 @@
     "rank": "R",
     "tx_id": "5f0f24ff796afffad32ad058b33cebe8627e9a02c0de302e95e53c27d1093e12",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382789579,
+    "pre_tx": "5f0f24ff796afffad32ad058b33cebe8627e9a02c0de302e95e53c27d1093e12",
+    "pay_tx": null,
+    "src": "c3b41bbfc908b44196f9570bdb3b59212e3c0d4f3a2790a45ef55dc71f9dc20e",
+    "reason": "pvp",
+    "killer": 381648803,
+    "battle_tx": "1a257b45896844cdd27903e4c54633ca0df93d3a0abb20ee4d90bf996563087d",
+    "tx_id": "42c48e90ca9ab30ae69ccf2a7e9286d38d605036fa0e50c9c92ae59fde689908",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382795484,
+    "pre_tx": null,
+    "pay_tx": "124c43665161248ff39f6c45f57ba1c311d74057a4bba4daef44d7683a72ba7c",
+    "src": "ebceb599b6699dd543668520a07048c2b3c991f1df78dee0e4de71d0cad66f14",
+    "rank": "N",
+    "tx_id": "e01b7664287e5ef20600f65aaa905a7a22cf22b49295a16268491f77973ba294",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382795484,
+    "pre_tx": "e01b7664287e5ef20600f65aaa905a7a22cf22b49295a16268491f77973ba294",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "aaf88cde985d4f3e61cf2b1a1270b4de2d754151162a48d79bd68ba8c4b22a6c",
+    "tx_id": "cc1d0223c622dda3616d25ce8628b19c4aadaa67b644fe745014039750b51393"
   }
 ]

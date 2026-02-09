@@ -404,8 +404,8 @@
       "spd": 129,
       "status": "alive",
       "latest_daa": 381648803,
-      "kills": 4,
-      "battles": 10,
+      "kills": 5,
+      "battles": 11,
       "created_at": "2026-02-08T12:27:53.685432",
       "death_time": "",
       "source_hash": "e34eff8cf5ea1ea470a38d60263b359e0d0ee4ac74f3ca3ecaaf7526a151149d",
@@ -1199,18 +1199,43 @@
       "atk": 117,
       "def": 40,
       "spd": 73,
-      "status": "alive",
+      "status": "dead",
       "latest_daa": 382789579,
       "kills": 0,
-      "battles": 0,
+      "battles": 1,
       "created_at": "2026-02-09T20:08:57.297722",
-      "death_time": "",
+      "death_time": "2026-02-09T20:18:17.144444",
       "source_hash": "a34234f8771760c6951a0719d33e063e8db769daea4f98f01329098e2c739563",
       "payment_tx": "da969a767d4b2158795b48ec5dec2996647e8197aef23ae8dbe500b41da1478e",
       "tx_id": "5f0f24ff796afffad32ad058b33cebe8627e9a02c0de302e95e53c27d1093e12",
-      "latest_tx": "5f0f24ff796afffad32ad058b33cebe8627e9a02c0de302e95e53c27d1093e12",
+      "latest_tx": "42c48e90ca9ab30ae69ccf2a7e9286d38d605036fa0e50c9c92ae59fde689908",
       "name": "",
       "protected": false
+    },
+    "382795484": {
+      "card_id": 382795484,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "archer",
+      "rank": "N",
+      "rarity": "N",
+      "atk": 56,
+      "def": 41,
+      "spd": 72,
+      "status": "dead",
+      "latest_daa": 382795484,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-09T20:19:01.095936",
+      "death_time": "",
+      "source_hash": "ebceb599b6699dd543668520a07048c2b3c991f1df78dee0e4de71d0cad66f14",
+      "payment_tx": "124c43665161248ff39f6c45f57ba1c311d74057a4bba4daef44d7683a72ba7c",
+      "tx_id": "e01b7664287e5ef20600f65aaa905a7a22cf22b49295a16268491f77973ba294",
+      "latest_tx": "cc1d0223c622dda3616d25ce8628b19c4aadaa67b644fe745014039750b51393",
+      "name": "",
+      "protected": false,
+      "death_reason": "burn",
+      "death_tx": "cc1d0223c622dda3616d25ce8628b19c4aadaa67b644fe745014039750b51393"
     }
   },
   "user_heroes": {
@@ -1246,7 +1271,8 @@
       382771619,
       382787421,
       382789020,
-      382789579
+      382789579,
+      382795484
     ],
     "684243833": [
       380994228,
@@ -1269,10 +1295,10 @@
       381962324
     ]
   },
-  "last_summon_daa": 382789579,
+  "last_summon_daa": 382795484,
   "summon_queue": [],
-  "total_mana_pool": 54,
-  "last_checked_daa": 382792543,
+  "total_mana_pool": 72,
+  "last_checked_daa": 382795915,
   "last_reward_daa": 382766666,
   "reward_history": [
     {

@@ -280,9 +280,9 @@ async def announce_hero_birth(bot, hero, username: str):
 快速指令：
 <code>/nami_verify {hero.card_id}</code>"""
     
-    # 嘗試附上英雄圖片
+    # 嘗試附上英雄圖片（與私聊用同路徑）
     try:
-        hero_images_dir = Path(__file__).parent / "hero_images"
+        hero_images_dir = Path.home() / "nami-backpack" / "projects" / "pixel-hero-stage"
         class_image_map = {
             "knight": "knight.png",
             "mage": "mage.png",
