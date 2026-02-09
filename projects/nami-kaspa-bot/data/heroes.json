@@ -1173,9 +1173,9 @@
   },
   "last_summon_daa": 382142682,
   "summon_queue": [],
-  "total_mana_pool": 90,
-  "last_checked_daa": 382159140,
-  "last_reward_daa": 382066666,
+  "total_mana_pool": 0,
+  "last_checked_daa": 382701859,
+  "last_reward_daa": 382666666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -1265,6 +1265,54 @@
       "total_pool": 56200000000,
       "distributed": 20436363636,
       "recipients_count": 3
+    },
+    {
+      "daa": 382166666,
+      "checked_at_daa": 382166949,
+      "timestamp": "2026-02-09T02:51:12.448496",
+      "total_pool": 59000000000,
+      "distributed": 27230769229,
+      "recipients_count": 5
+    },
+    {
+      "daa": 382266666,
+      "checked_at_daa": 382266815,
+      "timestamp": "2026-02-09T05:37:25.952389",
+      "total_pool": 50000000000,
+      "distributed": 23076923076,
+      "recipients_count": 5
+    },
+    {
+      "daa": 382366666,
+      "checked_at_daa": 382367257,
+      "timestamp": "2026-02-09T08:25:41.774338",
+      "total_pool": 50000000000,
+      "distributed": 23076923076,
+      "recipients_count": 5
+    },
+    {
+      "daa": 382466666,
+      "checked_at_daa": 382466726,
+      "timestamp": "2026-02-09T11:10:55.716613",
+      "total_pool": 50000000000,
+      "distributed": 23076923076,
+      "recipients_count": 5
+    },
+    {
+      "daa": 382566666,
+      "checked_at_daa": 382567124,
+      "timestamp": "2026-02-09T13:58:09.940928",
+      "total_pool": 50000000000,
+      "distributed": 23214285713,
+      "recipients_count": 5
+    },
+    {
+      "daa": 382666666,
+      "checked_at_daa": 382667010,
+      "timestamp": "2026-02-09T16:44:23.619332",
+      "total_pool": 50000000000,
+      "distributed": 24137931034,
+      "recipients_count": 5
     }
   ]
 }

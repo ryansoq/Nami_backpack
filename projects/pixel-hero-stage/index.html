@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌲 娜米的英雄舞台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(180deg, #1a0a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            font-family: 'Press Start 2P', monospace;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        /* 載入像素字體 */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0,0,0,0.5);
+            border-bottom: 4px solid #ffd700;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #ffd700;
+            text-shadow: 2px 2px #000, 4px 4px #5c3d00;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 10px;
+            color: #88c0d0;
+        }
+        
+        .stage {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 30px;
+            padding: 40px;
+            min-height: 400px;
+            position: relative;
+        }
+        
+        /* 背景星星 */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .star {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            animation: twinkle 2s infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        /* 英雄卡片 */
+        .hero-card {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .hero-card:nth-child(2) { animation-delay: 0.5s; }
+        .hero-card:nth-child(3) { animation-delay: 1s; }
+        .hero-card:nth-child(4) { animation-delay: 1.5s; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* 像素英雄（CSS 繪製） */
+        .pixel-hero {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 10px;
+            image-rendering: pixelated;
+            position: relative;
+        }
+        
+        /* 戰士 - 紅色 */
+        .warrior {
+            background: 
+                /* 頭盔 */
+                linear-gradient(#8b4513 0 0) 16px 8px / 32px 8px,
+                /* 臉 */
+                linear-gradient(#fdbf6f 0 0) 20px 16px / 24px 16px,
+                /* 眼睛 */
+                linear-gradient(#000 0 0) 24px 20px / 4px 4px,
+                linear-gradient(#000 0 0) 36px 20px / 4px 4px,
+                /* 身體 */
+                linear-gradient(#c0392b 0 0) 16px 32px / 32px 20px,
+                /* 手臂 */
+                linear-gradient(#c0392b 0 0) 8px 36px / 8px 12px,
+                linear-gradient(#c0392b 0 0) 48px 36px / 8px 12px,
+                /* 劍 */
+                linear-gradient(#silver 0 0) 52px 20px / 4px 24px,
+                linear-gradient(#ffd700 0 0) 50px 16px / 8px 4px,
+                /* 腿 */
+                linear-gradient(#2c3e50 0 0) 20px 52px / 10px 12px,
+                linear-gradient(#2c3e50 0 0) 34px 52px / 10px 12px;
+            background-repeat: no-repeat;
+        }
+        
+        /* 法師 - 藍色 */
+        .mage {
+            background:
+                /* 帽子 */
+                linear-gradient(#3498db 0 0) 20px 0px / 24px 16px,
+                linear-gradient(#2980b9 0 0) 28px 0px / 8px 8px,
+                /* 臉 */
+                linear-gradient(#fdbf6f 0 0) 20px 16px / 24px 16px,
+                /* 眼睛 */
+                linear-gradient(#9b59b6 0 0) 24px 20px / 4px 4px,
+                linear-gradient(#9b59b6 0 0) 36px 20px / 4px 4px,
+                /* 袍子 */
+                linear-gradient(#2980b9 0 0) 12px 32px / 40px 24px,
+                /* 法杖 */
+                linear-gradient(#8b4513 0 0) 52px 16px / 4px 40px,
+                linear-gradient(#e74c3c 0 0) 48px 8px / 12px 12px;
+            background-repeat: no-repeat;
+        }
+        
+        /* 弓手 - 綠色 */
+        .archer {
+            background:
+                /* 頭髮 */
+                linear-gradient(#27ae60 0 0) 20px 8px / 24px 12px,
+                /* 臉 */
+                linear-gradient(#fdbf6f 0 0) 20px 16px / 24px 16px,
+                /* 眼睛 */
+                linear-gradient(#000 0 0) 24px 20px / 4px 4px,
+                linear-gradient(#000 0 0) 36px 20px / 4px 4px,
+                /* 身體 */
+                linear-gradient(#2ecc71 0 0) 16px 32px / 32px 20px,
+                /* 披風 */
+                linear-gradient(#27ae60 0 0) 8px 32px / 8px 24px,
+                /* 弓 */
+                linear-gradient(#8b4513 0 0) 52px 20px / 4px 32px,
+                linear-gradient(#f1c40f 0 0) 48px 36px / 12px 2px,
+                /* 腿 */
+                linear-gradient(#1e8449 0 0) 20px 52px / 10px 12px,
+                linear-gradient(#1e8449 0 0) 34px 52px / 10px 12px;
+            background-repeat: no-repeat;
+        }
+        
+        /* 騎士 - 金色 */
+        .knight {
+            background:
+                /* 頭盔 */
+                linear-gradient(#f39c12 0 0) 16px 4px / 32px 16px,
+                linear-gradient(#e67e22 0 0) 24px 8px / 16px 4px,
+                /* 臉（面罩） */
+                linear-gradient(#2c3e50 0 0) 20px 16px / 24px 8px,
+                linear-gradient(#f39c12 0 0) 24px 18px / 4px 4px,
+                linear-gradient(#f39c12 0 0) 36px 18px / 4px 4px,
+                /* 盔甲 */
+                linear-gradient(#f39c12 0 0) 12px 28px / 40px 28px,
+                linear-gradient(#e67e22 0 0) 28px 32px / 8px 16px,
+                /* 盾 */
+                linear-gradient(#3498db 0 0) 4px 32px / 12px 20px,
+                linear-gradient(#f39c12 0 0) 8px 38px / 4px 8px,
+                /* 腿 */
+                linear-gradient(#7f8c8d 0 0) 20px 56px / 10px 8px,
+                linear-gradient(#7f8c8d 0 0) 34px 56px / 10px 8px;
+            background-repeat: no-repeat;
+        }
+        
+        /* 平台 */
+        .platform {
+            width: 80px;
+            height: 20px;
+            background: linear-gradient(180deg, #5d4e37 0%, #3d3429 100%);
+            border: 3px solid #8b7355;
+            border-radius: 4px;
+            margin-top: 10px;
+            box-shadow: 0 4px 0 #2d2419;
+        }
+        
+        /* 英雄名字 */
+        .hero-name {
+            font-size: 8px;
+            color: #ffd700;
+            margin-top: 8px;
+            text-shadow: 1px 1px #000;
+        }
+        
+        /* 稀有度 */
+        .rarity {
+            font-size: 6px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+        
+        .rarity.ssr { background: linear-gradient(90deg, #ffd700, #ff8c00); color: #000; }
+        .rarity.sr { background: #9b59b6; }
+        .rarity.r { background: #3498db; }
+        .rarity.n { background: #7f8c8d; }
+        
+        /* 狀態氣泡 */
+        .speech-bubble {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 8px;
+            white-space: nowrap;
+            animation: fadeInOut 4s infinite;
+        }
+        
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: #ffd700;
+        }
+        
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            20%, 80% { opacity: 1; }
+        }
+        
+        /* Live Feed */
+        .live-feed {
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #27ae60;
+            border-radius: 8px;
+            margin: 20px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .live-feed h3 {
+            font-size: 12px;
+            color: #27ae60;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .live-feed h3::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #27ae60;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .feed-item {
+            font-size: 10px;
+            padding: 8px;
+            margin: 4px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            border-left: 3px solid;
+        }
+        
+        .feed-item.battle { border-color: #e74c3c; }
+        .feed-item.summon { border-color: #f1c40f; }
+        .feed-item.reward { border-color: #27ae60; }
+        
+        .feed-time {
+            color: #7f8c8d;
+            font-size: 8px;
+        }
+        
+        /* 火焰特效 */
+        .fire-effect {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+        
+        .flame {
+            position: absolute;
+            bottom: 60px;
+            width: 8px;
+            height: 16px;
+            background: linear-gradient(0deg, #ff6600 0%, #ffcc00 50%, transparent 100%);
+            border-radius: 50% 50% 20% 20%;
+            animation: flicker 0.3s infinite alternate;
+        }
+        
+        .flame:nth-child(1) { left: 20%; animation-delay: 0s; }
+        .flame:nth-child(2) { left: 40%; animation-delay: 0.1s; }
+        .flame:nth-child(3) { left: 60%; animation-delay: 0.2s; }
+        .flame:nth-child(4) { left: 80%; animation-delay: 0.15s; }
+        
+        @keyframes flicker {
+            0% { transform: scaleY(1) scaleX(1); opacity: 1; }
+            100% { transform: scaleY(1.2) scaleX(0.8); opacity: 0.8; }
+        }
+        
+        /* 大地之樹 */
+        .world-tree {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 150px;
+            opacity: 0.3;
+            z-index: 0;
+        }
+        
+        .tree-trunk {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 80px;
+            background: linear-gradient(90deg, #5d4037, #8d6e63, #5d4037);
+        }
+        
+        .tree-crown {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px;
+            height: 100px;
+            background: radial-gradient(ellipse, #27ae60 0%, #1e8449 50%, transparent 70%);
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <!-- 星星背景 -->
+    <div class="stars" id="stars"></div>
+    
+    <!-- 大地之樹背景 -->
+    <div class="world-tree">
+        <div class="tree-crown"></div>
+        <div class="tree-trunk"></div>
+    </div>
+    
+    <header class="header">
+        <h1>🌲 娜米的英雄舞台</h1>
+        <p>大地之樹守護著每一位英雄</p>
+    </header>
+    
+    <div class="stage">
+        <!-- 戰士 -->
+        <div class="hero-card">
+            <div class="speech-bubble">準備戰鬥！</div>
+            <div class="pixel-hero warrior">
+                <div class="fire-effect">
+                    <div class="flame"></div>
+                    <div class="flame"></div>
+                    <div class="flame"></div>
+                </div>
+            </div>
+            <div class="platform"></div>
+            <div class="hero-name">火焰劍士</div>
+            <span class="rarity ssr">SSR</span>
+        </div>
+        
+        <!-- 法師 -->
+        <div class="hero-card">
+            <div class="speech-bubble" style="animation-delay: 1s;">施放魔法中...</div>
+            <div class="pixel-hero mage"></div>
+            <div class="platform"></div>
+            <div class="hero-name">冰霜法師</div>
+            <span class="rarity sr">SR</span>
+        </div>
+        
+        <!-- 弓手 -->
+        <div class="hero-card">
+            <div class="speech-bubble" style="animation-delay: 2s;">瞄準目標！</div>
+            <div class="pixel-hero archer"></div>
+            <div class="platform"></div>
+            <div class="hero-name">翠綠獵手</div>
+            <span class="rarity r">R</span>
+        </div>
+        
+        <!-- 騎士 -->
+        <div class="hero-card">
+            <div class="speech-bubble" style="animation-delay: 3s;">守護同伴！</div>
+            <div class="pixel-hero knight"></div>
+            <div class="platform"></div>
+            <div class="hero-name">聖光騎士</div>
+            <span class="rarity ssr">SSR</span>
+        </div>
+    </div>
+    
+    <!-- Live Feed -->
+    <div class="live-feed">
+        <h3>LIVE 動態</h3>
+        <div class="feed-item summon">
+            <span class="feed-time">17:30</span>
+            🌟 新英雄誕生：<strong>火焰劍士</strong> (SSR)
+        </div>
+        <div class="feed-item battle">
+            <span class="feed-time">17:28</span>
+            ⚔️ <strong>冰霜法師</strong> 擊敗了 <strong>暗影刺客</strong>
+        </div>
+        <div class="feed-item reward">
+            <span class="feed-time">17:25</span>
+            🎁 獎勵發放：DAA 666666 觸發！
+        </div>
+        <div class="feed-item summon">
+            <span class="feed-time">17:20</span>
+            🌟 新英雄誕生：<strong>翠綠獵手</strong> (R)
+        </div>
+    </div>
+    
+    <script>
+        // 生成星星
+        const starsContainer = document.getElementById('stars');
+        for (let i = 0; i < 50; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.width = star.style.height = (Math.random() * 3 + 1) + 'px';
+            star.style.animationDelay = Math.random() * 2 + 's';
+            starsContainer.appendChild(star);
+        }
+        
+        // 模擬即時事件
+        const events = [
+            { type: 'battle', text: '⚔️ <strong>火焰劍士</strong> 向 <strong>暗夜魔王</strong> 發起挑戰！' },
+            { type: 'summon', text: '🌟 新英雄誕生：<strong>雷霆戰神</strong> (SR)' },
+            { type: 'reward', text: '🎁 <strong>聖光騎士</strong> 獲得 50 mana 獎勵！' },
+            { type: 'battle', text: '💀 <strong>翠綠獵手</strong> 陣亡了...' },
+        ];
+        
+        function addEvent() {
+            const feed = document.querySelector('.live-feed');
+            const event = events[Math.floor(Math.random() * events.length)];
+            const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+            
+            const item = document.createElement('div');
+            item.className = 'feed-item ' + event.type;
+            item.innerHTML = `<span class="feed-time">${time}</span> ${event.text}`;
+            
+            feed.insertBefore(item, feed.children[1]);
+            
+            // 保持最多 10 條
+            while (feed.children.length > 11) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+        
+        // 每 5 秒新增一條事件
+        setInterval(addEvent, 5000);
+    </script>
+</body>
+</html>

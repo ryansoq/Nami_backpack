@@ -791,6 +791,10 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 _pending_wallet_requests = {}
 WALLET_CONFIRM_TIMEOUT = 30  # 30 秒超時
 
+# 存儲待確認的轉帳請求
+_pending_send_requests = {}
+SEND_CONFIRM_TIMEOUT = 30  # 30 秒超時
+
 
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """處理 /nami_wallet 指令 - 創建統一錢包（帶確認機制）"""
@@ -998,6 +1002,191 @@ async def handle_wallet_callback(update: Update, context: ContextTypes.DEFAULT_T
             return
         
         await query.edit_message_text("❌ 已取消創建錢包")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 錢包轉帳指令
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def wallet_send(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """處理 /nami_wallet_send 指令 - 轉帳到指定地址"""
+    user = update.effective_user
+    user_id = user.id
+    
+    if not UNIFIED_WALLET_ENABLED:
+        await update.message.reply_text("❌ 錢包系統未啟用")
+        return
+    
+    # 用法：/nws <PIN> <地址> <數量>
+    if len(context.args) < 3:
+        await update.message.reply_text(
+            "💸 *錢包轉帳*\n\n"
+            "用法：\n"
+            "`/nws <PIN> <地址> <數量>`\n\n"
+            "例如：\n"
+            "`/nws 1234 kaspatest:qq... 100`\n\n"
+            "📝 數量單位為 tKAS",
+            parse_mode='Markdown'
+        )
+        return
+    
+    pin = context.args[0]
+    to_address = context.args[1]
+    amount_str = context.args[2]
+    
+    # 驗證 PIN 格式
+    if not pin.isdigit() or not (4 <= len(pin) <= 6):
+        await update.message.reply_text("❌ PIN 需為 4-6 位數字")
+        return
+    
+    # 驗證地址格式
+    if not to_address.startswith("kaspatest:"):
+        await update.message.reply_text("❌ 請輸入有效的 testnet 地址（kaspatest:...）")
+        return
+    
+    # 驗證數量
+    try:
+        amount = float(amount_str)
+        if amount <= 0:
+            raise ValueError("數量必須大於 0")
+    except ValueError:
+        await update.message.reply_text("❌ 請輸入有效的數量")
+        return
+    
+    amount_sompi = int(amount * 100_000_000)  # 轉換為 sompi
+    
+    # 驗證 PIN 是否正確
+    if not unified_wallet.verify_pin(user_id, pin):
+        await update.message.reply_text("❌ PIN 碼錯誤")
+        return
+    
+    # 取得用戶錢包和餘額
+    try:
+        _, from_address = unified_wallet.get_wallet(user_id, pin)
+        balance = await unified_wallet.get_balance(from_address)
+        
+        if balance < amount_sompi + 50000:  # 預留手續費
+            balance_kas = balance / 100_000_000
+            await update.message.reply_text(
+                f"❌ 餘額不足\n\n"
+                f"目前餘額：{balance_kas:.4f} tKAS\n"
+                f"需要：{amount} + 手續費"
+            )
+            return
+    except Exception as e:
+        await update.message.reply_text(f"❌ 查詢餘額失敗：{e}")
+        return
+    
+    # 生成確認 ID
+    import secrets
+    action_id = secrets.token_hex(8)
+    
+    # 儲存待確認請求
+    _pending_send_requests[action_id] = {
+        'user_id': user_id,
+        'pin': pin,
+        'to_address': to_address,
+        'amount_sompi': amount_sompi,
+        'amount_display': amount,
+        'from_address': from_address,
+        'username': user.username or user.first_name,
+        'created_at': time.time()
+    }
+    
+    # 構建確認訊息（地址縮短顯示）
+    addr_short = to_address[:20] + "..." + to_address[-8:]
+    
+    confirm_msg = (
+        f"💸 *確認轉帳*\n\n"
+        f"發送：*{amount} tKAS*\n"
+        f"到：`{addr_short}`\n\n"
+        f"⏰ {SEND_CONFIRM_TIMEOUT} 秒後自動取消"
+    )
+    
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(f"✅ 確認發送 {amount} tKAS", callback_data=f"send_yes:{action_id}"),
+            InlineKeyboardButton("❌ 取消", callback_data=f"send_no:{action_id}")
+        ]
+    ])
+    
+    await update.message.reply_text(
+        confirm_msg,
+        parse_mode='Markdown',
+        reply_markup=keyboard
+    )
+
+
+async def handle_send_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """處理轉帳確認按鈕"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    user_id = query.from_user.id
+    
+    # 解析 callback data
+    if data.startswith("send_yes:"):
+        action_id = data.split(":")[1]
+        
+        # 取得待確認請求
+        request = _pending_send_requests.pop(action_id, None)
+        
+        if not request:
+            await query.edit_message_text("❌ 請求已過期，請重新操作")
+            return
+        
+        # 驗證是本人
+        if request['user_id'] != user_id:
+            await query.answer("❌ 這不是你的請求", show_alert=True)
+            _pending_send_requests[action_id] = request  # 放回
+            return
+        
+        # 檢查超時
+        if time.time() - request['created_at'] > SEND_CONFIRM_TIMEOUT:
+            await query.edit_message_text("⏰ 請求已超時，請重新操作")
+            return
+        
+        # 執行轉帳
+        try:
+            await query.edit_message_text("⏳ 發送中...")
+            
+            tx_id = await unified_wallet.send_payment(
+                user_id=request['user_id'],
+                pin=request['pin'],
+                to_address=request['to_address'],
+                amount=request['amount_sompi']
+            )
+            
+            amount = request['amount_display']
+            addr_short = request['to_address'][:20] + "..." + request['to_address'][-8:]
+            
+            logger.info(f"Wallet send: {request['username']} sent {amount} tKAS to {request['to_address']}, tx={tx_id}")
+            
+            await query.edit_message_text(
+                f"✅ *轉帳成功！*\n\n"
+                f"💸 發送：*{amount} tKAS*\n"
+                f"📍 到：`{addr_short}`\n\n"
+                f"🔗 TX：`{tx_id[:16]}...`",
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Wallet send error: {e}")
+            await query.edit_message_text(f"❌ 轉帳失敗：{e}")
+    
+    elif data.startswith("send_no:"):
+        action_id = data.split(":")[1]
+        
+        # 移除待確認請求
+        request = _pending_send_requests.pop(action_id, None)
+        
+        if request and request['user_id'] != user_id:
+            await query.answer("❌ 這不是你的請求", show_alert=True)
+            _pending_send_requests[action_id] = request  # 放回
+            return
+        
+        await query.edit_message_text("❌ 已取消轉帳")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1624,14 +1813,18 @@ _你的英雄，將由區塊的 hash 決定命運..._
 📊 `/ns` — 遊戲狀態
 
 ━━━━━━━━━━━
-💧 *水龍頭*
+💰 *錢包*
 ━━━━━━━━━━━
-👛 `/nami_wallet` — 創建錢包
-💰 `/nami_faucet` — 領 tKAS
-📈 `/nami_balance` — 餘額查詢
+👛 `/nw` — 創建錢包
+💧 `/nf` — 領 tKAS
+📈 `/nbal` — 餘額查詢
+💸 `/nws` — 轉帳
 
 ━━━━━━━━━━━
-💡 `/np sky 123 1234`
+💡 *範例*
+━━━━━━━━━━━
+⚔️ `/np sky 123 1234`
+💸 `/nws PIN 地址 數量`
 📖 `/nami_rules` 完整規則
 
 🌲 _大地之樹守護著每一位英雄_ 🌊
@@ -1960,8 +2153,13 @@ def main():
     app.add_handler(CommandHandler("nf", faucet))         # nami_faucet
     app.add_handler(CommandHandler("nbal", balance))      # nami_balance
     
+    # 錢包轉帳
+    app.add_handler(CommandHandler("nami_wallet_send", wallet_send))
+    app.add_handler(CommandHandler("nws", wallet_send))   # 縮寫
+    
     # Callback handlers
     app.add_handler(CallbackQueryHandler(handle_wallet_callback, pattern=r"^wallet_(yes|no):"))
+    app.add_handler(CallbackQueryHandler(handle_send_callback, pattern=r"^send_(yes|no):"))
     
     # 保留舊指令（私聊用）
     app.add_handler(CommandHandler("help", help_cmd))
