@@ -959,25 +959,45 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if hero.tx_id:
             logger.info(f"   📦 TX: {hero.tx_id}")
         
-        # 回覆結果（帶像素頭像）
+        # 回覆結果（帶職業圖片）
         try:
-            from hero_avatar import generate_avatar_with_frame
-            import io
+            from pathlib import Path
             
-            avatar_bytes = generate_avatar_with_frame(
-                block_hash=hero.source_hash,
-                rank=hero.rank,
-                hero_class=hero.hero_class,
-                size=64
-            )
+            # 使用 Ryan 的像素圖片
+            hero_images_dir = Path.home() / "nami-backpack" / "projects" / "pixel-hero-stage"
+            class_image_map = {
+                "knight": "knight.png",
+                "mage": "mage.png",
+                "archer": "archer.png",
+                "rogue": "rogue.png"
+            }
             
-            await update.message.reply_photo(
-                photo=io.BytesIO(avatar_bytes),
-                caption=format_summon_result(hero),
-                parse_mode='Markdown'
-            )
+            image_file = class_image_map.get(hero.hero_class)
+            image_path = hero_images_dir / image_file if image_file else None
+            
+            if image_path and image_path.exists():
+                await update.message.reply_photo(
+                    photo=open(image_path, 'rb'),
+                    caption=format_summon_result(hero),
+                    parse_mode='Markdown'
+                )
+            else:
+                # 備用：用舊的頭像生成
+                from hero_avatar import generate_avatar_with_frame
+                import io
+                avatar_bytes = generate_avatar_with_frame(
+                    block_hash=hero.source_hash,
+                    rank=hero.rank,
+                    hero_class=hero.hero_class,
+                    size=64
+                )
+                await update.message.reply_photo(
+                    photo=io.BytesIO(avatar_bytes),
+                    caption=format_summon_result(hero),
+                    parse_mode='Markdown'
+                )
         except Exception as e:
-            logger.warning(f"Avatar generation failed: {e}, fallback to text")
+            logger.warning(f"Hero image failed: {e}, fallback to text")
             await update.message.reply_text(format_summon_result(hero), parse_mode='Markdown')
         
         # 群組公告
