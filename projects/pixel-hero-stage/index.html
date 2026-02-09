@@ -3,324 +3,281 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌲 娜米的英雄舞台 v3 - 戰鬥直播</title>
+    <title>🌲 娜米的英雄世界 v4</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3a 50%, #0f2027 100%);
+            background: #0a0a1a;
             min-height: 100vh;
             font-family: 'Courier New', monospace;
             color: #fff;
-            overflow-x: hidden;
+            overflow: hidden;
         }
         
         .header {
-            text-align: center;
-            padding: 10px;
-            background: rgba(0,0,0,0.8);
-            border-bottom: 3px solid #ffd700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 15px;
+            background: rgba(0,0,0,0.9);
+            border-bottom: 2px solid #ffd700;
         }
         
         .header h1 {
-            font-size: 18px;
+            font-size: 16px;
             color: #ffd700;
-            text-shadow: 2px 2px #000;
         }
         
-        .header .subtitle {
-            font-size: 10px;
-            color: #88c0d0;
-            margin-top: 4px;
+        .header-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 11px;
         }
         
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            margin-right: 6px;
             animation: pulse 1s infinite;
         }
         
-        .status-indicator.live { background: #27ae60; }
-        .status-indicator.waiting { background: #f39c12; }
-        .status-indicator.offline { background: #e74c3c; }
+        .status-dot.live { background: #27ae60; }
+        .status-dot.idle { background: #f39c12; }
         
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; }
         }
         
-        #gameCanvas {
-            display: block;
-            margin: 0 auto;
-            background: linear-gradient(180deg, 
-                #1a0a2e 0%, 
-                #16213e 40%, 
-                #0f3460 70%,
-                #1a472a 90%,
-                #2d5a3d 100%
-            );
-            border: 3px solid #333;
+        .main-container {
+            display: flex;
+            height: calc(100vh - 45px);
+        }
+        
+        /* ========== 左側：戰鬥區 ========== */
+        .battle-zone {
+            width: 33%;
+            background: linear-gradient(180deg, #1a0a2e 0%, #16213e 100%);
+            border-right: 3px solid #333;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .battle-title {
+            padding: 8px;
+            background: rgba(0,0,0,0.5);
+            border-bottom: 2px solid #e74c3c;
+            font-size: 12px;
+            color: #e74c3c;
+            text-align: center;
+        }
+        
+        #battleCanvas {
+            flex: 1;
+            width: 100%;
             image-rendering: pixelated;
         }
         
-        .battle-info {
+        .battle-info-panel {
+            padding: 8px;
+            background: rgba(0,0,0,0.7);
+            font-size: 10px;
+        }
+        
+        .fighter-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 20px;
-            background: rgba(0,0,0,0.8);
-            border-bottom: 2px solid #444;
+            margin: 4px 0;
         }
-        
-        .fighter-panel {
-            flex: 1;
-            padding: 10px;
-        }
-        
-        .fighter-panel.left { text-align: left; }
-        .fighter-panel.right { text-align: right; }
         
         .fighter-name {
-            font-size: 14px;
-            font-weight: bold;
             color: #ffd700;
-        }
-        
-        .fighter-class {
-            font-size: 10px;
-            color: #888;
-        }
-        
-        .fighter-stats {
-            font-size: 9px;
-            color: #aaa;
-            margin-top: 4px;
-        }
-        
-        .hp-bar-container {
-            width: 100%;
-            height: 16px;
-            background: #333;
-            border: 2px solid #555;
-            border-radius: 4px;
-            margin-top: 6px;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .hp-bar {
-            height: 100%;
-            background: linear-gradient(180deg, #27ae60, #1e8449);
-            transition: width 0.3s ease;
-        }
-        
-        .hp-bar.danger {
-            background: linear-gradient(180deg, #e74c3c, #c0392b);
-        }
-        
-        .hp-bar.warning {
-            background: linear-gradient(180deg, #f1c40f, #f39c12);
-        }
-        
-        .hp-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 10px;
             font-weight: bold;
-            text-shadow: 1px 1px #000;
         }
         
-        .atb-bars {
-            display: flex;
-            gap: 4px;
-            margin-top: 6px;
-        }
+        .fighter-name.blue { color: #3498db; }
+        .fighter-name.red { color: #e74c3c; }
         
-        .atb-bar-container {
-            flex: 1;
+        .hp-bar-mini {
+            width: 80px;
             height: 8px;
-            background: #222;
-            border: 1px solid #444;
+            background: #333;
             border-radius: 2px;
             overflow: hidden;
         }
         
-        .atb-bar {
+        .hp-bar-mini .fill {
             height: 100%;
-            transition: width 0.1s linear;
+            background: #27ae60;
+            transition: width 0.2s;
         }
         
-        .atb-bar.move { background: #3498db; }
-        .atb-bar.skill { background: #9b59b6; }
+        .hp-bar-mini .fill.danger { background: #e74c3c; }
         
-        .vs-badge {
-            font-size: 24px;
-            font-weight: bold;
-            color: #e74c3c;
-            text-shadow: 2px 2px #000;
-            padding: 0 20px;
+        .battle-log {
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 9px;
+            padding: 5px;
+            background: rgba(0,0,0,0.5);
+            border-top: 1px solid #333;
         }
         
-        .controls {
-            text-align: center;
-            padding: 10px;
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid #222;
+        }
+        
+        .log-line.attack { color: #e74c3c; }
+        .log-line.skill { color: #9b59b6; }
+        .log-line.evade { color: #3498db; }
+        .log-line.death { color: #e74c3c; font-weight: bold; }
+        
+        /* ========== 右側：世界區 ========== */
+        .world-zone {
+            width: 67%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #worldCanvas {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+        
+        .world-overlay {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
             background: rgba(0,0,0,0.7);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 10px;
         }
         
-        .controls button {
-            background: linear-gradient(180deg, #4a4a6a, #2a2a4a);
-            border: 2px solid #ffd700;
+        /* ========== 控制面板 ========== */
+        .control-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            gap: 5px;
+        }
+        
+        .ctrl-btn {
+            background: rgba(0,0,0,0.7);
+            border: 1px solid #ffd700;
             color: #ffd700;
-            padding: 8px 16px;
-            margin: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
+            padding: 5px 10px;
+            font-size: 10px;
             cursor: pointer;
             border-radius: 4px;
         }
         
-        .controls button:hover {
-            background: linear-gradient(180deg, #5a5a7a, #3a3a5a);
+        .ctrl-btn:hover {
+            background: rgba(255,215,0,0.2);
         }
         
-        .controls button.active {
-            background: linear-gradient(180deg, #27ae60, #1e8449);
-            border-color: #2ecc71;
-        }
-        
-        .battle-log {
-            background: rgba(0,0,0,0.9);
-            border-top: 2px solid #27ae60;
-            padding: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-            font-size: 11px;
-        }
-        
-        .battle-log .log-title {
-            color: #27ae60;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-        
-        .log-entry {
-            padding: 4px 8px;
-            margin: 2px 0;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.05);
-        }
-        
-        .log-entry.attack { border-left: 3px solid #e74c3c; }
-        .log-entry.skill { border-left: 3px solid #9b59b6; }
-        .log-entry.death { border-left: 3px solid #e74c3c; background: rgba(231,76,60,0.2); }
-        .log-entry.start { border-left: 3px solid #27ae60; }
-        .log-entry.end { border-left: 3px solid #ffd700; background: rgba(255,215,0,0.2); }
-        
-        .log-time {
-            color: #666;
-            font-size: 9px;
-        }
-        
-        .no-battle {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
-        
-        .no-battle h2 {
-            color: #ffd700;
-            margin-bottom: 10px;
-        }
-        
-        .replay-speed {
-            display: inline-block;
-            padding: 4px 8px;
-            background: #333;
-            border-radius: 4px;
-            margin-left: 10px;
-            font-size: 10px;
+        .ctrl-btn.active {
+            background: rgba(39,174,96,0.5);
+            border-color: #27ae60;
         }
     </style>
 </head>
 <body>
     <header class="header">
-        <h1>🌲 娜米的英雄舞台 v3</h1>
-        <div class="subtitle">
-            <span class="status-indicator waiting" id="statusIndicator"></span>
-            <span id="statusText">等待戰鬥...</span>
-            <span class="replay-speed" id="replaySpeed">1x</span>
+        <h1>🌲 娜米的英雄世界</h1>
+        <div class="header-stats">
+            <div class="stat-item">
+                <span class="status-dot idle" id="statusDot"></span>
+                <span id="statusText">等待中</span>
+            </div>
+            <div class="stat-item">🦸 存活: <span id="aliveCount">0</span></div>
+            <div class="stat-item">⚔️ 戰鬥: <span id="battleCount">0</span></div>
         </div>
     </header>
     
-    <div class="battle-info" id="battleInfo" style="display: none;">
-        <div class="fighter-panel left">
-            <div class="fighter-name" id="leftName">---</div>
-            <div class="fighter-class" id="leftClass">---</div>
-            <div class="fighter-stats" id="leftStats">ATK: -- | DEF: -- | SPD: --</div>
-            <div class="hp-bar-container">
-                <div class="hp-bar" id="leftHpBar" style="width: 100%"></div>
-                <div class="hp-text" id="leftHpText">100/100</div>
+    <div class="main-container">
+        <!-- 左側：戰鬥區 -->
+        <div class="battle-zone">
+            <div class="battle-title">⚔️ 戰鬥舞台</div>
+            <canvas id="battleCanvas"></canvas>
+            <div class="battle-info-panel">
+                <div class="fighter-row">
+                    <span class="fighter-name blue" id="leftFighterName">等待中...</span>
+                    <div class="hp-bar-mini">
+                        <div class="fill" id="leftHpBar" style="width: 100%"></div>
+                    </div>
+                </div>
+                <div class="fighter-row">
+                    <span class="fighter-name red" id="rightFighterName">等待中...</span>
+                    <div class="hp-bar-mini">
+                        <div class="fill" id="rightHpBar" style="width: 100%"></div>
+                    </div>
+                </div>
             </div>
-            <div class="atb-bars">
-                <div class="atb-bar-container" title="移動條">
-                    <div class="atb-bar move" id="leftMoveBar" style="width: 0%"></div>
-                </div>
-                <div class="atb-bar-container" title="技能條">
-                    <div class="atb-bar skill" id="leftSkillBar" style="width: 0%"></div>
-                </div>
+            <div class="battle-log" id="battleLog">
+                <div class="log-line">🌲 等待戰鬥...</div>
             </div>
         </div>
         
-        <div class="vs-badge">⚔️ VS</div>
-        
-        <div class="fighter-panel right">
-            <div class="fighter-name" id="rightName">---</div>
-            <div class="fighter-class" id="rightClass">---</div>
-            <div class="fighter-stats" id="rightStats">ATK: -- | DEF: -- | SPD: --</div>
-            <div class="hp-bar-container">
-                <div class="hp-bar" id="rightHpBar" style="width: 100%"></div>
-                <div class="hp-text" id="rightHpText">100/100</div>
+        <!-- 右側：世界區 -->
+        <div class="world-zone">
+            <canvas id="worldCanvas"></canvas>
+            <div class="world-overlay">
+                🌲 大地之樹守護著英雄們
             </div>
-            <div class="atb-bars">
-                <div class="atb-bar-container" title="移動條">
-                    <div class="atb-bar move" id="rightMoveBar" style="width: 0%"></div>
-                </div>
-                <div class="atb-bar-container" title="技能條">
-                    <div class="atb-bar skill" id="rightSkillBar" style="width: 0%"></div>
-                </div>
+            <div class="control-bar">
+                <button class="ctrl-btn" onclick="toggleAutoFetch()" id="autoFetchBtn">📡 監聽</button>
+                <button class="ctrl-btn" onclick="fetchBattle()">🔄 檢查</button>
+                <button class="ctrl-btn" onclick="spawnTestHero()">✨ 測試</button>
             </div>
-        </div>
-    </div>
-    
-    <canvas id="gameCanvas" width="800" height="350"></canvas>
-    
-    <div class="controls">
-        <button onclick="fetchLatestBattle()">🔄 檢查新戰鬥</button>
-        <button onclick="replayBattle()" id="replayBtn">▶️ 重播戰鬥</button>
-        <button onclick="toggleAutoFetch()" id="autoFetchBtn">📡 自動監聽: OFF</button>
-        <button onclick="cycleSpeed()">⏩ 速度</button>
-        <button onclick="toggleDemo()">🎭 Demo 模式</button>
-    </div>
-    
-    <div class="battle-log">
-        <div class="log-title">⚔️ 戰鬥記錄</div>
-        <div id="logContainer">
-            <div class="log-entry start">等待戰鬥資料...</div>
         </div>
     </div>
 
 <script>
-// ============ 遊戲設定 ============
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// ============ 設定 ============
+const BATTLE_URL = 'battles/latest.json';
+const HEROES_URL = 'heroes/alive.json';
+const POLL_INTERVAL = 3000;
 
-const BATTLE_DATA_URL = 'battles/latest.json';
-const POLL_INTERVAL = 3000; // 3秒輪詢一次
+// ============ Canvas 設定 ============
+const battleCanvas = document.getElementById('battleCanvas');
+const battleCtx = battleCanvas.getContext('2d');
+const worldCanvas = document.getElementById('worldCanvas');
+const worldCtx = worldCanvas.getContext('2d');
+
+// ============ 遊戲狀態 ============
+const game = {
+    // 戰鬥狀態
+    battle: null,
+    battleId: null,
+    isPlaying: false,
+    playTick: 0,
+    eventIndex: 0,
+    leftFighter: null,
+    rightFighter: null,
+    battleParticles: [],
+    damageNumbers: [],
+    
+    // 世界狀態
+    worldHeroes: [],
+    autoFetch: false,
+    autoFetchTimer: null,
+    battleCount: 0,
+    
+    // 視覺
+    screenShake: 0
+};
 
 // 職業配色
 const CLASS_COLORS = {
@@ -331,46 +288,31 @@ const CLASS_COLORS = {
     rogue: { main: '#8e44ad', accent: '#9b59b6', name: '盜賊' }
 };
 
-const RARITY_COLORS = {
-    'N': '#7f8c8d',
-    'R': '#3498db', 
-    'SR': '#9b59b6',
-    'SSR': '#f1c40f',
-    'UR': '#e74c3c'
-};
-
-// ============ 遊戲狀態 ============
-const game = {
-    currentBattle: null,
-    lastBattleId: null,
-    isPlaying: false,
-    playbackTick: 0,
-    playbackSpeed: 1,
-    autoFetch: false,
-    autoFetchTimer: null,
+// ============ 調整 Canvas 大小 ============
+function resizeCanvases() {
+    const battleZone = document.querySelector('.battle-zone');
+    const worldZone = document.querySelector('.world-zone');
     
-    // 戰鬥中的狀態
-    leftFighter: null,
-    rightFighter: null,
-    particles: [],
-    damageNumbers: [],
-    screenShake: 0
-};
+    battleCanvas.width = battleZone.clientWidth;
+    battleCanvas.height = battleZone.clientHeight - 150;
+    
+    worldCanvas.width = worldZone.clientWidth;
+    worldCanvas.height = worldZone.clientHeight;
+}
 
-// ============ 戰鬥機類別 ============
-class Fighter {
+window.addEventListener('resize', resizeCanvases);
+
+// ============ 戰鬥者類別 ============
+class BattleFighter {
     constructor(data, side) {
         this.data = data;
-        this.side = side; // 'left' or 'right'
-        this.x = side === 'left' ? 200 : 600;
-        this.y = 280;
+        this.side = side;
+        this.x = side === 'left' ? battleCanvas.width * 0.25 : battleCanvas.width * 0.75;
+        this.y = battleCanvas.height * 0.7;
         this.baseX = this.x;
         
         this.hp = 100;
         this.maxHp = 100;
-        this.moveBar = 0;
-        this.skillBar = 0;
-        
         this.state = 'idle';
         this.stateTimer = 0;
         this.animFrame = 0;
@@ -380,505 +322,493 @@ class Fighter {
     }
     
     update() {
-        // 動畫幀
-        this.animFrame = (this.animFrame + 0.15 * game.playbackSpeed) % 4;
+        this.animFrame += 0.15;
         
-        // 狀態計時
         if (this.stateTimer > 0) {
-            this.stateTimer -= game.playbackSpeed;
+            this.stateTimer--;
             if (this.stateTimer <= 0) {
                 this.state = 'idle';
                 this.x = this.baseX;
             }
         }
         
-        // 攻擊移動
         if (this.state === 'attack') {
-            const progress = 1 - (this.stateTimer / 30);
-            if (progress < 0.3) {
-                // 衝刺
-                this.x = this.baseX + this.direction * 80 * (progress / 0.3);
-            } else if (progress < 0.5) {
-                // 停頓
+            const progress = 1 - (this.stateTimer / 20);
+            if (progress < 0.4) {
+                this.x = this.baseX + this.direction * 40 * (progress / 0.4);
             } else {
-                // 返回
-                this.x = this.baseX + this.direction * 80 * (1 - (progress - 0.5) / 0.5);
+                this.x = this.baseX + this.direction * 40 * (1 - (progress - 0.4) / 0.6);
             }
         }
     }
     
-    attack() {
-        this.state = 'attack';
-        this.stateTimer = 30;
-    }
+    attack() { this.state = 'attack'; this.stateTimer = 20; }
+    skill() { this.state = 'skill'; this.stateTimer = 30; }
+    hurt() { this.state = 'hurt'; this.stateTimer = 10; game.screenShake = 5; }
+    die() { this.state = 'dead'; this.hp = 0; }
     
-    skill() {
-        this.state = 'skill';
-        this.stateTimer = 45;
-    }
-    
-    hurt() {
-        this.state = 'hurt';
-        this.stateTimer = 15;
-        game.screenShake = 8;
-    }
-    
-    die() {
-        this.state = 'dead';
-        this.hp = 0;
-    }
-    
-    draw() {
+    draw(ctx) {
         const x = Math.floor(this.x);
         const y = Math.floor(this.y);
         
         ctx.save();
         
-        // 死亡效果
-        if (this.state === 'dead') {
-            ctx.globalAlpha = 0.5;
-        }
-        
-        // 受傷閃爍
-        if (this.state === 'hurt' && Math.floor(this.stateTimer) % 4 < 2) {
-            ctx.globalAlpha = 0.3;
-        }
+        if (this.state === 'dead') ctx.globalAlpha = 0.4;
+        if (this.state === 'hurt' && this.stateTimer % 4 < 2) ctx.globalAlpha = 0.3;
         
         ctx.translate(x, y);
         ctx.scale(this.direction, 1);
         
-        this.drawPixelCharacter();
-        
-        ctx.restore();
-        
-        // 名字標籤
-        this.drawNameTag(x, y);
-    }
-    
-    drawPixelCharacter() {
         const c = this.classData;
-        const bounce = this.state === 'idle' ? Math.sin(this.animFrame * Math.PI / 2) * 2 : 0;
-        const attackOffset = this.state === 'attack' ? 5 : 0;
+        const bounce = this.state === 'idle' ? Math.sin(this.animFrame) * 2 : 0;
         
         // 陰影
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath();
-        ctx.ellipse(0, 10, 20, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 8, 15, 5, 0, 0, Math.PI * 2);
         ctx.fill();
         
         // 身體
         ctx.fillStyle = c.main;
-        ctx.fillRect(-12, -40 + bounce, 24, 30);
+        ctx.fillRect(-8, -30 + bounce, 16, 22);
         
         // 頭
         ctx.fillStyle = '#fdbf6f';
-        ctx.fillRect(-10, -56 + bounce, 20, 16);
+        ctx.fillRect(-7, -42 + bounce, 14, 12);
         
-        // 頭髮/帽子
+        // 頭髮
         ctx.fillStyle = c.accent;
-        ctx.fillRect(-12, -62 + bounce, 24, 8);
+        ctx.fillRect(-8, -46 + bounce, 16, 5);
         
         // 眼睛
         ctx.fillStyle = '#000';
-        const eyeY = this.state === 'dead' ? -50 : -48;
         if (this.state === 'dead') {
-            // X 眼
-            ctx.fillRect(-6, eyeY + bounce, 4, 2);
-            ctx.fillRect(-4, eyeY + bounce + 2, 4, 2);
-            ctx.fillRect(2, eyeY + bounce, 4, 2);
-            ctx.fillRect(4, eyeY + bounce + 2, 4, 2);
+            ctx.fillRect(-4, -38 + bounce, 3, 1);
+            ctx.fillRect(1, -38 + bounce, 3, 1);
         } else {
-            ctx.fillRect(-6, eyeY + bounce, 4, 4);
-            ctx.fillRect(2, eyeY + bounce, 4, 4);
+            ctx.fillRect(-4, -38 + bounce, 3, 3);
+            ctx.fillRect(1, -38 + bounce, 3, 3);
         }
         
         // 手臂
         ctx.fillStyle = c.main;
-        ctx.fillRect(-20, -36 + bounce + attackOffset, 8, 16);
-        ctx.fillRect(12, -36 + bounce + attackOffset, 8, 16);
+        ctx.fillRect(-13, -26 + bounce, 5, 10);
+        ctx.fillRect(8, -26 + bounce, 5, 10);
         
         // 腿
-        const legAnim = this.state === 'attack' ? 4 : 0;
         ctx.fillStyle = '#2c3e50';
-        ctx.fillRect(-10, -10, 8, 16 + legAnim);
-        ctx.fillRect(2, -10, 8, 16 - legAnim);
+        ctx.fillRect(-6, -8, 5, 10);
+        ctx.fillRect(1, -8, 5, 10);
         
-        // 武器特效
+        // 攻擊特效
         if (this.state === 'attack' || this.state === 'skill') {
-            this.drawWeaponEffect();
+            ctx.fillStyle = this.state === 'skill' ? '#9b59b6' : '#ff6600';
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.arc(15, -20, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+}
+
+// ============ 世界英雄類別 ============
+class WorldHero {
+    constructor(data, x, y) {
+        this.data = data;
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.targetX = null;
+        this.state = 'idle';
+        this.stateTimer = 0;
+        this.animFrame = Math.random() * 10;
+        this.direction = 1;
+        this.speechBubble = null;
+        this.speechTimer = 0;
+        
+        this.classData = CLASS_COLORS[data.class] || CLASS_COLORS.warrior;
+        this.decideAction();
+    }
+    
+    decideAction() {
+        const roll = Math.random();
+        if (roll < 0.3) {
+            this.state = 'idle';
+            this.stateTimer = 60 + Math.random() * 120;
+        } else if (roll < 0.9) {
+            this.state = 'walk';
+            this.targetX = 100 + Math.random() * (worldCanvas.width - 200);
+            this.direction = this.targetX > this.x ? 1 : -1;
+            this.stateTimer = 200;
+        } else {
+            this.say(['...', '🌲', '⚔️', '💪', '😊'][Math.floor(Math.random() * 5)]);
+            this.state = 'idle';
+            this.stateTimer = 60;
         }
     }
     
-    drawWeaponEffect() {
-        const classType = this.data.class;
+    say(text) {
+        this.speechBubble = text;
+        this.speechTimer = 90;
+    }
+    
+    update() {
+        this.animFrame += 0.1;
+        this.stateTimer--;
         
-        if (classType === 'warrior') {
-            // 劍光
-            ctx.fillStyle = '#ff6600';
-            ctx.globalAlpha = 0.7;
-            ctx.fillRect(18, -50, 6, 40);
-            ctx.fillStyle = '#ffcc00';
-            ctx.fillRect(20, -48, 2, 36);
-        } else if (classType === 'mage') {
-            // 魔法球
-            ctx.fillStyle = '#3498db';
-            ctx.globalAlpha = 0.8;
+        if (this.stateTimer <= 0) this.decideAction();
+        
+        if (this.speechTimer > 0) {
+            this.speechTimer--;
+            if (this.speechTimer <= 0) this.speechBubble = null;
+        }
+        
+        if (this.state === 'walk' && this.targetX) {
+            const dx = this.targetX - this.x;
+            if (Math.abs(dx) > 3) {
+                this.x += Math.sign(dx) * 1;
+                this.direction = Math.sign(dx);
+            } else {
+                this.targetX = null;
+                this.decideAction();
+            }
+        }
+        
+        // 邊界
+        this.x = Math.max(50, Math.min(worldCanvas.width - 50, this.x));
+    }
+    
+    draw(ctx) {
+        const x = Math.floor(this.x);
+        const y = Math.floor(this.y);
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(this.direction, 1);
+        
+        const c = this.classData;
+        const bounce = this.state === 'walk' ? Math.sin(this.animFrame * 2) * 2 : Math.sin(this.animFrame) * 1;
+        
+        // 陰影
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(0, 5, 10, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 身體（較小）
+        ctx.fillStyle = c.main;
+        ctx.fillRect(-5, -20 + bounce, 10, 15);
+        
+        // 頭
+        ctx.fillStyle = '#fdbf6f';
+        ctx.fillRect(-4, -28 + bounce, 8, 8);
+        
+        // 頭髮
+        ctx.fillStyle = c.accent;
+        ctx.fillRect(-5, -30 + bounce, 10, 3);
+        
+        // 眼睛
+        ctx.fillStyle = '#000';
+        ctx.fillRect(-2, -26 + bounce, 2, 2);
+        ctx.fillRect(1, -26 + bounce, 2, 2);
+        
+        // 腿
+        ctx.fillStyle = '#2c3e50';
+        const legOffset = this.state === 'walk' ? Math.sin(this.animFrame * 2) * 2 : 0;
+        ctx.fillRect(-4, -5, 3, 6 + legOffset);
+        ctx.fillRect(1, -5, 3, 6 - legOffset);
+        
+        ctx.restore();
+        
+        // 說話泡泡
+        if (this.speechBubble) {
+            ctx.globalAlpha = Math.min(1, this.speechTimer / 20);
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
             ctx.beginPath();
-            ctx.arc(25, -30, 15, 0, Math.PI * 2);
+            ctx.roundRect(x - 12, y - 45, 24, 16, 4);
             ctx.fill();
             ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(25, -30, 8, 0, Math.PI * 2);
-            ctx.fill();
-        } else if (classType === 'archer') {
-            // 箭
-            ctx.fillStyle = '#f1c40f';
-            ctx.fillRect(20, -35, 30, 3);
-            ctx.fillStyle = '#e74c3c';
-            ctx.beginPath();
-            ctx.moveTo(50, -33);
-            ctx.lineTo(58, -33);
-            ctx.lineTo(50, -28);
-            ctx.fill();
-        } else {
-            // 預設揮砍
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
-            ctx.globalAlpha = 0.6;
-            ctx.beginPath();
-            ctx.arc(15, -30, 25, -0.5, 1);
-            ctx.stroke();
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.speechBubble, x, y - 33);
+            ctx.globalAlpha = 1;
         }
         
-        ctx.globalAlpha = 1;
-    }
-    
-    drawNameTag(x, y) {
-        ctx.font = 'bold 10px Courier New';
-        ctx.textAlign = 'center';
-        
-        // 稀有度
-        ctx.fillStyle = RARITY_COLORS[this.data.rarity] || '#fff';
-        ctx.fillText(`[${this.data.rarity}]`, x, y + 25);
-        
         // 名字
-        ctx.fillStyle = '#ffd700';
-        ctx.fillText(this.data.name, x, y + 38);
-    }
-    
-    updateUI() {
-        const prefix = this.side === 'left' ? 'left' : 'right';
-        
-        // HP 條
-        const hpPercent = (this.hp / this.maxHp) * 100;
-        const hpBar = document.getElementById(`${prefix}HpBar`);
-        hpBar.style.width = `${hpPercent}%`;
-        hpBar.className = 'hp-bar' + (hpPercent < 25 ? ' danger' : hpPercent < 50 ? ' warning' : '');
-        document.getElementById(`${prefix}HpText`).textContent = `${Math.floor(this.hp)}/${this.maxHp}`;
-        
-        // ATB 條
-        document.getElementById(`${prefix}MoveBar`).style.width = `${this.moveBar}%`;
-        document.getElementById(`${prefix}SkillBar`).style.width = `${this.skillBar}%`;
-    }
-}
-
-// ============ 傷害數字 ============
-function spawnDamageNumber(x, y, damage, isSkill) {
-    game.damageNumbers.push({
-        x, y,
-        damage,
-        life: 60,
-        vy: -3,
-        color: isSkill ? '#9b59b6' : '#e74c3c'
-    });
-}
-
-function updateDamageNumbers() {
-    game.damageNumbers = game.damageNumbers.filter(d => {
-        d.y += d.vy;
-        d.vy += 0.1;
-        d.life--;
-        return d.life > 0;
-    });
-}
-
-function drawDamageNumbers() {
-    game.damageNumbers.forEach(d => {
-        ctx.globalAlpha = Math.min(1, d.life / 20);
-        ctx.font = 'bold 20px Courier New';
+        ctx.font = '8px Courier New';
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#000';
-        ctx.fillText(`-${d.damage}`, d.x + 2, d.y + 2);
-        ctx.fillStyle = d.color;
-        ctx.fillText(`-${d.damage}`, d.x, d.y);
-    });
-    ctx.globalAlpha = 1;
+        ctx.fillStyle = '#ffd700';
+        ctx.fillText(this.data.name || `#${this.data.card_id}`, x, y + 15);
+    }
 }
 
-// ============ 粒子系統 ============
+// ============ 粒子 & 傷害數字 ============
 function spawnParticles(x, y, color, count) {
     for (let i = 0; i < count; i++) {
-        game.particles.push({
+        game.battleParticles.push({
             x, y,
-            vx: (Math.random() - 0.5) * 8,
-            vy: -Math.random() * 5 - 2,
-            color,
-            life: 30 + Math.random() * 20,
-            size: 3 + Math.random() * 4
+            vx: (Math.random() - 0.5) * 6,
+            vy: -Math.random() * 4 - 1,
+            color, life: 25, size: 3
         });
     }
 }
 
-function updateParticles() {
-    game.particles = game.particles.filter(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.15;
-        p.life--;
-        return p.life > 0;
+function spawnDamageNumber(x, y, damage, isSkill) {
+    game.damageNumbers.push({
+        x, y, damage, life: 45,
+        vy: -2,
+        color: isSkill ? '#9b59b6' : '#e74c3c'
     });
 }
 
-function drawParticles() {
-    game.particles.forEach(p => {
-        ctx.globalAlpha = p.life / 50;
-        ctx.fillStyle = p.color;
-        ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
-    });
-    ctx.globalAlpha = 1;
+// ============ 繪製背景 ============
+function drawBattleBackground() {
+    const ctx = battleCtx;
+    const w = battleCanvas.width;
+    const h = battleCanvas.height;
+    
+    // 漸層背景
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#1a0a2e');
+    grad.addColorStop(1, '#16213e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    
+    // 地面
+    ctx.fillStyle = '#2d5a3d';
+    ctx.fillRect(0, h * 0.75, w, h * 0.25);
+    
+    // 戰鬥圈
+    ctx.strokeStyle = 'rgba(255,215,0,0.3)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h * 0.78, w * 0.4, 20, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
 }
 
-// ============ 背景繪製 ============
-function drawBackground() {
-    // 螢幕震動
-    if (game.screenShake > 0) {
-        ctx.save();
-        ctx.translate(
-            (Math.random() - 0.5) * game.screenShake,
-            (Math.random() - 0.5) * game.screenShake
-        );
-        game.screenShake *= 0.9;
-        if (game.screenShake < 0.5) game.screenShake = 0;
-    }
+function drawWorldBackground() {
+    const ctx = worldCtx;
+    const w = worldCanvas.width;
+    const h = worldCanvas.height;
+    
+    // 天空漸層
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#0a0a2a');
+    grad.addColorStop(0.6, '#16213e');
+    grad.addColorStop(1, '#1a472a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
     
     // 星星
     ctx.fillStyle = '#fff';
-    for (let i = 0; i < 20; i++) {
-        const x = (i * 97) % canvas.width;
-        const y = (i * 53) % (canvas.height * 0.5);
-        const twinkle = Math.sin(Date.now() / 500 + i) * 0.5 + 0.5;
-        ctx.globalAlpha = twinkle * 0.6;
+    for (let i = 0; i < 30; i++) {
+        const x = (i * 97 + Date.now() / 200) % w;
+        const y = (i * 53) % (h * 0.5);
+        const twinkle = Math.sin(Date.now() / 500 + i) * 0.4 + 0.6;
+        ctx.globalAlpha = twinkle * 0.5;
         ctx.fillRect(x, y, 2, 2);
     }
     ctx.globalAlpha = 1;
     
-    // 大地之樹（中央背景）
-    ctx.globalAlpha = 0.15;
+    // 世界之樹
+    const treeX = w / 2;
+    const treeY = h * 0.85;
+    
+    // 樹幹
     ctx.fillStyle = '#5d4037';
-    ctx.fillRect(canvas.width/2 - 15, canvas.height - 80, 30, 80);
+    ctx.fillRect(treeX - 25, treeY - 120, 50, 130);
+    
+    // 樹冠
     ctx.fillStyle = '#27ae60';
     ctx.beginPath();
-    ctx.arc(canvas.width/2, canvas.height - 100, 60, 0, Math.PI * 2);
+    ctx.arc(treeX, treeY - 140, 80, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#2ecc71';
+    ctx.beginPath();
+    ctx.arc(treeX - 40, treeY - 120, 50, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(treeX + 40, treeY - 120, 50, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 發光效果
+    ctx.globalAlpha = 0.1 + Math.sin(Date.now() / 1000) * 0.05;
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.arc(treeX, treeY - 130, 100, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
     
     // 地面
     ctx.fillStyle = '#2d5a3d';
-    ctx.fillRect(0, 290, canvas.width, canvas.height - 290);
+    ctx.fillRect(0, h * 0.85, w, h * 0.15);
     
     // 草地
     ctx.fillStyle = '#3d7a4d';
-    for (let i = 0; i < canvas.width; i += 6) {
-        ctx.fillRect(i, 288, 3, 4 + Math.sin(i * 0.3) * 2);
-    }
-    
-    // 戰鬥場地標記
-    if (game.isPlaying) {
-        ctx.strokeStyle = 'rgba(255,215,0,0.3)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.ellipse(canvas.width/2, 300, 250, 40, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-    
-    if (game.screenShake > 0) {
-        ctx.restore();
+    for (let i = 0; i < w; i += 8) {
+        ctx.fillRect(i, h * 0.85 - 3, 4, 5 + Math.sin(i * 0.2) * 2);
     }
 }
 
 // ============ 戰鬥回放 ============
-function loadBattle(battleData) {
-    game.currentBattle = battleData;
-    game.leftFighter = new Fighter(battleData.attacker, 'left');
-    game.rightFighter = new Fighter(battleData.defender, 'right');
-    
-    // 更新 UI
-    document.getElementById('battleInfo').style.display = 'flex';
-    
-    document.getElementById('leftName').textContent = battleData.attacker.name;
-    document.getElementById('leftClass').textContent = 
-        `${CLASS_COLORS[battleData.attacker.class]?.name || battleData.attacker.class} | Card #${battleData.attacker.card_id}`;
-    document.getElementById('leftStats').textContent = 
-        `ATK: ${battleData.attacker.atk} | DEF: ${battleData.attacker.def} | SPD: ${battleData.attacker.spd}`;
-    
-    document.getElementById('rightName').textContent = battleData.defender.name;
-    document.getElementById('rightClass').textContent = 
-        `${CLASS_COLORS[battleData.defender.class]?.name || battleData.defender.class} | Card #${battleData.defender.card_id}`;
-    document.getElementById('rightStats').textContent = 
-        `ATK: ${battleData.defender.atk} | DEF: ${battleData.defender.def} | SPD: ${battleData.defender.spd}`;
-    
-    // 清空記錄
-    document.getElementById('logContainer').innerHTML = '';
-    
-    addLog('戰鬥資料已載入，點擊「重播戰鬥」開始！', 'start');
-}
-
-function replayBattle() {
-    if (!game.currentBattle) {
-        addLog('沒有戰鬥資料！請先檢查新戰鬥。', 'error');
-        return;
-    }
-    
-    // 重置狀態
+function loadBattle(data) {
+    game.battle = data;
+    game.playTick = 0;
+    game.eventIndex = 0;
     game.isPlaying = true;
-    game.playbackTick = 0;
-    game.leftFighter = new Fighter(game.currentBattle.attacker, 'left');
-    game.rightFighter = new Fighter(game.currentBattle.defender, 'right');
-    game.particles = [];
+    game.battleParticles = [];
     game.damageNumbers = [];
     
-    document.getElementById('logContainer').innerHTML = '';
-    document.getElementById('statusIndicator').className = 'status-indicator live';
-    document.getElementById('statusText').textContent = '戰鬥進行中...';
-    document.getElementById('replayBtn').textContent = '⏸️ 播放中...';
+    game.leftFighter = new BattleFighter(data.attacker, 'left');
+    game.rightFighter = new BattleFighter(data.defender, 'right');
     
-    addLog('⚔️ 戰鬥開始！', 'start');
+    document.getElementById('leftFighterName').textContent = data.attacker.name;
+    document.getElementById('rightFighterName').textContent = data.defender.name;
+    document.getElementById('statusDot').className = 'status-dot live';
+    document.getElementById('statusText').textContent = '戰鬥中';
+    
+    document.getElementById('battleLog').innerHTML = '<div class="log-line">⚔️ 戰鬥開始！</div>';
+    
+    game.battleCount++;
+    document.getElementById('battleCount').textContent = game.battleCount;
 }
 
-function processEvents() {
-    if (!game.isPlaying || !game.currentBattle) return;
+function processBattleEvents() {
+    if (!game.isPlaying || !game.battle) return;
     
-    const events = game.currentBattle.events;
+    const events = game.battle.events;
     
-    // 處理當前 tick 的事件
-    events.forEach(event => {
-        if (event.tick === Math.floor(game.playbackTick)) {
-            handleEvent(event);
-        }
-    });
-    
-    // 模擬 ATB 條增長
-    if (game.leftFighter.state !== 'dead') {
-        game.leftFighter.moveBar = Math.min(100, game.leftFighter.moveBar + 2 * game.playbackSpeed);
-        game.leftFighter.skillBar = Math.min(100, game.leftFighter.skillBar + 0.8 * game.playbackSpeed);
-    }
-    if (game.rightFighter.state !== 'dead') {
-        game.rightFighter.moveBar = Math.min(100, game.rightFighter.moveBar + 1.8 * game.playbackSpeed);
-        game.rightFighter.skillBar = Math.min(100, game.rightFighter.skillBar + 0.6 * game.playbackSpeed);
+    while (game.eventIndex < events.length && events[game.eventIndex].tick <= game.playTick) {
+        handleBattleEvent(events[game.eventIndex]);
+        game.eventIndex++;
     }
     
-    game.playbackTick += game.playbackSpeed;
+    game.playTick += 2;
     
-    // 檢查戰鬥結束
-    const lastEvent = events[events.length - 1];
-    if (game.playbackTick > lastEvent.tick + 60) {
-        game.isPlaying = false;
-        document.getElementById('statusIndicator').className = 'status-indicator waiting';
-        document.getElementById('statusText').textContent = '戰鬥結束';
-        document.getElementById('replayBtn').textContent = '▶️ 重播戰鬥';
+    // 結束
+    if (game.eventIndex >= events.length) {
+        setTimeout(() => {
+            game.isPlaying = false;
+            document.getElementById('statusDot').className = 'status-dot idle';
+            document.getElementById('statusText').textContent = '等待中';
+        }, 2000);
     }
 }
 
-function handleEvent(event) {
-    const attacker = game.leftFighter;
-    const defender = game.rightFighter;
-    const who = event.who === 'attacker' ? attacker : defender;
-    const target = event.who === 'attacker' ? defender : attacker;
+function handleBattleEvent(event) {
+    const left = game.leftFighter;
+    const right = game.rightFighter;
+    const who = event.who === 'attacker' ? left : right;
+    const target = event.who === 'attacker' ? right : left;
     
     switch (event.type) {
-        case 'battle_start':
-            addLog(event.msg, 'start');
-            break;
-            
         case 'attack':
+        case 'backstab':
+        case 'berserk':
             who.attack();
-            who.moveBar = 0;
             setTimeout(() => {
-                if (target) {
-                    target.hurt();
-                    target.hp = Math.max(0, target.hp - event.damage);
-                    spawnDamageNumber(target.x, target.y - 40, event.damage, false);
-                    spawnParticles(target.x, target.y - 20, '#ff6600', 8);
-                }
-            }, 300 / game.playbackSpeed);
-            addLog(event.msg, 'attack');
+                target.hurt();
+                target.hp = Math.max(0, target.hp - event.damage * 0.3);
+                spawnDamageNumber(target.x, target.y - 30, event.damage, false);
+                spawnParticles(target.x, target.y - 20, '#ff6600', 5);
+                updateHpBars();
+            }, 200);
+            addBattleLog(event.msg, 'attack');
             break;
             
         case 'skill':
             who.skill();
-            who.skillBar = 0;
             setTimeout(() => {
-                if (target) {
+                if (event.damage > 0) {
                     target.hurt();
-                    target.hp = Math.max(0, target.hp - event.damage);
-                    spawnDamageNumber(target.x, target.y - 40, event.damage, true);
-                    spawnParticles(target.x, target.y - 20, '#9b59b6', 15);
+                    target.hp = Math.max(0, target.hp - event.damage * 0.3);
+                    spawnDamageNumber(target.x, target.y - 30, event.damage, true);
+                    spawnParticles(target.x, target.y - 20, '#9b59b6', 8);
+                    updateHpBars();
                 }
-            }, 400 / game.playbackSpeed);
-            addLog(`✨ ${event.msg}`, 'skill');
+            }, 300);
+            addBattleLog(event.msg, 'skill');
+            break;
+            
+        case 'evade':
+            addBattleLog(event.msg, 'evade');
             break;
             
         case 'death':
-            const deadFighter = event.who === 'attacker' ? attacker : defender;
-            deadFighter.die();
-            spawnParticles(deadFighter.x, deadFighter.y - 30, '#333', 20);
-            addLog(`💀 ${event.msg}`, 'death');
+            const dead = event.who === 'attacker' ? left : right;
+            dead.die();
+            spawnParticles(dead.x, dead.y - 20, '#333', 15);
+            addBattleLog(event.msg, 'death');
             break;
             
         case 'battle_end':
-            addLog(event.msg, 'end');
+            addBattleLog(event.msg, 'skill');
             break;
     }
 }
 
-function addLog(text, type = '') {
-    const container = document.getElementById('logContainer');
-    const entry = document.createElement('div');
-    entry.className = 'log-entry ' + type;
-    const time = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    entry.innerHTML = `<span class="log-time">[${time}]</span> ${text}`;
-    container.appendChild(entry);
-    container.scrollTop = container.scrollHeight;
+function updateHpBars() {
+    const leftPct = Math.max(0, game.leftFighter.hp);
+    const rightPct = Math.max(0, game.rightFighter.hp);
+    
+    const leftBar = document.getElementById('leftHpBar');
+    const rightBar = document.getElementById('rightHpBar');
+    
+    leftBar.style.width = leftPct + '%';
+    rightBar.style.width = rightPct + '%';
+    
+    leftBar.className = 'fill' + (leftPct < 30 ? ' danger' : '');
+    rightBar.className = 'fill' + (rightPct < 30 ? ' danger' : '');
+}
+
+function addBattleLog(msg, type) {
+    const log = document.getElementById('battleLog');
+    const line = document.createElement('div');
+    line.className = 'log-line ' + type;
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
 }
 
 // ============ 資料獲取 ============
-async function fetchLatestBattle() {
+async function fetchBattle() {
     try {
-        document.getElementById('statusText').textContent = '檢查中...';
+        const res = await fetch(BATTLE_URL + '?t=' + Date.now());
+        const data = await res.json();
         
-        const response = await fetch(BATTLE_DATA_URL + '?t=' + Date.now());
-        if (!response.ok) throw new Error('無法獲取資料');
-        
-        const data = await response.json();
-        
-        if (data.id !== game.lastBattleId) {
-            game.lastBattleId = data.id;
+        if (data.id !== game.battleId) {
+            game.battleId = data.id;
             loadBattle(data);
-            addLog(`📥 載入新戰鬥: ${data.id}`, 'start');
-            
-            // 自動播放
-            if (game.autoFetch) {
-                setTimeout(() => replayBattle(), 1000);
-            }
-        } else {
-            document.getElementById('statusText').textContent = '沒有新戰鬥';
         }
-    } catch (error) {
-        console.error('Fetch error:', error);
-        document.getElementById('statusText').textContent = '獲取失敗';
-        addLog('❌ 無法獲取戰鬥資料: ' + error.message, 'error');
+    } catch (e) {
+        console.error('Fetch battle error:', e);
+    }
+}
+
+async function fetchHeroes() {
+    try {
+        const res = await fetch(HEROES_URL + '?t=' + Date.now());
+        const data = await res.json();
+        
+        // 更新世界英雄
+        data.heroes.forEach(hero => {
+            if (!game.worldHeroes.find(h => h.data.card_id === hero.card_id)) {
+                const x = 100 + Math.random() * (worldCanvas.width - 200);
+                const y = worldCanvas.height * 0.82;
+                game.worldHeroes.push(new WorldHero(hero, x, y));
+            }
+        });
+        
+        document.getElementById('aliveCount').textContent = game.worldHeroes.length;
+    } catch (e) {
+        // 用測試資料
     }
 }
 
@@ -887,149 +817,122 @@ function toggleAutoFetch() {
     const btn = document.getElementById('autoFetchBtn');
     
     if (game.autoFetch) {
-        btn.textContent = '📡 自動監聽: ON';
         btn.classList.add('active');
-        game.autoFetchTimer = setInterval(fetchLatestBattle, POLL_INTERVAL);
-        fetchLatestBattle();
+        game.autoFetchTimer = setInterval(() => {
+            fetchBattle();
+            fetchHeroes();
+        }, POLL_INTERVAL);
+        fetchBattle();
+        fetchHeroes();
     } else {
-        btn.textContent = '📡 自動監聽: OFF';
         btn.classList.remove('active');
-        if (game.autoFetchTimer) {
-            clearInterval(game.autoFetchTimer);
-            game.autoFetchTimer = null;
-        }
+        clearInterval(game.autoFetchTimer);
     }
 }
 
-function cycleSpeed() {
-    const speeds = [0.5, 1, 2, 4];
-    const currentIndex = speeds.indexOf(game.playbackSpeed);
-    game.playbackSpeed = speeds[(currentIndex + 1) % speeds.length];
-    document.getElementById('replaySpeed').textContent = game.playbackSpeed + 'x';
+function spawnTestHero() {
+    const classes = ['warrior', 'mage', 'archer', 'knight', 'rogue'];
+    const names = ['小明', '小華', '阿強', '小美', '大雄'];
+    const x = 100 + Math.random() * (worldCanvas.width - 200);
+    const y = worldCanvas.height * 0.82;
+    
+    game.worldHeroes.push(new WorldHero({
+        card_id: Date.now(),
+        name: names[Math.floor(Math.random() * names.length)],
+        class: classes[Math.floor(Math.random() * classes.length)],
+        rarity: 'R'
+    }, x, y));
+    
+    document.getElementById('aliveCount').textContent = game.worldHeroes.length;
 }
 
-// ============ Demo 模式 ============
-let demoMode = false;
-
-function toggleDemo() {
-    demoMode = !demoMode;
-    if (demoMode) {
-        generateDemoBattle();
-    }
-}
-
-function generateDemoBattle() {
-    const classes = ['warrior', 'mage', 'archer', 'knight'];
-    const rarities = ['N', 'R', 'SR', 'SSR'];
-    const names = ['火焰', '冰霜', '雷霆', '暗影', '聖光', '翠綠'];
-    const suffixes = { warrior: '劍士', mage: '法師', archer: '獵手', knight: '騎士' };
-    
-    const class1 = classes[Math.floor(Math.random() * classes.length)];
-    const class2 = classes[Math.floor(Math.random() * classes.length)];
-    
-    const demo = {
-        id: 'demo_' + Date.now(),
-        attacker: {
-            card_id: Math.floor(Math.random() * 1000000),
-            name: names[Math.floor(Math.random() * names.length)] + suffixes[class1],
-            class: class1,
-            rarity: rarities[Math.floor(Math.random() * rarities.length)],
-            atk: 50 + Math.floor(Math.random() * 50),
-            def: 30 + Math.floor(Math.random() * 40),
-            spd: 40 + Math.floor(Math.random() * 40)
-        },
-        defender: {
-            card_id: Math.floor(Math.random() * 1000000),
-            name: names[Math.floor(Math.random() * names.length)] + suffixes[class2],
-            class: class2,
-            rarity: rarities[Math.floor(Math.random() * rarities.length)],
-            atk: 50 + Math.floor(Math.random() * 50),
-            def: 30 + Math.floor(Math.random() * 40),
-            spd: 40 + Math.floor(Math.random() * 40)
-        },
-        events: [
-            { tick: 0, type: 'battle_start', msg: '戰鬥開始！' },
-            { tick: 30, type: 'attack', who: 'attacker', damage: 20 + Math.floor(Math.random() * 15) },
-            { tick: 55, type: 'attack', who: 'defender', damage: 18 + Math.floor(Math.random() * 15) },
-            { tick: 80, type: 'skill', who: 'attacker', skill_name: '必殺技', damage: 35 + Math.floor(Math.random() * 20) },
-            { tick: 100, type: 'attack', who: 'defender', damage: 22 + Math.floor(Math.random() * 15) },
-            { tick: 120, type: 'attack', who: 'attacker', damage: 25 + Math.floor(Math.random() * 15) },
-            { tick: 140, type: 'skill', who: 'defender', skill_name: '反擊', damage: 30 + Math.floor(Math.random() * 20) }
-        ]
-    };
-    
-    // 加入訊息
-    demo.events.forEach(e => {
-        if (e.type === 'attack') {
-            const who = e.who === 'attacker' ? demo.attacker : demo.defender;
-            e.msg = `${who.name} 發動普攻！造成 ${e.damage} 傷害`;
-        } else if (e.type === 'skill') {
-            const who = e.who === 'attacker' ? demo.attacker : demo.defender;
-            e.msg = `${who.name} 發動【${e.skill_name}】！造成 ${e.damage} 傷害`;
-        }
-    });
-    
-    // 隨機決定勝者
-    const winner = Math.random() > 0.5 ? 'attacker' : 'defender';
-    const loser = winner === 'attacker' ? 'defender' : 'attacker';
-    const winnerData = winner === 'attacker' ? demo.attacker : demo.defender;
-    const loserData = loser === 'attacker' ? demo.attacker : demo.defender;
-    
-    demo.events.push({ tick: 160, type: 'death', who: loser, msg: `${loserData.name} 倒下了...` });
-    demo.events.push({ tick: 160, type: 'battle_end', winner, msg: `🏆 ${winnerData.name} 獲得勝利！` });
-    
-    loadBattle(demo);
-    setTimeout(() => replayBattle(), 500);
-}
-
-// ============ 主遊戲迴圈 ============
+// ============ 主迴圈 ============
 function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    drawBackground();
+    // === 戰鬥區 ===
+    battleCtx.clearRect(0, 0, battleCanvas.width, battleCanvas.height);
+    drawBattleBackground();
     
     if (game.leftFighter && game.rightFighter) {
         game.leftFighter.update();
         game.rightFighter.update();
-        game.leftFighter.updateUI();
-        game.rightFighter.updateUI();
-        
-        // 按位置排序繪製
-        const fighters = [game.leftFighter, game.rightFighter].sort((a, b) => a.y - b.y);
-        fighters.forEach(f => f.draw());
+        game.leftFighter.draw(battleCtx);
+        game.rightFighter.draw(battleCtx);
     } else {
-        // 沒有戰鬥時顯示等待畫面
-        ctx.fillStyle = '#ffd700';
-        ctx.font = '16px Courier New';
-        ctx.textAlign = 'center';
-        ctx.fillText('🌲 等待戰鬥資料...', canvas.width / 2, canvas.height / 2);
-        ctx.font = '12px Courier New';
-        ctx.fillStyle = '#888';
-        ctx.fillText('點擊「檢查新戰鬥」或開啟「自動監聽」', canvas.width / 2, canvas.height / 2 + 25);
+        battleCtx.fillStyle = '#888';
+        battleCtx.font = '12px Courier New';
+        battleCtx.textAlign = 'center';
+        battleCtx.fillText('等待戰鬥...', battleCanvas.width / 2, battleCanvas.height / 2);
     }
     
-    updateParticles();
-    drawParticles();
+    // 粒子
+    game.battleParticles = game.battleParticles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.15;
+        p.life--;
+        battleCtx.globalAlpha = p.life / 25;
+        battleCtx.fillStyle = p.color;
+        battleCtx.fillRect(p.x, p.y, p.size, p.size);
+        return p.life > 0;
+    });
+    battleCtx.globalAlpha = 1;
     
-    updateDamageNumbers();
-    drawDamageNumbers();
+    // 傷害數字
+    game.damageNumbers = game.damageNumbers.filter(d => {
+        d.y += d.vy;
+        d.vy += 0.08;
+        d.life--;
+        battleCtx.globalAlpha = Math.min(1, d.life / 15);
+        battleCtx.font = 'bold 14px Courier New';
+        battleCtx.textAlign = 'center';
+        battleCtx.fillStyle = '#000';
+        battleCtx.fillText('-' + d.damage, d.x + 1, d.y + 1);
+        battleCtx.fillStyle = d.color;
+        battleCtx.fillText('-' + d.damage, d.x, d.y);
+        return d.life > 0;
+    });
+    battleCtx.globalAlpha = 1;
     
-    if (game.isPlaying) {
-        processEvents();
-    }
+    processBattleEvents();
+    
+    // === 世界區 ===
+    worldCtx.clearRect(0, 0, worldCanvas.width, worldCanvas.height);
+    drawWorldBackground();
+    
+    game.worldHeroes.forEach(hero => {
+        hero.update();
+        hero.draw(worldCtx);
+    });
     
     requestAnimationFrame(gameLoop);
 }
 
 // ============ 初始化 ============
 function init() {
-    addLog('🌲 娜米的英雄舞台 v3 啟動！', 'start');
-    addLog('💡 開啟「自動監聽」可即時接收 TG Bot 的戰鬥', 'start');
+    resizeCanvases();
     
-    // 嘗試載入初始資料
-    fetchLatestBattle();
+    // 加幾個測試英雄
+    for (let i = 0; i < 4; i++) {
+        spawnTestHero();
+    }
+    
+    // 嘗試載入資料
+    fetchBattle();
     
     gameLoop();
+}
+
+// Polyfill
+if (!battleCtx.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+    };
 }
 
 init();
