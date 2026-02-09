@@ -2246,22 +2246,25 @@ async def hero_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     for err in result["errors"]:
                         msg += f"• {err}\n"
                 
-                # 嘗試顯示英雄頭像
+                # 嘗試顯示英雄卡片（獨特背景）
                 hero = get_hero_by_id(card_id)
                 if hero and hero.source_hash:
                     try:
-                        from hero_avatar import generate_avatar_with_frame
+                        from card_renderer import render_hero_card
                         import io
-                        avatar_bytes = generate_avatar_with_frame(
-                            hero.source_hash, hero.rank, hero.hero_class, 64
+                        card_bytes = render_hero_card(
+                            hero_class=hero.hero_class,
+                            rank=hero.rank,
+                            block_hash=hero.source_hash,
+                            card_size=(200, 200)
                         )
                         await update.message.reply_photo(
-                            photo=io.BytesIO(avatar_bytes),
+                            photo=io.BytesIO(card_bytes),
                             caption=msg,
                             parse_mode='Markdown'
                         )
                     except Exception as e:
-                        logger.warning(f"Avatar in verify failed: {e}")
+                        logger.warning(f"Card render in verify failed: {e}")
                         await update.message.reply_text(msg, parse_mode='Markdown')
                 else:
                     await update.message.reply_text(msg, parse_mode='Markdown')

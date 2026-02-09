@@ -1636,5 +1636,49 @@
     "rank": "N",
     "tx_id": "a08ecd378cfa07b9b5247efc983a2a0bb0c6ad9341a4dfeb875bbbdf4469520d",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382797141,
+    "pre_tx": "a08ecd378cfa07b9b5247efc983a2a0bb0c6ad9341a4dfeb875bbbdf4469520d",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "9f00f3dd5435ab703891c830302a57d6f56cb18347ef4dbfb784850f52b6f398",
+    "tx_id": "d8e65937093b0d5a5db656dcaa4633b6c2a081b8180dc0e2c24ef28dac8f2762"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382801609,
+    "pre_tx": null,
+    "pay_tx": "fb4012240ebfe683cb59d2ec130e6a71b1cf29f0cec6a1a45dc0e6ba9ea08e12",
+    "src": "209ad8541d72e0318d2fb306169111cfcac4ed358a4a8118c8fee431281e483e",
+    "rank": "R",
+    "tx_id": "17b5c79ff472ce64b634085c99c83017af601e01a1a8421534bb0b3ae50b0d99",
+    "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382801609,
+    "pre_tx": "17b5c79ff472ce64b634085c99c83017af601e01a1a8421534bb0b3ae50b0d99",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "5c4cd4bcc5abcc34db4c4c7cfc7419d6f6d66e0d7e46b2317ab2ec7184e756f4",
+    "tx_id": "e60d62e6d8e13baa848a0bd75a1536eb73db938bd5e4db010c93a5181af2cd66"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382804420,
+    "pre_tx": null,
+    "pay_tx": "9b2757cc5f4b1739090ad983c23933e20e94d5a6eb796c7e9206aa4db4265126",
+    "src": "3cf4450b646a03f0beab668cc93ca0171dc614a7a28bf5d029fcb3341dda8d64",
+    "rank": "R",
+    "tx_id": "1aefffc20cdcbb63a4d6ef19b3e51dcbe962e374cdfdd581e75c283813068403",
+    "signer": "player"
   }
 ]
