@@ -1,41 +1,242 @@
 {
-  "id": "demo_battle_001",
-  "timestamp": "2026-02-09T18:30:00+08:00",
+  "id": "pvp_381635914_vs_381648803_1770634296",
+  "timestamp": "2026-02-09T18:51:36.335142",
   "attacker": {
-    "card_id": 381858178,
-    "name": "火焰劍士",
-    "class": "warrior",
-    "rarity": "SSR",
-    "atk": 85,
-    "def": 60,
-    "spd": 70
+    "card_id": 381635914,
+    "name": "走位風騷",
+    "class": "rogue",
+    "rarity": "R",
+    "atk": 98,
+    "def": 116,
+    "spd": 82
   },
   "defender": {
-    "card_id": 381900234,
-    "name": "冰霜法師",
-    "class": "mage",
+    "card_id": 381648803,
+    "name": "背刺你",
+    "class": "rogue",
     "rarity": "SR",
-    "atk": 90,
-    "def": 45,
-    "spd": 55
+    "atk": 112,
+    "def": 90,
+    "spd": 129
   },
   "events": [
-    { "tick": 0, "type": "battle_start", "msg": "戰鬥開始！" },
-    { "tick": 30, "type": "atb_full", "who": "attacker", "bar": "move" },
-    { "tick": 30, "type": "attack", "who": "attacker", "target": "defender", "damage": 25, "msg": "火焰劍士 發動普攻！造成 25 傷害" },
-    { "tick": 60, "type": "atb_full", "who": "defender", "bar": "move" },
-    { "tick": 60, "type": "attack", "who": "defender", "target": "attacker", "damage": 22, "msg": "冰霜法師 發動普攻！造成 22 傷害" },
-    { "tick": 90, "type": "atb_full", "who": "attacker", "bar": "skill" },
-    { "tick": 90, "type": "skill", "who": "attacker", "skill_name": "烈焰斬", "target": "defender", "damage": 45, "msg": "火焰劍士 發動【烈焰斬】！造成 45 傷害" },
-    { "tick": 120, "type": "atb_full", "who": "attacker", "bar": "move" },
-    { "tick": 120, "type": "attack", "who": "attacker", "target": "defender", "damage": 28, "msg": "火焰劍士 發動普攻！造成 28 傷害" },
-    { "tick": 150, "type": "death", "who": "defender", "msg": "冰霜法師 倒下了..." },
-    { "tick": 150, "type": "battle_end", "winner": "attacker", "msg": "🏆 火焰劍士 獲得勝利！" }
+    {
+      "tick": 0,
+      "type": "battle_start",
+      "msg": "⚔️ ATB 戰鬥開始！"
+    },
+    {
+      "tick": 30,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 38,
+      "msg": "背刺你 發動普攻！造成 38 傷害"
+    },
+    {
+      "tick": 50,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 40,
+      "msg": "走位風騷 發動普攻！造成 40 傷害"
+    },
+    {
+      "tick": 70,
+      "type": "skill",
+      "who": "defender",
+      "skill_name": "幻影突襲",
+      "target": "attacker",
+      "damage": 61,
+      "msg": "背刺你 發動【幻影突襲】！造成 61 傷害"
+    },
+    {
+      "tick": 90,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 39,
+      "msg": "走位風騷 發動普攻！造成 39 傷害"
+    },
+    {
+      "tick": 110,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 37,
+      "msg": "背刺你 發動普攻！造成 37 傷害"
+    },
+    {
+      "tick": 130,
+      "type": "skill",
+      "who": "attacker",
+      "skill_name": "幻影突襲",
+      "target": "defender",
+      "damage": 68,
+      "msg": "走位風騷 發動【幻影突襲】！造成 68 傷害"
+    },
+    {
+      "tick": 150,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 29,
+      "msg": "背刺你 發動普攻！造成 29 傷害"
+    },
+    {
+      "tick": 170,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 41,
+      "msg": "走位風騷 發動普攻！造成 41 傷害"
+    },
+    {
+      "tick": 190,
+      "type": "skill",
+      "who": "defender",
+      "skill_name": "幻影突襲",
+      "target": "attacker",
+      "damage": 61,
+      "msg": "背刺你 發動【幻影突襲】！造成 61 傷害"
+    },
+    {
+      "tick": 210,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 41,
+      "msg": "走位風騷 發動普攻！造成 41 傷害"
+    },
+    {
+      "tick": 230,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 38,
+      "msg": "背刺你 發動普攻！造成 38 傷害"
+    },
+    {
+      "tick": 250,
+      "type": "skill",
+      "who": "attacker",
+      "skill_name": "幻影突襲",
+      "target": "defender",
+      "damage": 73,
+      "msg": "走位風騷 發動【幻影突襲】！造成 73 傷害"
+    },
+    {
+      "tick": 270,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 37,
+      "msg": "背刺你 發動普攻！造成 37 傷害"
+    },
+    {
+      "tick": 290,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 36,
+      "msg": "走位風騷 發動普攻！造成 36 傷害"
+    },
+    {
+      "tick": 310,
+      "type": "skill",
+      "who": "defender",
+      "skill_name": "幻影突襲",
+      "target": "attacker",
+      "damage": 66,
+      "msg": "背刺你 發動【幻影突襲】！造成 66 傷害"
+    },
+    {
+      "tick": 330,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 34,
+      "msg": "走位風騷 發動普攻！造成 34 傷害"
+    },
+    {
+      "tick": 350,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 33,
+      "msg": "背刺你 發動普攻！造成 33 傷害"
+    },
+    {
+      "tick": 370,
+      "type": "skill",
+      "who": "attacker",
+      "skill_name": "幻影突襲",
+      "target": "defender",
+      "damage": 66,
+      "msg": "走位風騷 發動【幻影突襲】！造成 66 傷害"
+    },
+    {
+      "tick": 390,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 30,
+      "msg": "背刺你 發動普攻！造成 30 傷害"
+    },
+    {
+      "tick": 410,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 33,
+      "msg": "走位風騷 發動普攻！造成 33 傷害"
+    },
+    {
+      "tick": 430,
+      "type": "skill",
+      "who": "defender",
+      "skill_name": "幻影突襲",
+      "target": "attacker",
+      "damage": 55,
+      "msg": "背刺你 發動【幻影突襲】！造成 55 傷害"
+    },
+    {
+      "tick": 450,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 41,
+      "msg": "走位風騷 發動普攻！造成 41 傷害"
+    },
+    {
+      "tick": 470,
+      "type": "death",
+      "who": "attacker",
+      "msg": "💀 走位風騷 倒下了..."
+    },
+    {
+      "tick": 470,
+      "type": "battle_end",
+      "winner": "defender",
+      "msg": "🏆 背刺你 獲得勝利！"
+    }
   ],
   "result": {
-    "winner": "attacker",
-    "winner_name": "火焰劍士",
-    "loser_name": "冰霜法師",
-    "total_ticks": 150
+    "winner": "defender",
+    "winner_name": "背刺你",
+    "loser_name": "走位風騷",
+    "winner_card_id": 381648803,
+    "loser_card_id": 381635914
+  },
+  "stats": {
+    "loops": 55,
+    "p1_attacks": 11,
+    "p2_attacks": 11,
+    "p1_skills": 6,
+    "p2_skills": 8,
+    "p1_evades": 6,
+    "p2_evades": 7,
+    "p1_damage_dealt": 614,
+    "p2_damage_dealt": 659
   }
 }
