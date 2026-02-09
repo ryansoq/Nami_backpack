@@ -280,23 +280,22 @@ async def announce_hero_birth(bot, hero, username: str):
 快速指令：
 <code>/nami_verify {hero.card_id}</code>"""
     
-    # 嘗試附上英雄圖片（與私聊用同路徑）
+    # 嘗試附上獨特背景的英雄卡片
     try:
-        hero_images_dir = Path.home() / "nami-backpack" / "projects" / "pixel-hero-stage"
-        class_image_map = {
-            "knight": "knight.png",
-            "mage": "mage.png",
-            "archer": "archer.png",
-            "rogue": "rogue.png"
-        }
-        image_file = class_image_map.get(hero.hero_class)
-        image_path = hero_images_dir / image_file if image_file else None
+        from card_renderer import render_hero_card
+        import io
         
-        if image_path and image_path.exists():
-            await send_announcement_photo(bot, open(image_path, 'rb'), msg, parse_mode='HTML')
-            return
+        card_bytes = render_hero_card(
+            hero_class=hero.hero_class,
+            rank=rank,
+            block_hash=hero.source_hash or str(hero.card_id),
+            card_size=(200, 200)
+        )
+        
+        await send_announcement_photo(bot, io.BytesIO(card_bytes), msg, parse_mode='HTML')
+        return
     except Exception as e:
-        logger.warning(f"群聊公告圖片失敗: {e}")
+        logger.warning(f"群聊公告卡片渲染失敗: {e}")
     
     # fallback 純文字
     await send_announcement(bot, msg, parse_mode='HTML')
@@ -978,45 +977,26 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if hero.tx_id:
             logger.info(f"   📦 TX: {hero.tx_id}")
         
-        # 回覆結果（帶職業圖片）
+        # 回覆結果（帶獨特背景的卡片）
         try:
-            from pathlib import Path
+            from card_renderer import render_hero_card
+            import io
             
-            # 使用 Ryan 的像素圖片
-            hero_images_dir = Path.home() / "nami-backpack" / "projects" / "pixel-hero-stage"
-            class_image_map = {
-                "knight": "knight.png",
-                "mage": "mage.png",
-                "archer": "archer.png",
-                "rogue": "rogue.png"
-            }
+            # 使用 block hash 生成獨特背景
+            card_bytes = render_hero_card(
+                hero_class=hero.hero_class,
+                rank=hero.rank,
+                block_hash=hero.source_hash or str(hero.card_id),
+                card_size=(200, 200)  # 較大的卡片
+            )
             
-            image_file = class_image_map.get(hero.hero_class)
-            image_path = hero_images_dir / image_file if image_file else None
-            
-            if image_path and image_path.exists():
-                await update.message.reply_photo(
-                    photo=open(image_path, 'rb'),
-                    caption=format_summon_result(hero),
-                    parse_mode='Markdown'
-                )
-            else:
-                # 備用：用舊的頭像生成
-                from hero_avatar import generate_avatar_with_frame
-                import io
-                avatar_bytes = generate_avatar_with_frame(
-                    block_hash=hero.source_hash,
-                    rank=hero.rank,
-                    hero_class=hero.hero_class,
-                    size=64
-                )
-                await update.message.reply_photo(
-                    photo=io.BytesIO(avatar_bytes),
-                    caption=format_summon_result(hero),
-                    parse_mode='Markdown'
-                )
+            await update.message.reply_photo(
+                photo=io.BytesIO(card_bytes),
+                caption=format_summon_result(hero),
+                parse_mode='Markdown'
+            )
         except Exception as e:
-            logger.warning(f"Hero image failed: {e}, fallback to text")
+            logger.warning(f"Card render failed: {e}, fallback to text")
             await update.message.reply_text(format_summon_result(hero), parse_mode='Markdown')
         
         # 群組公告

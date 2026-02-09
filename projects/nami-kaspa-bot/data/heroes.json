@@ -1236,6 +1236,29 @@
       "protected": false,
       "death_reason": "burn",
       "death_tx": "cc1d0223c622dda3616d25ce8628b19c4aadaa67b644fe745014039750b51393"
+    },
+    "382797141": {
+      "card_id": 382797141,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "mage",
+      "rank": "N",
+      "rarity": "N",
+      "atk": 16,
+      "def": 12,
+      "spd": 59,
+      "status": "alive",
+      "latest_daa": 382797141,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-09T20:21:49.944047",
+      "death_time": "",
+      "source_hash": "1d14c021a9599b1f1eeddafe6eead68a7e3643489653a705b6bcac3584df0fd6",
+      "payment_tx": "928915b0e477f1cad80eb63c21a3ab8b587e45dc7df08055127033b3539c2729",
+      "tx_id": "a08ecd378cfa07b9b5247efc983a2a0bb0c6ad9341a4dfeb875bbbdf4469520d",
+      "latest_tx": "a08ecd378cfa07b9b5247efc983a2a0bb0c6ad9341a4dfeb875bbbdf4469520d",
+      "name": "",
+      "protected": false
     }
   },
   "user_heroes": {
@@ -1272,7 +1295,8 @@
       382787421,
       382789020,
       382789579,
-      382795484
+      382795484,
+      382797141
     ],
     "684243833": [
       380994228,
@@ -1295,10 +1319,10 @@
       381962324
     ]
   },
-  "last_summon_daa": 382795484,
+  "last_summon_daa": 382797141,
   "summon_queue": [],
-  "total_mana_pool": 72,
-  "last_checked_daa": 382795915,
+  "total_mana_pool": 82,
+  "last_checked_daa": 382798841,
   "last_reward_daa": 382766666,
   "reward_history": [
     {
