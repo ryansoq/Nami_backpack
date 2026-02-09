@@ -1117,6 +1117,29 @@
       "protected": false,
       "death_reason": "burn",
       "death_tx": "e25dbb8b87cba5da84e16aeea2aac96c1af974a68859195156b73ced1f58fe94"
+    },
+    "382771619": {
+      "card_id": 382771619,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "rogue",
+      "rank": "SR",
+      "rarity": "SR",
+      "atk": 78,
+      "def": 48,
+      "spd": 100,
+      "status": "alive",
+      "latest_daa": 382771619,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-09T19:38:35.373569",
+      "death_time": "",
+      "source_hash": "362a645b601e58a19cd7a6868bc9c8b54581d0f2d9ae98f7efba54462a904a48",
+      "payment_tx": "b137edfe4129c74323e8cf07b8e952dbf4337e59bcdf85a5f73e01ba8099837c",
+      "tx_id": "b843d3387e646da5d108f00e255d9b7c680d55c1c9a2f4142b0dddab75c5e2c8",
+      "latest_tx": "b843d3387e646da5d108f00e255d9b7c680d55c1c9a2f4142b0dddab75c5e2c8",
+      "name": "",
+      "protected": false
     }
   },
   "user_heroes": {
@@ -1148,7 +1171,8 @@
       382139454,
       382139889,
       382140337,
-      382142682
+      382142682,
+      382771619
     ],
     "684243833": [
       380994228,
@@ -1171,10 +1195,10 @@
       381962324
     ]
   },
-  "last_summon_daa": 382142682,
+  "last_summon_daa": 382771619,
   "summon_queue": [],
-  "total_mana_pool": 0,
-  "last_checked_daa": 382768296,
+  "total_mana_pool": 10,
+  "last_checked_daa": 382782894,
   "last_reward_daa": 382766666,
   "reward_history": [
     {

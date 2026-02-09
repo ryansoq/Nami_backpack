@@ -1509,5 +1509,16 @@
     "reason": "burn",
     "payment_tx": "c3c838b107ad5e9580da609f92cf1d764eab8b5042075ed8662029330c21366a",
     "tx_id": "e25dbb8b87cba5da84e16aeea2aac96c1af974a68859195156b73ced1f58fe94"
+  },
+  {
+    "g": "nami_hero",
+    "type": "birth",
+    "daa": 382771619,
+    "pre_tx": null,
+    "pay_tx": "b137edfe4129c74323e8cf07b8e952dbf4337e59bcdf85a5f73e01ba8099837c",
+    "src": "362a645b601e58a19cd7a6868bc9c8b54581d0f2d9ae98f7efba54462a904a48",
+    "rank": "SR",
+    "tx_id": "b843d3387e646da5d108f00e255d9b7c680d55c1c9a2f4142b0dddab75c5e2c8",
+    "signer": "player"
   }
 ]
