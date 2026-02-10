@@ -206,28 +206,46 @@
         await Promise.all(promises);
     }
     
+    // API 設定
+    const API_URL = 'https://cherubical-yellowly-jovita.ngrok-free.dev';
+    
     // 載入真實英雄資料
     async function loadRealHeroes() {
         try {
-            const response = await fetch('heroes/alive.json');
+            document.getElementById('status').textContent = '🔄 連接 API...';
+            
+            const response = await fetch(`${API_URL}/api/heroes`, {
+                headers: {
+                    'ngrok-skip-browser-warning': 'true'
+                }
+            });
             const data = await response.json();
             
             // 清除現有英雄
             heroSprites.forEach(h => scene.remove(h));
             heroSprites = [];
             
-            // 只建立保護英雄（守護世界樹）
-            const guardians = data.heroes.filter(h => h.protected);
-            guardians.forEach(heroData => {
-                createHeroSprite(heroData);
+            // 轉換資料格式並建立英雄
+            const heroList = data.heroes || [];
+            const guardians = heroList.filter(h => h.protected);
+            
+            heroList.forEach(heroData => {
+                // 轉換 API 格式到 3D 顯示格式
+                const displayData = {
+                    name: heroData.name || `#${heroData.card_id}`,
+                    class: heroData.hero_class || 'knight',
+                    kills: heroData.kills || 0,
+                    protected: heroData.protected || false
+                };
+                createHeroSprite(displayData);
             });
             
-            document.getElementById('heroCount').textContent = `👥 全部英雄：${data.count}`;
+            document.getElementById('heroCount').textContent = `👥 全部英雄：${data.total}`;
             document.getElementById('guardianCount').textContent = `🛡️ 守護中：${guardians.length}`;
-            document.getElementById('status').textContent = '✅ 載入完成！';
+            document.getElementById('status').textContent = '✅ API 連線成功！';
         } catch (e) {
             console.error('載入英雄失敗:', e);
-            document.getElementById('status').textContent = '⚠️ 載入失敗，使用測試資料';
+            document.getElementById('status').textContent = '⚠️ API 連線失敗';
         }
     }
     
