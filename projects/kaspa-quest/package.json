@@ -1,14 +1,11 @@
 {
-    "name": "BrowserQuest"
-  , "version": "0.0.1"
+    "name": "KaspaQuest"
+  , "version": "0.1.0"
   , "private": false 
   , "dependencies": {
-    "underscore": ">0"
-    , "log": ">0"
-    , "bison": ">0"
-    , "websocket": ">0"
-    , "websocket-server": ">0"
-    , "sanitizer": ">0"
-    , "memcache": ">0"
+    "underscore": "^1.13.6"
+    , "log": "^6.3.1"
+    , "ws": "^8.14.2"
+    , "sanitize-html": "^2.11.0"
   }
 }

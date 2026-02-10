@@ -2,11 +2,18 @@
 var fs = require('fs'),
     Metrics = require('./metrics');
 
+// Simple logger
+global.log = {
+    info: function() { console.log('[INFO]', ...arguments); },
+    debug: function() { console.log('[DEBUG]', ...arguments); },
+    error: function() { console.error('[ERROR]', ...arguments); },
+    trace: function() { console.log('[TRACE]', ...arguments); }
+};
 
 function main(config) {
     var ws = require("./ws"),
         WorldServer = require("./worldserver"),
-        Log = require('log'),
+        Player = require("./player"),
         _ = require('underscore'),
         server = new ws.MultiVersionWebsocketServer(config.port),
         metrics = config.metrics_enabled ? new Metrics(config) : null;
@@ -25,16 +32,7 @@ function main(config) {
             }
         }, 1000);
     
-    switch(config.debug_level) {
-        case "error":
-            log = new Log(Log.ERROR); break;
-        case "debug":
-            log = new Log(Log.DEBUG); break;
-        case "info":
-            log = new Log(Log.INFO); break;
-    };
-    
-    log.info("Starting BrowserQuest game server...");
+    log.info("Starting KaspaQuest game server...");
     
     server.onConnect(function(connection) {
         var world, // the one in which the player will be spawned
