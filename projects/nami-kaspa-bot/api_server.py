@@ -278,6 +278,125 @@ def get_leaderboard(limit: int = 10):
     }
 
 
+# ========== 怪物系統（PvE）==========
+
+import hashlib
+import time
+
+# 怪物類型定義
+MONSTER_TYPES = [
+    {"type": "wolf", "name": "🐺 野狼", "base_atk": 30, "base_def": 20, "base_spd": 40},
+    {"type": "bat", "name": "🦇 蝙蝠", "base_atk": 25, "base_def": 15, "base_spd": 60},
+    {"type": "boar", "name": "🐗 野豬", "base_atk": 50, "base_def": 40, "base_spd": 20},
+    {"type": "slime", "name": "🟢 史萊姆", "base_atk": 20, "base_def": 30, "base_spd": 25},
+    {"type": "goblin", "name": "👺 哥布林", "base_atk": 35, "base_def": 25, "base_spd": 35},
+]
+
+def generate_monster(seed: int, monster_id: int):
+    """用 seed 生成怪物屬性"""
+    # 用 seed + monster_id 產生確定性的屬性
+    h = hashlib.sha256(f"{seed}-{monster_id}".encode()).hexdigest()
+    
+    # 選擇怪物類型
+    type_idx = int(h[0:2], 16) % len(MONSTER_TYPES)
+    monster_base = MONSTER_TYPES[type_idx]
+    
+    # 屬性變化 (-20% ~ +30%)
+    atk_mod = (int(h[2:4], 16) % 50 - 20) / 100
+    def_mod = (int(h[4:6], 16) % 50 - 20) / 100
+    spd_mod = (int(h[6:8], 16) % 50 - 20) / 100
+    
+    return {
+        "id": f"m{seed}-{monster_id}",
+        "type": monster_base["type"],
+        "name": monster_base["name"],
+        "atk": int(monster_base["base_atk"] * (1 + atk_mod)),
+        "def": int(monster_base["base_def"] * (1 + def_mod)),
+        "spd": int(monster_base["base_spd"] * (1 + spd_mod)),
+        "seed": seed
+    }
+
+@app.get("/api/monsters")
+def get_monsters(count: int = 5):
+    """取得當前怪物列表（用時間 seed 生成）"""
+    # 每 10 分鐘更換一批怪物
+    seed = int(time.time() // 600)
+    
+    monsters = []
+    for i in range(count):
+        monsters.append(generate_monster(seed, i))
+    
+    return {
+        "monsters": monsters,
+        "seed": seed,
+        "refresh_in": 600 - (int(time.time()) % 600)  # 秒數後刷新
+    }
+
+
+class PvERequest(BaseModel):
+    hero_id: str
+    monster_id: str
+
+@app.post("/api/pve")
+def pve_battle(req: PvERequest):
+    """PvE 戰鬥（測試用，不記錄）"""
+    # 取得英雄
+    data = load_json("heroes.json")
+    heroes_dict = data.get("heroes", {})
+    hero = heroes_dict.get(req.hero_id)
+    
+    if not hero or hero.get("status") != "alive":
+        raise HTTPException(status_code=404, detail="Hero not found or dead")
+    
+    # 解析怪物 ID (格式: m{seed}-{id})
+    try:
+        parts = req.monster_id.replace("m", "").split("-")
+        seed = int(parts[0])
+        mid = int(parts[1])
+        monster = generate_monster(seed, mid)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid monster ID")
+    
+    # 簡單戰鬥計算（類似 PvP）
+    hero_power = hero.get("atk", 50) + hero.get("spd", 50) * 0.5
+    monster_power = monster["atk"] + monster["spd"] * 0.5
+    
+    # 加入隨機因素（用 hero_id + monster_id 當 seed）
+    battle_hash = hashlib.sha256(f"{req.hero_id}-{req.monster_id}".encode()).hexdigest()
+    luck = (int(battle_hash[0:4], 16) % 40 - 20) / 100  # -20% ~ +20%
+    
+    hero_final = hero_power * (1 + luck)
+    monster_final = monster_power * (1 - luck)
+    
+    hero_wins = hero_final > monster_final
+    
+    # 計算傷害
+    if hero_wins:
+        damage_to_monster = max(10, int(hero.get("atk", 50) - monster["def"] * 0.5))
+        result = {
+            "winner": "hero",
+            "hero": {
+                "name": hero.get("name") or f"#{req.hero_id}",
+                "damage_dealt": damage_to_monster
+            },
+            "monster": monster,
+            "message": f"🎉 {hero.get('name') or '英雄'} 擊敗了 {monster['name']}！"
+        }
+    else:
+        damage_to_hero = max(10, int(monster["atk"] - hero.get("def", 50) * 0.5))
+        result = {
+            "winner": "monster",
+            "hero": {
+                "name": hero.get("name") or f"#{req.hero_id}",
+                "damage_taken": damage_to_hero
+            },
+            "monster": monster,
+            "message": f"💀 {hero.get('name') or '英雄'} 被 {monster['name']} 擊敗了..."
+        }
+    
+    return result
+
+
 # ========== 健康檢查 ==========
 
 @app.get("/health")

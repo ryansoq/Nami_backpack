@@ -243,10 +243,103 @@
             document.getElementById('heroCount').textContent = `👥 全部英雄：${data.total}`;
             document.getElementById('guardianCount').textContent = `🛡️ 守護中：${guardians.length}`;
             document.getElementById('status').textContent = '✅ API 連線成功！';
+            
+            // 載入怪物
+            await loadMonsters();
         } catch (e) {
             console.error('載入英雄失敗:', e);
             document.getElementById('status').textContent = '⚠️ API 連線失敗';
         }
+    }
+    
+    // 怪物 Sprites
+    let monsterSprites = [];
+    const monsterColors = {
+        'wolf': 0x666666,
+        'bat': 0x4a0080,
+        'boar': 0x8b4513,
+        'slime': 0x00ff00,
+        'goblin': 0x228b22
+    };
+    
+    // 載入怪物
+    async function loadMonsters() {
+        try {
+            const response = await fetch(`${API_URL}/api/monsters?count=5`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            const data = await response.json();
+            
+            // 清除現有怪物
+            monsterSprites.forEach(m => scene.remove(m));
+            monsterSprites = [];
+            
+            // 建立怪物 sprites
+            data.monsters.forEach((monster, i) => {
+                createMonsterSprite(monster, i);
+            });
+            
+            // 更新刷新倒數
+            if (data.refresh_in) {
+                document.getElementById('status').textContent = 
+                    `✅ 連線成功！怪物刷新: ${Math.floor(data.refresh_in/60)}分${data.refresh_in%60}秒`;
+            }
+        } catch (e) {
+            console.error('載入怪物失敗:', e);
+        }
+    }
+    
+    // 建立怪物 Sprite
+    function createMonsterSprite(monsterData, index) {
+        const color = monsterColors[monsterData.type] || 0xff0000;
+        const material = new THREE.SpriteMaterial({ 
+            color: color,
+            transparent: true,
+            opacity: 0.9
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(2.5, 2.5, 1);
+        
+        // 怪物在地圖邊緣
+        const angle = (index / 5) * Math.PI * 2 + Math.PI/4;
+        const radius = 35 + Math.random() * 10;
+        sprite.position.set(
+            Math.cos(angle) * radius,
+            1.2,
+            Math.sin(angle) * radius
+        );
+        
+        sprite.userData = {
+            ...monsterData,
+            isMonster: true
+        };
+        
+        // 加入名字標籤
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(0, 0, 256, 64);
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#ff6666';
+        ctx.textAlign = 'center';
+        ctx.fillText(monsterData.name, 128, 30);
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillText(`ATK:${monsterData.atk} DEF:${monsterData.def}`, 128, 52);
+        
+        const labelTexture = new THREE.CanvasTexture(canvas);
+        const labelMaterial = new THREE.SpriteMaterial({ map: labelTexture, transparent: true });
+        const label = new THREE.Sprite(labelMaterial);
+        label.scale.set(8, 2, 1);
+        label.position.copy(sprite.position);
+        label.position.y += 3;
+        
+        scene.add(sprite);
+        scene.add(label);
+        monsterSprites.push(sprite);
+        monsterSprites.push(label);
     }
     
     // 建立英雄 Sprite
