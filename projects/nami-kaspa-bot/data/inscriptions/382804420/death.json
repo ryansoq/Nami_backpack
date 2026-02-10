@@ -1,0 +1,22 @@
+{
+  "type": "death",
+  "hero_id": 382804420,
+  "tx_id": "12bb9f9b71665a1a03f68af2092615ba722ee68a2b0bc0d6a60386bf4829ee19",
+  "pre_tx": "1aefffc20cdcbb63a4d6ef19b3e51dcbe962e374cdfdd581e75c283813068403",
+  "reason": "burn",
+  "killer_id": null,
+  "battle_tx": null,
+  "payload": {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 382804420,
+    "pre_tx": "1aefffc20cdcbb63a4d6ef19b3e51dcbe962e374cdfdd581e75c283813068403",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "5fa2b9e1862883ee7e4546e057ce4b05b3cddd8ce4609c1841fb84cdbfc7e7e9",
+    "tx_id": "12bb9f9b71665a1a03f68af2092615ba722ee68a2b0bc0d6a60386bf4829ee19"
+  },
+  "verified": true,
+  "timestamp": "2026-02-10T15:06:16.531066"
+}

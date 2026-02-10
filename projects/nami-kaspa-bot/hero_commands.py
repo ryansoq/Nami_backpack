@@ -1918,7 +1918,16 @@ async def hero_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💡 支援 ID 或名字：
 `/np sky 380344861 1234`"""
     
-    await update.message.reply_text(help_text, parse_mode='Markdown')
+    # 私聊時顯示世界之樹圖片
+    if update.effective_chat.type == "private":
+        import os
+        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree.png")
+        if os.path.exists(tree_image):
+            await update.message.reply_photo(photo=open(tree_image, 'rb'), caption=help_text, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(help_text, parse_mode='Markdown')
+    else:
+        await update.message.reply_text(help_text, parse_mode='Markdown')
 
 
 async def hero_rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2513,7 +2522,16 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 *獎勵按積分分配！*
 積分 = 存活天數 + 稀有度 + 擊殺×2"""
 
-        await update.message.reply_text(msg, parse_mode='Markdown')
+        # 私聊時顯示世界之樹圖片
+        if update.effective_chat.type == "private":
+            import os
+            tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree.png")
+            if os.path.exists(tree_image):
+                await update.message.reply_photo(photo=open(tree_image, 'rb'), caption=msg, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(msg, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(msg, parse_mode='Markdown')
         
     except Exception as e:
         logger.error(f"Next reward error: {e}")

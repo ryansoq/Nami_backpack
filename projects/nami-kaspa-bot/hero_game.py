@@ -1460,6 +1460,9 @@ async def process_pvp_onchain(
     import unified_wallet
     from datetime import datetime
     
+    # 載入資料庫（修復 db 未定義 bug）
+    db = load_heroes_db()
+    
     result = {
         "attacker_wins": False,
         "payment_tx": None,
