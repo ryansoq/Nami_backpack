@@ -634,66 +634,66 @@ function drawBattleBackground() {
     ctx.setLineDash([]);
 }
 
+// 預載世界之樹圖片
+const worldTreeImg = new Image();
+worldTreeImg.src = 'world_tree.png';
+
 function drawWorldBackground() {
     const ctx = worldCtx;
     const w = worldCanvas.width;
     const h = worldCanvas.height;
     
-    // 天空漸層
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#0a0a2a');
-    grad.addColorStop(0.6, '#16213e');
-    grad.addColorStop(1, '#1a472a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+    // 繪製世界之樹圖片作為背景
+    if (worldTreeImg.complete && worldTreeImg.naturalWidth > 0) {
+        // 計算縮放以 cover 整個 canvas
+        const imgRatio = worldTreeImg.naturalWidth / worldTreeImg.naturalHeight;
+        const canvasRatio = w / h;
+        let drawW, drawH, drawX, drawY;
+        
+        if (canvasRatio > imgRatio) {
+            drawW = w;
+            drawH = w / imgRatio;
+            drawX = 0;
+            drawY = (h - drawH) / 2;
+        } else {
+            drawH = h;
+            drawW = h * imgRatio;
+            drawX = (w - drawW) / 2;
+            drawY = 0;
+        }
+        
+        ctx.drawImage(worldTreeImg, drawX, drawY, drawW, drawH);
+        
+        // 加一層半透明遮罩讓英雄更清晰
+        ctx.fillStyle = 'rgba(10, 10, 26, 0.4)';
+        ctx.fillRect(0, 0, w, h);
+    } else {
+        // 圖片未載入時的 fallback
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, '#0a0a2a');
+        grad.addColorStop(0.6, '#16213e');
+        grad.addColorStop(1, '#1a472a');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+    }
     
-    // 星星
+    // 星星點綴
     ctx.fillStyle = '#fff';
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 20; i++) {
         const x = (i * 97 + Date.now() / 200) % w;
-        const y = (i * 53) % (h * 0.5);
+        const y = (i * 53) % (h * 0.3);
         const twinkle = Math.sin(Date.now() / 500 + i) * 0.4 + 0.6;
-        ctx.globalAlpha = twinkle * 0.5;
+        ctx.globalAlpha = twinkle * 0.3;
         ctx.fillRect(x, y, 2, 2);
     }
     ctx.globalAlpha = 1;
     
-    // 世界之樹
-    const treeX = w / 2;
-    const treeY = h * 0.85;
-    
-    // 樹幹
-    ctx.fillStyle = '#5d4037';
-    ctx.fillRect(treeX - 25, treeY - 120, 50, 130);
-    
-    // 樹冠
-    ctx.fillStyle = '#27ae60';
-    ctx.beginPath();
-    ctx.arc(treeX, treeY - 140, 80, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = '#2ecc71';
-    ctx.beginPath();
-    ctx.arc(treeX - 40, treeY - 120, 50, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(treeX + 40, treeY - 120, 50, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 發光效果
-    ctx.globalAlpha = 0.1 + Math.sin(Date.now() / 1000) * 0.05;
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath();
-    ctx.arc(treeX, treeY - 130, 100, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    
     // 地面
-    ctx.fillStyle = '#2d5a3d';
-    ctx.fillRect(0, h * 0.85, w, h * 0.15);
+    ctx.fillStyle = 'rgba(45, 90, 61, 0.7)';
+    ctx.fillRect(0, h * 0.88, w, h * 0.12);
     
     // 草地
-    ctx.fillStyle = '#3d7a4d';
+    ctx.fillStyle = 'rgba(61, 122, 77, 0.6)';
     for (let i = 0; i < w; i += 8) {
         ctx.fillRect(i, h * 0.85 - 3, 4, 5 + Math.sin(i * 0.2) * 2);
     }
