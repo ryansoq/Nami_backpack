@@ -37,7 +37,30 @@
         .ui-overlay h1 {
             color: #27ae60;
             font-size: 18px;
-            margin-bottom: 10px;
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        .ui-header {
+            cursor: pointer;
+        }
+        
+        .ui-content {
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .ui-content.collapsed {
+            display: none;
+        }
+        
+        #toggleIcon {
+            font-size: 12px;
+            transition: transform 0.3s ease;
+        }
+        
+        .collapsed-icon {
+            transform: rotate(-90deg);
         }
         
         .info-line {
@@ -93,12 +116,16 @@
     <div id="container"></div>
     <div id="error-msg"></div>
     
-    <div class="ui-overlay">
-        <h1>🌲 娜米的英雄世界</h1>
-        <div class="info-line">🎮 拖曳旋轉 | 雙指縮放</div>
-        <div class="info-line" id="heroCount">👥 英雄：0</div>
-        <div class="info-line" id="guardianCount">🛡️ 保護英雄：0</div>
-        <div class="info-line" id="status">⏳ 載入中...</div>
+    <div class="ui-overlay" id="uiPanel">
+        <div class="ui-header" onclick="toggleUI()">
+            <h1>🌲 娜米的英雄世界 <span id="toggleIcon">▼</span></h1>
+        </div>
+        <div class="ui-content" id="uiContent">
+            <div class="info-line">🎮 拖曳旋轉 | 雙指縮放</div>
+            <div class="info-line" id="heroCount">👥 英雄：0</div>
+            <div class="info-line" id="guardianCount">🛡️ 保護英雄：0</div>
+            <div class="info-line" id="status">⏳ 載入中...</div>
+        </div>
     </div>
     
     <div class="controls">
@@ -148,6 +175,16 @@
     window.resetCamera = resetCamera;
     window.toggleAutoRotate = toggleAutoRotate;
     window.loadRealHeroes = loadRealHeroes;
+    window.toggleUI = toggleUI;
+    
+    // UI 收起/展開
+    function toggleUI() {
+        const content = document.getElementById('uiContent');
+        const icon = document.getElementById('toggleIcon');
+        content.classList.toggle('collapsed');
+        icon.classList.toggle('collapsed-icon');
+        icon.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
+    }
     
     // 預載職業貼圖
     async function loadTextures() {
@@ -179,17 +216,15 @@
             heroSprites.forEach(h => scene.remove(h));
             heroSprites = [];
             
-            // 建立真實英雄
-            data.heroes.forEach(heroData => {
+            // 只建立保護英雄（守護世界樹）
+            const guardians = data.heroes.filter(h => h.protected);
+            guardians.forEach(heroData => {
                 createHeroSprite(heroData);
             });
             
-            // 統計保護英雄（/nhp 設定的）
-            const guardianCount = data.protected_count || data.heroes.filter(h => h.protected).length;
-            
-            document.getElementById('heroCount').textContent = `👥 英雄：${data.count}`;
-            document.getElementById('guardianCount').textContent = `🛡️ 保護英雄：${guardianCount}`;
-            document.getElementById('status').textContent = '✅ 已載入存活英雄！';
+            document.getElementById('heroCount').textContent = `👥 全部英雄：${data.count}`;
+            document.getElementById('guardianCount').textContent = `🛡️ 守護中：${guardians.length}`;
+            document.getElementById('status').textContent = '✅ 載入完成！';
         } catch (e) {
             console.error('載入英雄失敗:', e);
             document.getElementById('status').textContent = '⚠️ 載入失敗，使用測試資料';
