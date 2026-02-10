@@ -153,7 +153,7 @@ def root():
 
 
 @app.get("/api/heroes")
-def get_all_heroes():
+def get_all_heroes(protected_only: bool = False):
     """取得所有英雄（給 Web 顯示用）"""
     data = load_json("heroes.json")
     heroes_dict = data.get("heroes", {})
@@ -169,6 +169,10 @@ def get_all_heroes():
     
     # 只回傳存活的英雄
     alive_heroes = [h for h in hero_list if h.get("status") == "alive"]
+    
+    # 如果只要保護英雄
+    if protected_only:
+        alive_heroes = [h for h in alive_heroes if h.get("protected")]
     
     return {
         "heroes": alive_heroes,

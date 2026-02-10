@@ -214,7 +214,8 @@
         try {
             document.getElementById('status').textContent = '🔄 連接 API...';
             
-            const response = await fetch(`${API_URL}/api/heroes`, {
+            // 只載入保護英雄（守護世界樹的）
+            const response = await fetch(`${API_URL}/api/heroes?protected_only=true`, {
                 headers: {
                     'ngrok-skip-browser-warning': 'true'
                 }
@@ -458,6 +459,10 @@
             // 事件
             window.addEventListener('resize', onWindowResize);
             
+            // 點擊事件（攻擊怪物）
+            renderer.domElement.addEventListener('click', onCanvasClick);
+            renderer.domElement.addEventListener('touchend', onCanvasClick);
+            
             document.getElementById('status').textContent = '✅ 載入完成！';
             
             // 開始動畫
@@ -468,6 +473,58 @@
             document.getElementById('error-msg').textContent = '載入錯誤：' + e.message;
             console.error(e);
         }
+    }
+    
+    // Raycaster 用於點擊檢測
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    
+    async function onCanvasClick(event) {
+        event.preventDefault();
+        
+        // 計算滑鼠位置
+        const rect = renderer.domElement.getBoundingClientRect();
+        const clientX = event.clientX || (event.changedTouches && event.changedTouches[0].clientX);
+        const clientY = event.clientY || (event.changedTouches && event.changedTouches[0].clientY);
+        
+        mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        
+        // 只檢測怪物
+        const monsterObjects = monsterSprites.filter(s => s.userData && s.userData.isMonster);
+        const intersects = raycaster.intersectObjects(monsterObjects);
+        
+        if (intersects.length > 0) {
+            const monster = intersects[0].object.userData;
+            if (monster && monster.id) {
+                attackMonster(monster);
+            }
+        }
+    }
+    
+    async function attackMonster(monster) {
+        // 顯示攻擊中
+        document.getElementById('status').textContent = `⚔️ 攻擊 ${monster.name}...`;
+        
+        // 簡單的戰鬥動畫（閃爍）
+        const sprite = monsterSprites.find(s => s.userData && s.userData.id === monster.id);
+        if (sprite) {
+            sprite.material.color.setHex(0xff0000);
+            setTimeout(() => {
+                if (sprite.material) sprite.material.color.setHex(monsterColors[monster.type] || 0xff0000);
+            }, 200);
+        }
+        
+        // TODO: 呼叫 API 進行 PvE 戰鬥
+        // 現在先顯示怪物資訊
+        const msg = `🎯 ${monster.name}\n` +
+                    `ATK: ${monster.atk} | DEF: ${monster.def} | SPD: ${monster.spd}\n` +
+                    `(點擊攻擊功能開發中...)`;
+        
+        document.getElementById('status').textContent = `🎯 點擊了 ${monster.name}！`;
+        alert(msg);
     }
     
     function setupLights() {
