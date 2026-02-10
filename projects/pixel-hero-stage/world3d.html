@@ -97,6 +97,7 @@
         <h1>🌲 娜米的英雄世界</h1>
         <div class="info-line">🎮 拖曳旋轉 | 雙指縮放</div>
         <div class="info-line" id="heroCount">👥 英雄：0</div>
+        <div class="info-line" id="guardianCount">🛡️ 保護英雄：0</div>
         <div class="info-line" id="status">⏳ 載入中...</div>
     </div>
     
@@ -179,11 +180,17 @@
             heroSprites = [];
             
             // 建立真實英雄
+            let guardianCount = 0;
             data.heroes.forEach(heroData => {
                 createHeroSprite(heroData);
+                // knight 是保護型英雄
+                if (heroData.class === 'knight') {
+                    guardianCount++;
+                }
             });
             
             document.getElementById('heroCount').textContent = `👥 英雄：${data.count}`;
+            document.getElementById('guardianCount').textContent = `🛡️ 保護英雄：${guardianCount}`;
             document.getElementById('status').textContent = '✅ 已載入存活英雄！';
         } catch (e) {
             console.error('載入英雄失敗:', e);

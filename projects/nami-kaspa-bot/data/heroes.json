@@ -1554,8 +1554,8 @@
   "last_summon_daa": 383478033,
   "summon_queue": [],
   "total_mana_pool": 0,
-  "last_checked_daa": 383580516,
-  "last_reward_daa": 383566666,
+  "last_checked_daa": 383675218,
+  "last_reward_daa": 383666666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -1764,6 +1764,14 @@
       "timestamp": "2026-02-10T17:45:13.491119",
       "total_pool": 57500000000,
       "distributed": 57500000000,
+      "recipients_count": 7
+    },
+    {
+      "daa": 383666666,
+      "checked_at_daa": 383667153,
+      "timestamp": "2026-02-10T20:33:26.120002",
+      "total_pool": 50000000000,
+      "distributed": 49999999997,
       "recipients_count": 7
     }
   ]
