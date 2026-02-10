@@ -2,10 +2,11 @@
 define(['player', 'entityfactory', 'lib/bison'], function(Player, EntityFactory, BISON) {
 
     var GameClient = Class.extend({
-        init: function(host, port) {
+        init: function(host, port, ssl) {
             this.connection = null;
             this.host = host;
             this.port = port;
+            this.ssl = ssl || false;
     
             this.connected_callback = null;
             this.spawn_callback = null;
@@ -45,7 +46,9 @@ define(['player', 'entityfactory', 'lib/bison'], function(Player, EntityFactory,
         },
         
         connect: function(dispatcherMode) {
-            var url = "ws://"+ this.host +":"+ this.port +"/",
+            var protocol = (this.ssl || location.protocol === 'https:') ? "wss://" : "ws://",
+                portPart = (this.port === 80 || this.port === 443) ? "" : ":" + this.port,
+                url = protocol + this.host + portPart + "/",
                 self = this;
             
             log.info("Trying to connect to server : "+url);
