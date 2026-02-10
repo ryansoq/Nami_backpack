@@ -7,8 +7,8 @@ build/
 dist/
 *.egg-info/
 
-# Cython build artifacts
-*.html
+# Cython build artifacts (only in build directories)
+# *.html  # Removed - we need html files for web pages!
 
 # IDE
 .vscode/
