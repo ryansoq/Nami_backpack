@@ -102,8 +102,8 @@
     
     <div class="controls">
         <button class="ctrl-btn" onclick="resetCamera()">🏠 重設</button>
-        <button class="ctrl-btn" onclick="spawnHero()">✨ 召喚</button>
-        <button class="ctrl-btn" onclick="toggleAutoRotate()">🔄 旋轉</button>
+        <button class="ctrl-btn" onclick="loadRealHeroes()">🔄 重載</button>
+        <button class="ctrl-btn" onclick="toggleAutoRotate()">🌀 旋轉</button>
     </div>
 
     <!-- Three.js (使用 ES Module) -->
@@ -124,14 +124,19 @@
     let scene, camera, renderer, controls;
     let worldTree, ground;
     let heroes = [];
+    let heroSprites = [];
     let autoRotate = false;
     
-    // 職業顏色（柔和色系）
+    // 職業對應貼圖
+    const classTextures = {};
+    const textureLoader = new THREE.TextureLoader();
+    
+    // 職業顏色（備用）
     const classColors = {
-        knight: 0xc0392b,  // 磚紅
-        mage: 0x8e44ad,    // 紫
-        rogue: 0x27ae60,   // 綠
-        archer: 0xe67e22   // 橙
+        knight: 0xc0392b,
+        mage: 0x8e44ad,
+        rogue: 0x27ae60,
+        archer: 0xe67e22
     };
     
     const classNames = ['knight', 'mage', 'rogue', 'archer'];
@@ -140,8 +145,95 @@
     window.spawnHero = spawnHero;
     window.resetCamera = resetCamera;
     window.toggleAutoRotate = toggleAutoRotate;
+    window.loadRealHeroes = loadRealHeroes;
     
-    function init() {
+    // 預載職業貼圖
+    async function loadTextures() {
+        const promises = classNames.map(cls => {
+            return new Promise((resolve) => {
+                textureLoader.load(
+                    `${cls}.png`,
+                    (texture) => {
+                        texture.magFilter = THREE.NearestFilter;
+                        texture.minFilter = THREE.NearestFilter;
+                        classTextures[cls] = texture;
+                        resolve();
+                    },
+                    undefined,
+                    () => resolve() // 載入失敗也繼續
+                );
+            });
+        });
+        await Promise.all(promises);
+    }
+    
+    // 載入真實英雄資料
+    async function loadRealHeroes() {
+        try {
+            const response = await fetch('heroes/alive.json');
+            const data = await response.json();
+            
+            // 清除現有英雄
+            heroSprites.forEach(h => scene.remove(h));
+            heroSprites = [];
+            
+            // 建立真實英雄
+            data.heroes.forEach(heroData => {
+                createHeroSprite(heroData);
+            });
+            
+            document.getElementById('heroCount').textContent = `👥 英雄：${data.count}`;
+            document.getElementById('status').textContent = '✅ 已載入存活英雄！';
+        } catch (e) {
+            console.error('載入英雄失敗:', e);
+            document.getElementById('status').textContent = '⚠️ 載入失敗，使用測試資料';
+        }
+    }
+    
+    // 建立英雄 Sprite
+    function createHeroSprite(heroData) {
+        const heroClass = heroData.class || 'knight';
+        const texture = classTextures[heroClass];
+        
+        let sprite;
+        if (texture) {
+            const material = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true
+            });
+            sprite = new THREE.Sprite(material);
+            sprite.scale.set(3, 3, 1); // 放大像素圖
+        } else {
+            // 沒有貼圖時用色塊
+            const material = new THREE.SpriteMaterial({ 
+                color: classColors[heroClass] || 0xffffff
+            });
+            sprite = new THREE.Sprite(material);
+            sprite.scale.set(2, 2, 1);
+        }
+        
+        // 隨機位置
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 10 + Math.random() * 20;
+        sprite.position.set(
+            Math.cos(angle) * radius,
+            1.5,
+            Math.sin(angle) * radius
+        );
+        
+        sprite.userData = {
+            ...heroData,
+            targetX: sprite.position.x,
+            targetZ: sprite.position.z,
+            speed: 0.015 + Math.random() * 0.01,
+            moveTimer: Math.random() * 200
+        };
+        
+        scene.add(sprite);
+        heroSprites.push(sprite);
+    }
+    
+    async function init() {
         try {
             // 場景
             scene = new THREE.Scene();
@@ -178,10 +270,12 @@
             createWorldTree();
             createClouds();
             
-            // 初始英雄
-            for (let i = 0; i < 5; i++) {
-                spawnHero();
-            }
+            // 載入貼圖和真實英雄
+            document.getElementById('status').textContent = '⏳ 載入英雄貼圖...';
+            await loadTextures();
+            
+            document.getElementById('status').textContent = '⏳ 載入存活英雄...';
+            await loadRealHeroes();
             
             // 事件
             window.addEventListener('resize', onWindowResize);
@@ -430,8 +524,11 @@
     }
     
     function updateHeroes() {
-        heroes.forEach(hero => {
+        // 更新 Sprite 英雄
+        heroSprites.forEach(hero => {
             const data = hero.userData;
+            if (!data) return;
+            
             data.moveTimer++;
             
             if (data.moveTimer > 250 + Math.random() * 150) {
@@ -449,11 +546,10 @@
             if (dist > 0.3) {
                 hero.position.x += (dx / dist) * data.speed;
                 hero.position.z += (dz / dist) * data.speed;
-                hero.rotation.y = Math.atan2(dx, dz);
             }
             
             // 輕微跳動
-            hero.position.y = 1.1 + Math.sin(Date.now() / 300 + hero.id) * 0.08;
+            hero.position.y = 1.5 + Math.sin(Date.now() / 300 + (data.id || 0)) * 0.1;
         });
     }
     
