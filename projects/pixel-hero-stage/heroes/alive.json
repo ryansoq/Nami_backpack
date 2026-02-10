@@ -2,53 +2,61 @@
   "heroes": [
     {
       "id": 381635914,
-      "class": "rogue",
+      "class": "knight",
       "name": "走位風騷",
       "rarity": "R",
-      "kills": 7
+      "kills": 7,
+      "protected": true
     },
     {
       "id": 381648803,
-      "class": "rogue",
+      "class": "knight",
       "name": "背刺你",
       "rarity": "SR",
-      "kills": 5
+      "kills": 5,
+      "protected": true
     },
     {
       "id": 381710417,
-      "class": "rogue",
+      "class": "knight",
       "name": "",
       "rarity": "SR",
-      "kills": 0
+      "kills": 0,
+      "protected": false
     },
     {
       "id": 382137390,
-      "class": "mage",
+      "class": "knight",
       "name": "",
       "rarity": "R",
-      "kills": 0
+      "kills": 0,
+      "protected": false
     },
     {
       "id": 382138733,
-      "class": "archer",
+      "class": "knight",
       "name": "",
       "rarity": "R",
-      "kills": 0
+      "kills": 0,
+      "protected": false
     },
     {
       "id": 383473129,
-      "class": "archer",
+      "class": "knight",
       "name": "",
       "rarity": "SR",
-      "kills": 0
+      "kills": 0,
+      "protected": false
     },
     {
       "id": 383478033,
       "class": "knight",
       "name": "",
       "rarity": "N",
-      "kills": 0
+      "kills": 0,
+      "protected": false
     }
   ],
-  "count": 7
+  "count": 7,
+  "protected_count": 2
 }

@@ -180,14 +180,12 @@
             heroSprites = [];
             
             // 建立真實英雄
-            let guardianCount = 0;
             data.heroes.forEach(heroData => {
                 createHeroSprite(heroData);
-                // knight 是保護型英雄
-                if (heroData.class === 'knight') {
-                    guardianCount++;
-                }
             });
+            
+            // 統計保護英雄（/nhp 設定的）
+            const guardianCount = data.protected_count || data.heroes.filter(h => h.protected).length;
             
             document.getElementById('heroCount').textContent = `👥 英雄：${data.count}`;
             document.getElementById('guardianCount').textContent = `🛡️ 保護英雄：${guardianCount}`;
