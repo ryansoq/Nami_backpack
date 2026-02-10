@@ -145,8 +145,8 @@
         try {
             // 場景
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 80, 250);
+            scene.background = new THREE.Color(0x5BA3D9);
+            scene.fog = new THREE.Fog(0x5BA3D9, 80, 250);
             
             // 相機
             camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -174,6 +174,7 @@
             
             // 建立世界
             createGround();
+            createMountains();
             createWorldTree();
             createClouds();
             
@@ -217,7 +218,7 @@
         scene.add(sun);
         
         // 天空補光（藍色調）
-        const skyLight = new THREE.HemisphereLight(0x87CEEB, 0x3d8b40, 0.4);
+        const skyLight = new THREE.HemisphereLight(0x5BA3D9, 0x689F38, 0.4);
         scene.add(skyLight);
     }
     
@@ -225,7 +226,7 @@
         // 草地
         const groundGeo = new THREE.CircleGeometry(80, 64);
         const groundMat = new THREE.MeshStandardMaterial({ 
-            color: 0x5daf5d,
+            color: 0x7CB342,
             roughness: 0.9
         });
         ground = new THREE.Mesh(groundGeo, groundMat);
@@ -236,7 +237,7 @@
         // 小路
         const pathGeo = new THREE.PlaneGeometry(5, 35);
         const pathMat = new THREE.MeshStandardMaterial({ 
-            color: 0xd4b896,
+            color: 0xD7CCA8,
             roughness: 0.95
         });
         const path = new THREE.Mesh(pathGeo, pathMat);
@@ -258,13 +259,38 @@
         }
     }
     
+    function createMountains() {
+        // 遠山（像原圖的藍綠色山脈）
+        const mountainMat = new THREE.MeshStandardMaterial({ 
+            color: 0x6B8E7B,
+            roughness: 0.9,
+            flatShading: true
+        });
+        
+        const positions = [
+            { x: -80, z: -60, scale: 1.2, height: 35 },
+            { x: -50, z: -80, scale: 1.0, height: 28 },
+            { x: 70, z: -70, scale: 1.1, height: 32 },
+            { x: 90, z: -50, scale: 0.9, height: 25 },
+            { x: 0, z: -90, scale: 1.3, height: 40 },
+        ];
+        
+        positions.forEach(pos => {
+            const mountainGeo = new THREE.ConeGeometry(20 * pos.scale, pos.height, 6);
+            const mountain = new THREE.Mesh(mountainGeo, mountainMat);
+            mountain.position.set(pos.x, pos.height / 2 - 5, pos.z);
+            mountain.rotation.y = Math.random() * Math.PI;
+            scene.add(mountain);
+        });
+    }
+    
     function createWorldTree() {
         const treeGroup = new THREE.Group();
         
         // 樹幹（更粗壯）
         const trunkGeo = new THREE.CylinderGeometry(2, 4, 20, 16);
         const trunkMat = new THREE.MeshStandardMaterial({ 
-            color: 0x8B4513,
+            color: 0xC4A35A,
             roughness: 0.95
         });
         const trunk = new THREE.Mesh(trunkGeo, trunkMat);
@@ -273,7 +299,7 @@
         treeGroup.add(trunk);
         
         // 樹冠（多層綠色）
-        const leafColors = [0x228B22, 0x32CD32, 0x90EE90];
+        const leafColors = [0x8BC34A, 0xAED581, 0xC5E1A5];
         
         // 主樹冠
         const mainLeafGeo = new THREE.SphereGeometry(12, 32, 24);
