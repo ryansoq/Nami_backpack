@@ -150,6 +150,17 @@ class TreeQueue:
         """目前排隊人數"""
         return len(self._queue)
     
+    def is_busy(self) -> bool:
+        """是否有人正在被服務"""
+        return self._lock.locked() or self._current_user is not None
+    
+    def get_wait_count(self) -> int:
+        """需要等待的人數（包含正在服務的人）"""
+        count = len(self._queue)
+        if self._lock.locked():
+            count += 1  # 正在被服務的人
+        return count
+    
     def add_to_queue(self, user_id: int):
         """加入排隊"""
         if user_id not in [u for u, _ in self._queue]:
@@ -162,6 +173,26 @@ class TreeQueue:
     async def acquire(self, user_id: int) -> bool:
         """嘗試獲取服務"""
         self.add_to_queue(user_id)
+        await self._lock.acquire()
+        self._current_user = user_id
+        self.remove_from_queue(user_id)
+        return True
+    
+    async def acquire_with_notice(self, user_id: int, update) -> bool:
+        """獲取服務，如果需要排隊會先通知用戶"""
+        # 先加入排隊
+        self.add_to_queue(user_id)
+        
+        # 檢查是否需要等待
+        if self._lock.locked():
+            wait_count = len(self._queue)  # 不含自己
+            await update.message.reply_text(
+                f"⏳ 大地之樹正在服務其他英雄...\n"
+                f"📍 你的位置：第 {wait_count} 順位\n"
+                f"請稍候，輪到你會繼續處理～"
+            )
+        
+        # 等待輪到
         await self._lock.acquire()
         self._current_user = user_id
         self.remove_from_queue(user_id)
@@ -861,12 +892,13 @@ async def hero_summon(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode='HTML')
         return
     
-    # 排隊系統
-    queue_size = tree_queue.queue_size()
-    if queue_size > 0:
+    # 排隊系統（立即回應，避免用戶等待沒反應）
+    if tree_queue.is_busy():
+        wait_count = tree_queue.get_wait_count()
         await update.message.reply_text(
-            f"🙏 正在向大地之樹祈禱...\n"
-            f"⏳ 排隊等候 {queue_size} 人..."
+            f"⏳ 大地之樹正在服務其他英雄...\n"
+            f"📍 你的位置：第 {wait_count + 1} 順位\n"
+            f"請稍候，輪到你會繼續處理～"
         )
     else:
         await update.message.reply_text("🙏 正在向大地之樹祈禱...\n⏳ 等待下一個區塊...")
@@ -1365,10 +1397,13 @@ async def hero_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 錢包錯誤：{e}")
         return
     
-    # v0.3: 排隊機制
-    queue_size = tree_queue.queue_size()
-    if queue_size > 0:
-        await update.message.reply_text(f"⏳ 大地之樹忙碌中，排隊等候 {queue_size} 人...")
+    # v0.3: 排隊機制（立即回應）
+    if tree_queue.is_busy():
+        wait_count = tree_queue.get_wait_count()
+        await update.message.reply_text(
+            f"⏳ 大地之樹正在服務其他英雄...\n"
+            f"📍 你的位置：第 {wait_count + 1} 順位"
+        )
     
     await tree_queue.acquire(user.id)
     
