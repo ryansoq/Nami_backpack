@@ -27,6 +27,11 @@ BASE_REWARD_MANA = 500  # 大地之母每回合提供的起始 mana
 REWARD_POOL_RATIO = 0.7  # 70% 進獎勵池
 MIN_REWARD = 100000  # 最小發放金額 0.001 tKAS
 
+# 🐲 哥布林入侵設定
+GOBLIN_THREAT_PER = 50  # 每隻魔物威脅 50 mana
+GOBLIN_SPAWN_PER_WAVE = 2  # 每波生成 2 隻
+GOBLIN_MAX_COUNT = 10  # 哥布林存活上限
+
 # 稀有度積分加成
 RARITY_BONUS = {
     "common": 1,      # 普通
@@ -139,6 +144,10 @@ async def distribute_rewards(daa: int, tree_balance: int, queue_lock=None) -> di
     獎勵來源：驅動費池（召喚、PvP 等費用累積）
     不是挖礦收入！
     
+    v0.5: 魔物威脅機制
+    - 結算時扣除存活哥布林數 × 50 mana
+    - 結算後生成新一波哥布林（+2 隻，上限 10 隻）
+    
     Args:
         daa: 當前 DAA（觸發高度）
         tree_balance: 大地之樹當前餘額（sompi）- 僅供參考
@@ -154,19 +163,39 @@ async def distribute_rewards(daa: int, tree_balance: int, queue_lock=None) -> di
         "total_pool": 0,
         "distributed": 0,
         "recipients": [],
-        "error": None
+        "error": None,
+        "goblin_threat": 0,
+        "new_goblins": []
     }
     
     # 獎勵池 = 驅動費累積 + 大地之母起始 mana
     db = load_heroes_db()
     accumulated_mana = db.get("total_mana_pool", 0)
     total_mana = accumulated_mana + BASE_REWARD_MANA  # 加入大地之母提供的起始 mana
-    reward_pool = int(total_mana * 1e8)  # 轉換為 sompi
-    result["total_pool"] = reward_pool
+    
+    # 🐲 計算魔物威脅
+    alive_goblins = [
+        (gid, g) for gid, g in db.get("heroes", {}).items()
+        if g.get("status") == "alive" and g.get("owner_id") == 0
+    ]
+    goblin_count = len(alive_goblins)
+    goblin_threat = goblin_count * GOBLIN_THREAT_PER
+    result["goblin_count"] = goblin_count
+    result["goblin_threat"] = goblin_threat
+    
+    logger.info(f"🐲 魔物威脅: {goblin_count} 隻 × {GOBLIN_THREAT_PER} = -{goblin_threat} mana")
+    
+    # 扣除魔物威脅
+    actual_mana = max(0, total_mana - goblin_threat)
+    reward_pool = int(actual_mana * 1e8)  # 轉換為 sompi
+    
+    result["total_pool"] = int(total_mana * 1e8)  # 原始獎勵池
+    result["actual_pool"] = reward_pool  # 扣除威脅後
     result["mana_pool_before"] = accumulated_mana
     result["base_reward"] = BASE_REWARD_MANA
     
     logger.info(f"🌲 獎勵池: 累積 {accumulated_mana} + 起始 {BASE_REWARD_MANA} = {total_mana} mana")
+    logger.info(f"🌲 扣除魔物威脅後: {actual_mana} mana")
     
     if reward_pool < MIN_REWARD * 10:
         result["error"] = "獎勵池太小"
@@ -226,7 +255,60 @@ async def distribute_rewards(daa: int, tree_balance: int, queue_lock=None) -> di
     save_heroes_db(db)
     logger.info(f"🌲 驅動費池已清空（已發放 {accumulated_mana} mana）")
     
+    # 🐲 生成下一波哥布林（發放後）
+    try:
+        new_goblins = await spawn_goblins_wave(daa)
+        result["new_goblins"] = new_goblins
+        logger.info(f"🐲 新一波哥布林已生成: {len(new_goblins)} 隻")
+    except Exception as e:
+        logger.error(f"❌ 生成哥布林失敗: {e}")
+        result["goblin_spawn_error"] = str(e)
+    
     return result
+
+
+async def spawn_goblins_wave(daa: int) -> list[dict]:
+    """
+    生成新一波哥布林
+    
+    Args:
+        daa: 當前 DAA（用於生成屬性的 hash 來源）
+    
+    Returns:
+        新生成的哥布林列表
+    """
+    from hero_game import create_goblin_hero, load_heroes_db
+    
+    db = load_heroes_db()
+    
+    # 計算當前存活哥布林數
+    alive_goblins = [
+        g for g in db.get("heroes", {}).values()
+        if g.get("status") == "alive" and g.get("owner_id") == 0
+    ]
+    current_count = len(alive_goblins)
+    
+    # 檢查上限
+    if current_count >= GOBLIN_MAX_COUNT:
+        logger.info(f"🐲 哥布林已達上限 ({current_count}/{GOBLIN_MAX_COUNT})，不生成新的")
+        return []
+    
+    # 計算可生成數量
+    spawn_count = min(GOBLIN_SPAWN_PER_WAVE, GOBLIN_MAX_COUNT - current_count)
+    
+    logger.info(f"🐲 生成 {spawn_count} 隻哥布林 (當前 {current_count}/{GOBLIN_MAX_COUNT})")
+    
+    new_goblins = []
+    for i in range(spawn_count):
+        try:
+            # 用 DAA + 序號生成不同的哥布林
+            goblin = await create_goblin_hero(daa, seed_offset=i)
+            new_goblins.append(goblin)
+            logger.info(f"🐲 生成哥布林: {goblin.get('name')} #{goblin.get('card_id')}")
+        except Exception as e:
+            logger.error(f"❌ 生成哥布林 #{i} 失敗: {e}")
+    
+    return new_goblins
 
 
 def format_reward_announcement(result: dict) -> str:
@@ -243,6 +325,10 @@ def format_reward_announcement(result: dict) -> str:
     
     base_reward = result.get("base_reward", 0)
     accumulated = result.get("mana_pool_before", 0)
+    goblin_count = result.get("goblin_count", 0)
+    goblin_threat = result.get("goblin_threat", 0)
+    actual_pool = result.get("actual_pool", total_pool)
+    new_goblins = result.get("new_goblins", [])
     
     lines = [
         f"🌲 *大地之樹獎勵發放* #{daa}",
@@ -250,11 +336,21 @@ def format_reward_announcement(result: dict) -> str:
         f"💰 獎勵池：{total_pool/1e8:.2f} mana",
         f"   ├ 累積：{accumulated:.2f}",
         f"   └ 起始：{base_reward:.2f} (大地之母)",
+    ]
+    
+    # 魔物威脅
+    if goblin_count > 0:
+        lines.extend([
+            f"🐲 魔物威脅：{goblin_count} 隻 → *-{goblin_threat} mana*",
+            f"📊 實際發放：{actual_pool/1e8:.2f} mana",
+        ])
+    
+    lines.extend([
         f"📤 已發放：{distributed/1e8:.2f} mana",
         f"👥 受益者：{len(recipients)} 位英雄",
         "",
         "🏆 *排名：*"
-    ]
+    ])
     
     for i, r in enumerate(recipients[:10], 1):  # 只顯示前 10 名
         hero = r["hero"]
@@ -285,6 +381,17 @@ def format_reward_announcement(result: dict) -> str:
     
     if len(recipients) > 10:
         lines.append(f"\n...還有 {len(recipients) - 10} 位英雄")
+    
+    # 🐲 新一波魔物來襲
+    if new_goblins:
+        lines.append("")
+        lines.append("🐲 *新一波魔物來襲！*")
+        for g in new_goblins:
+            rank_emoji = {"N": "⚪", "R": "🔵", "SR": "🟣", "SSR": "🟡", "UR": "🔴", "LR": "✨"}.get(g.get("rank"), "⚪")
+            class_emoji = {"knight": "⚔️", "mage": "🧙", "rogue": "🗡️", "archer": "🏹"}.get(g.get("hero_class"), "")
+            lines.append(f"   👹 {g.get('name')} {rank_emoji}{class_emoji}")
+        lines.append("")
+        lines.append("⚔️ 下次結算前消滅牠們！")
     
     return "\n".join(lines)
 

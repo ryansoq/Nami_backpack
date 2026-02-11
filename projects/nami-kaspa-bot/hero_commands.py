@@ -9,6 +9,7 @@ import logging
 import re
 import time
 import uuid
+from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -1554,13 +1555,17 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # 解析英雄 ID（支援數字或名字）
     def resolve_hero_id_local(arg: str, owner_id: int = None) -> int | None:
-        """解析英雄 ID，支援數字 ID 或名字查找"""
+        """
+        解析英雄 ID，支援數字 ID 或名字查找
+        
+        哥布林也在 heroes 裡（owner_id=0），所以會自動找到
+        """
         # 先試數字
         try:
             return int(arg)
         except ValueError:
             pass
-        # 用名字查找
+        # 用名字查找（英雄 + 哥布林都在 heroes 裡）
         arg_lower = arg.lower()
         for hero_id, hero_data in db.get("heroes", {}).items():
             if hero_data.get("name", "").lower() == arg_lower:
@@ -1599,6 +1604,25 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pin = context.args[1]
         if my_hero_id is None:
             await update.message.reply_text(f"❌ 找不到你的英雄：{context.args[0]}")
+            return
+    elif len(context.args) == 2 and not reply_target_id:
+        # 簡化模式：/np <對手> <PIN>（用保護英雄攻擊）
+        target_hero_id = resolve_hero_id_local(context.args[0])
+        pin = context.args[1]
+        if target_hero_id is None:
+            await update.message.reply_text(f"❌ 找不到對手英雄：{context.args[0]}")
+            return
+        # 取得保護角色
+        protected = get_protected_hero(user.id)
+        if protected and protected.get("status") == "alive":
+            my_hero_id = protected.get("card_id")
+        else:
+            await update.message.reply_text(
+                "❌ 你沒有設定保護英雄，或保護英雄已死亡\n\n"
+                "請用完整格式：`/np <你的英雄> <對手> <PIN>`\n"
+                "或先設定保護英雄：`/nhp <英雄ID>`",
+                parse_mode='Markdown'
+            )
             return
     elif len(context.args) >= 3:
         # 傳統模式：/np <我的英雄> <對手英雄> <PIN>
@@ -1668,6 +1692,7 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # 驗證雙方都是正卡（有完整閉環驗證）
+    # 哥布林也是正卡（有 source_hash + payment_tx）
     if not my_hero_data.get("source_hash") or not my_hero_data.get("payment_tx"):
         await update.message.reply_text(f"❌ 你的英雄 #{my_hero_id} 不是正卡（缺少出生證明）")
         return
@@ -2528,7 +2553,8 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         total_mana = accumulated_mana + BASE_REWARD
         
         # 取得存活英雄數
-        alive_count = sum(1 for h in db.get("heroes", {}).values() if h.get("status") == "alive")
+        # 只計算玩家英雄（排除 owner_id=0 的哥布林）
+        alive_count = sum(1 for h in db.get("heroes", {}).values() if h.get("status") == "alive" and h.get("owner_id", 1) != 0)
         
         # 上次發放
         last_reward_daa = db.get("last_reward_daa", 0)
@@ -2541,8 +2567,9 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 預估每位英雄獎勵（用總額計算）
         per_hero = total_mana / alive_count if alive_count > 0 else 0
         
-        # 取得前 5 名英雄（按擊殺數排序，0 殺則按稀有度）
+        # 取得前 10 名英雄（按擊殺數排序，0 殺則按稀有度）
         # v0.3: 支援新舊格式
+        # v0.5: 過濾掉哥布林（owner_id=0）
         rank_order = {
             "LR": 6, "mythic": 6,
             "UR": 5, "legendary": 5, 
@@ -2551,7 +2578,11 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "R": 2, "uncommon": 2,
             "N": 1, "common": 1
         }
-        alive_heroes = [(hid, h) for hid, h in db.get("heroes", {}).items() if h.get("status") == "alive"]
+        # 只取玩家英雄（owner_id != 0）
+        alive_heroes = [
+            (hid, h) for hid, h in db.get("heroes", {}).items() 
+            if h.get("status") == "alive" and h.get("owner_id", 1) != 0
+        ]
         
         # 排序：先按擊殺數降序，再按稀有度降序
         alive_heroes.sort(key=lambda x: (
@@ -2583,6 +2614,58 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         top_str = "\n".join(top_lines) if top_lines else "無存活英雄"
         
+        # 🐲 未討伐怪物（owner_id=0 的英雄）
+        alive_goblins = [
+            (gid, g) for gid, g in db.get("heroes", {}).items()
+            if g.get("status") == "alive" and g.get("owner_id") == 0
+        ]
+        alive_goblins.sort(key=lambda x: -x[1].get("kills", 0))
+        
+        goblin_lines = []
+        # 處理同名哥布林編號
+        name_count = {}
+        for gid, g in alive_goblins[:5]:
+            name = g.get("name", "哥布林")
+            # 同名編號
+            if name in name_count:
+                name_count[name] += 1
+                display_name = f"{name}②" if name_count[name] == 2 else f"{name}③" if name_count[name] == 3 else f"{name}④"
+            else:
+                name_count[name] = 1
+                display_name = name
+            
+            kills = g.get("kills", 0)
+            rank = g.get("rank", "N")
+            re = rank_emoji.get(rank, "⭐")
+            ce = class_emoji.get(g.get("hero_class"), "")
+            kill_str = f"({kills}殺)" if kills > 0 else ""
+            goblin_lines.append(f"• {re}{ce} {display_name} {kill_str}")
+        
+        goblin_str = "\n".join(goblin_lines) if goblin_lines else "無"
+        
+        # 🐲 魔物威脅計算
+        GOBLIN_THREAT_PER = 50  # 每隻哥布林扣 50 mana
+        goblin_count = len(alive_goblins)
+        goblin_threat = goblin_count * GOBLIN_THREAT_PER
+        reward_after_threat = max(0, total_mana - goblin_threat)
+        per_hero_after = reward_after_threat / alive_count if alive_count > 0 else 0
+        
+        # 威脅警告區塊
+        if goblin_count > 0:
+            threat_section = f"""
+🐲 *魔物威脅*
+━━━━━━━━━━━━━━━━
+👹 存活: {goblin_count} 隻
+⚠️ 威脅: *-{goblin_threat} mana*
+📉 結算後: {reward_after_threat} mana
+
+⚔️ 消滅魔物保護獎勵池！"""
+        else:
+            threat_section = """
+🐲 *魔物威脅*
+━━━━━━━━━━━━━━━━
+✅ 大地之樹周圍一片祥和"""
+        
         msg = f"""🌲 *下次獎勵發放*
 
 📍 目前 DAA: `{current_daa}`
@@ -2593,16 +2676,21 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 累積: {accumulated_mana} mana
 大地之母: +{BASE_REWARD} mana
 總計: *{total_mana} mana*
-預估每位: ~{per_hero:.1f} mana
+{threat_section}
 
 👥 存活英雄: {alive_count} 位
-📊 上次發放: #{last_reward_daa or '尚未發放'}
+📊 預估每位: ~{per_hero_after:.1f} mana
 
-🏆 *當前排行榜 TOP 10*
+🏆 *英雄榜 TOP 10*
 {top_str}
 
+👹 *未討伐怪物*
+{goblin_str}
+
 *獎勵按積分分配！*
-積分 = 存活天數 + 稀有度 + 擊殺×2"""
+積分 = 存活天數 + 稀有度 + 擊殺×2
+
+_🌿 每有一隻魔物徘徊，大地的 mana 氣息便減弱 50..._"""
 
         # 發送世界之樹圖片 + 訊息（統一函數）
         await send_with_world_tree(update, msg)
@@ -2652,56 +2740,515 @@ async def next_reward_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 儲存待處理的 PvE 救援
 _pending_pve = {}
 
+# 當前活躍的救援 (chat_id -> pve_data)
+_active_rescue = {}
+
 async def pve_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /ntest1 - PvE 測試：發起救援通告
+    /ntest1 - PvE 守護模式（已整合至魔物入侵機制）
     """
+    await update.message.reply_text(
+        "🐲 *PvE 已整合至魔物入侵機制！*\n\n"
+        "每次獎勵發放後，魔物會自動入侵大地之樹。\n\n"
+        "⚔️ *消滅魔物：*\n"
+        "```\n/np <魔物名字> <PIN>\n```\n\n"
+        "📊 用 `/nr` 查看當前魔物威脅！\n\n"
+        "_🌿 每有一隻魔物徘徊，大地的 mana 氣息便減弱 50..._",
+        parse_mode='Markdown'
+    )
+    return
+
+    # === 以下為舊 PvE 測試代碼（已 mask）===
     user = update.effective_user
     chat = update.effective_chat
     
-    # 只允許 GM 使用
-    if user.id not in [5168530096]:  # Ryan's ID
-        await update.message.reply_text("❌ 此指令僅供測試")
+    # v0.3: 維護模式檢查
+    if msg := check_maintenance(user.id):
+        await update.message.reply_text(msg)
         return
     
-    # 發起救援通告
+    # 有 PIN 參數 → 響應救援
+    if context.args:
+        await handle_pve_response(update, context)
+        return
+    
+    # 無參數 → 發起救援通告
+    # 檢查是否已有活躍救援
+    chat_id = chat.id
+    if chat_id in _active_rescue:
+        rescue = _active_rescue[chat_id]
+        if time.time() - rescue["created_at"] < 300:  # 5 分鐘內
+            remaining = int(300 - (time.time() - rescue["created_at"]))
+            await update.message.reply_text(
+                f"⚠️ 此群已有進行中的救援！\n\n"
+                f"⏱️ 剩餘 {remaining} 秒\n"
+                f"💰 消耗 10 mana\n"
+                f"用 `/ntest1 <PIN>` 響應",
+                parse_mode='Markdown'
+            )
+            return
+    
+    # 發起新救援
     pve_id = f"pve_{int(time.time())}"
-    _pending_pve[pve_id] = {
+    rescue_data = {
+        "pve_id": pve_id,
         "chat_id": chat.id,
         "created_at": time.time(),
         "claimed": False,
-        "claimer_id": None
+        "claimer_id": None,
+        "initiator_id": user.id
     }
+    _pending_pve[pve_id] = rescue_data
+    _active_rescue[chat_id] = rescue_data
     
+    # 按鈕：守護 / 取消
     keyboard = [
         [
-            InlineKeyboardButton("🛡️ 守護 (10 mana)", callback_data=f"pve_yes:{pve_id}"),
-            InlineKeyboardButton("❌ 取消", callback_data=f"pve_no:{pve_id}")
+            InlineKeyboardButton("🛡️ 守護 (10 mana)", callback_data=f"pve_claim:{pve_id}"),
+            InlineKeyboardButton("❌ 取消", callback_data=f"pve_cancel:{pve_id}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
         "📣 *大地之樹的救援通告！*\n\n"
-        "「有東西正在襲擊世界之樹！」\n"
-        "「英雄們，請前來守護！」\n\n"
-        "⏱️ 100 秒內響應\n"
+        "🌲「有東西正在襲擊世界之樹！」\n"
+        "🌲「英雄們，請前來守護！」\n\n"
+        "⏱️ 5 分鐘內響應\n"
         "💰 消耗 10 mana\n"
-        "🛡️ 使用你的保護英雄出戰",
+        "🛡️ 使用你的保護英雄出戰\n\n"
+        "⚡ *先搶先得！*",
         parse_mode='Markdown',
         reply_markup=reply_markup
     )
     
-    logger.info(f"🧪 PvE 測試發起 | pve_id={pve_id} | by @{user.username}")
+    logger.info(f"🌲 救援發起 | pve_id={pve_id} | chat={chat_id} | by @{user.username}")
+
+
+async def handle_pve_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    處理 /ntest1 <PIN> 響應救援
+    """
+    user = update.effective_user
+    chat = update.effective_chat
+    pin = context.args[0]
+    
+    # 🔒 立刻刪除 PIN 訊息（保護隱私）
+    try:
+        await update.message.delete()
+    except Exception as e:
+        logger.warning(f"無法刪除 PIN 訊息: {e}")
+    
+    # 驗證 PIN 格式
+    if not pin.isdigit() or not (4 <= len(pin) <= 6):
+        await context.bot.send_message(chat.id, "❌ PIN 需為 4-6 位數字")
+        return
+    
+    # 檢查是否有活躍救援（優先用 chat_id，否則找自己鎖定的）
+    chat_id = chat.id
+    rescue = None
+    
+    if chat_id in _active_rescue:
+        rescue = _active_rescue[chat_id]
+    else:
+        # 找自己鎖定的救援（可能在私聊輸入 PIN）
+        for pve_id, r in _pending_pve.items():
+            if r.get("claimer_id") == user.id and r.get("claimed"):
+                rescue = r
+                break
+    
+    if not rescue:
+        await update.message.reply_text(
+            "❌ 目前沒有進行中的救援\n\n"
+            "用 `/ntest1` 發起救援",
+            parse_mode='Markdown'
+        )
+        return
+    
+    # 檢查是否過期
+    if time.time() - rescue["created_at"] > 300:
+        del _active_rescue[chat_id]
+        await update.message.reply_text("❌ 救援已過期")
+        return
+    
+    # 檢查是否已被鎖定
+    if rescue["claimed"]:
+        claimer_id = rescue.get("claimer_id")
+        if claimer_id != user.id:
+            # 被別人搶了
+            await update.message.reply_text(
+                f"❌ 救援已被其他英雄鎖定！\n"
+                f"等待下一次救援通告..."
+            )
+            return
+        # 是自己鎖定的，繼續處理 PIN
+    else:
+        # 還沒被鎖定 → 舊流程（直接用 PIN 搶）
+        rescue["claimed"] = True
+        rescue["claimer_id"] = user.id
+    
+    # 驗證 PIN
+    if not verify_hero_pin(user.id, pin):
+        rescue["claimed"] = False
+        rescue["claimer_id"] = None
+        await update.message.reply_text(
+            "❌ PIN 錯誤或尚未設定錢包\n\n"
+            "請先用 `/nami_wallet <PIN>` 創建錢包",
+            parse_mode='Markdown'
+        )
+        return
+    
+    # 檢查保護英雄
+    from hero_game import get_protected_hero
+    protected = get_protected_hero(user.id)
+    if not protected:
+        rescue["claimed"] = False
+        rescue["claimer_id"] = None
+        await update.message.reply_text(
+            "❌ 你沒有設定保護英雄！\n\n"
+            "請先用 `/nhp <英雄ID>` 設定",
+            parse_mode='Markdown'
+        )
+        return
+    
+    # 取得錢包
+    pk_hex, address = get_hero_wallet(user.id, pin)
+    if not address:
+        rescue["claimed"] = False
+        rescue["claimer_id"] = None
+        await update.message.reply_text("❌ 找不到錢包，請重新創建")
+        return
+    
+    # 檢查餘額
+    balance = await get_hero_balance(address)
+    if balance < 10_00000000:  # 10 mana
+        rescue["claimed"] = False
+        rescue["claimer_id"] = None
+        await update.message.reply_text(
+            f"❌ mana 不足！\n\n"
+            f"需要：10 mana\n"
+            f"目前：{balance / 1e8:.2f} mana"
+        )
+        return
+    
+    # ✅ 真的付 10 mana！
+    await update.message.reply_text("⚔️ 正在響應救援...\n💰 支付 10 mana...")
+    
+    try:
+        import unified_wallet
+        payment_tx = await unified_wallet.send_to_tree(user.id, pin, 10_00000000, f"pve:{rescue['pve_id']}")
+        logger.info(f"💰 PvE 付款成功 | tx={payment_tx} | @{user.username}")
+    except Exception as e:
+        rescue["claimed"] = False
+        rescue["claimer_id"] = None
+        logger.error(f"PvE 付款失敗: {e}")
+        await update.message.reply_text(f"❌ 付款失敗：{e}")
+        return
+    
+    await update.message.reply_text("✅ 付款成功！\n⏳ 等待確認...")
+    
+    # 繼續執行戰鬥（傳入 payment_tx 用於決定命運區塊）
+    await execute_pve_battle(update, context, user, rescue, protected, pin, payment_tx)
+
+
+async def execute_pve_battle(update: Update, context, user, rescue, protected, pin, payment_tx: str = None):
+    """
+    執行 PvE 戰鬥（真的發獎勵！）
+    
+    怪物產生邏輯跟英雄一樣：付款確認 DAA → DAA+1 區塊決定屬性
+    """
+    from hero_game import create_goblin, process_battle, Hero, load_heroes_db, save_heroes_db, calculate_pvp_reward
+    
+    try:
+        # 取得命運區塊（跟英雄召喚同邏輯）
+        if payment_tx:
+            # 等待付款確認，取得確認 DAA
+            await update.message.reply_text("🔗 等待鏈上確認...")
+            payment_daa = await get_tx_confirmed_daa(payment_tx)
+            logger.info(f"🔗 付款確認 DAA: {payment_daa}")
+            
+            # 找 DAA+1 第一個區塊
+            await update.message.reply_text("🎲 抽取怪物中...")
+            current_daa, block_hash = await get_first_block_after_daa(payment_daa)
+            logger.info(f"🎲 命運區塊: DAA={current_daa} hash={block_hash[:16]}...")
+        else:
+            # fallback: 用當前 tip（舊邏輯）
+            from kaspa import RpcClient
+            client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+            await asyncio.wait_for(client.connect(), timeout=10)
+            info = await client.get_block_dag_info({})
+            current_daa = info.get("virtualDaaScore", 0)
+            tip_hashes = info.get("tipHashes", [])
+            block_hash = tip_hashes[0] if tip_hashes else f"fallback_{current_daa}"
+            await client.disconnect()
+        
+        # 生成哥布林（用命運區塊，傳入 db 做編號）
+        db = load_heroes_db()
+        goblin = create_goblin(block_hash, current_daa, db)
+        
+        # 儲存哥布林到 db["heroes"]（怪物 = 系統英雄）
+        db["heroes"][str(goblin.card_id)] = {
+            "card_id": goblin.card_id,
+            "owner_id": 0,  # 系統擁有
+            "owner_address": "",
+            "name": goblin.name,
+            "hero_class": goblin.hero_class,
+            "rank": goblin.rank,
+            "atk": goblin.atk,
+            "def": goblin.def_,
+            "spd": goblin.spd,
+            "source_hash": block_hash,
+            "payment_tx": payment_tx or "",  # 玩家付費生成的 tx
+            "status": "alive",
+            "kills": 0,
+            "battles": 0,
+            "created_at": datetime.now().isoformat(),
+            "defeated_heroes": []
+        }
+        save_heroes_db(db)
+        logger.info(f"🐲 哥布林誕生 | #{goblin.card_id} {goblin.name} | {goblin.rank}")
+        
+        # 重建玩家英雄
+        hero = Hero(
+            card_id=protected["card_id"],
+            owner_id=user.id,
+            owner_address=protected.get("owner_address", ""),
+            hero_class=protected["hero_class"],
+            rank=protected.get("rank", protected.get("rarity", "N")),
+            atk=protected["atk"],
+            def_=protected["def"],
+            spd=protected["spd"],
+            status="alive",
+            latest_daa=protected.get("latest_daa", 0),
+            kills=protected.get("kills", 0),
+            battles=protected.get("battles", 0),
+            name=protected.get("name", ""),
+            protected=True
+        )
+        
+        # ATB 戰鬥（直接用 ATB 系統判定勝負）
+        from hero_game import calculate_battle_result_atb
+        attacker_wins, battle_detail = calculate_battle_result_atb(hero, goblin, block_hash)
+        
+        # 戰報
+        rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}
+        class_emoji = {"knight": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
+        
+        hero_display = hero.name or f"#{hero.card_id}"
+        goblin_display = goblin.name
+        battle_log = battle_detail.get("battle_log", "")
+        
+        if attacker_wins:
+            # 玩家勝利
+            reward_mana = calculate_pvp_reward(block_hash)  # 1-5 mana
+            reward_sompi = reward_mana * 100000000
+            
+            # 更新英雄擊殺數
+            db = load_heroes_db()
+            if str(hero.card_id) in db.get("heroes", {}):
+                db["heroes"][str(hero.card_id)]["kills"] = hero.kills + 1
+                db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
+            
+            # 標記哥布林死亡（哥布林在 heroes 裡，owner_id=0）
+            if str(goblin.card_id) in db.get("heroes", {}):
+                db["heroes"][str(goblin.card_id)]["status"] = "dead"
+            save_heroes_db(db)
+            
+            # ✅ 真的發獎勵！
+            reward_tx = None
+            try:
+                import unified_wallet
+                player_address = protected.get("owner_address")
+                if player_address:
+                    reward_tx = await unified_wallet.send_from_tree(
+                        player_address, 
+                        reward_sompi, 
+                        f"pve_reward:{rescue['pve_id']}"
+                    )
+                    logger.info(f"💰 PvE 獎勵發放 | {reward_mana} mana | tx={reward_tx} | @{user.username}")
+            except Exception as e:
+                logger.error(f"PvE 獎勵發放失敗: {e}")
+                # 獎勵發放失敗不影響戰鬥結果
+            
+            result_msg = f"""🏆 *守護成功！*
+
+👹 {rank_emoji.get(goblin.rank, '⭐')}{class_emoji.get(goblin.hero_class, '')} {goblin_display}
+ATK:{goblin.atk} DEF:{goblin.def_} SPD:{goblin.spd}
+
+vs
+
+🛡️ {rank_emoji.get(hero.rank, '⭐')}{class_emoji.get(hero.hero_class, '')} 「{hero_display}」
+ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
+
+━━━ 戰鬥記錄 ━━━
+{battle_log}
+━━━━━━━━━━━━━━
+
+✅ 「{hero_display}」守護成功！
+💰 獲得 {reward_mana} mana {'✅' if reward_tx else '(發放中...)'}
+⚔️ 擊殺數 +1"""
+        else:
+            # 玩家失敗
+            db = load_heroes_db()
+            hero_data = db.get("heroes", {}).get(str(hero.card_id), {})
+            is_protected = hero_data.get("protected", False)
+            
+            # 更新哥布林戰績（只有真的擊殺才 +kill）
+            # 更新哥布林戰績（哥布林在 heroes 裡，owner_id=0）
+            if str(goblin.card_id) in db.get("heroes", {}):
+                gob = db["heroes"][str(goblin.card_id)]
+                if not is_protected:
+                    # 無保護 = 真的擊殺
+                    gob["kills"] = gob.get("kills", 0) + 1
+                if "defeated_heroes" not in gob:
+                    gob["defeated_heroes"] = []
+                gob["defeated_heroes"].append({
+                    "hero_id": hero.card_id,
+                    "hero_name": hero_display,
+                    "protected": is_protected,
+                    "actual_kill": not is_protected,
+                    "time": datetime.now().isoformat()
+                })
+            
+            if is_protected:
+                # 有保護 → 不死
+                if str(hero.card_id) in db.get("heroes", {}):
+                    db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
+                save_heroes_db(db)
+                
+                result_msg = f"""💀 *守護失敗...*
+
+👹 {rank_emoji.get(goblin.rank, '⭐')}{class_emoji.get(goblin.hero_class, '')} {goblin_display}
+ATK:{goblin.atk} DEF:{goblin.def_} SPD:{goblin.spd}
+
+vs
+
+🛡️ {rank_emoji.get(hero.rank, '⭐')}{class_emoji.get(hero.hero_class, '')} 「{hero_display}」
+ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
+
+━━━ 戰鬥記錄 ━━━
+{battle_log}
+━━━━━━━━━━━━━━
+
+❌ 「{hero_display}」守護失敗！
+🛡️ 大地之母的保護發動，英雄倖存！"""
+            else:
+                # 無保護 → 死亡
+                if str(hero.card_id) in db.get("heroes", {}):
+                    db["heroes"][str(hero.card_id)]["status"] = "dead"
+                    db["heroes"][str(hero.card_id)]["death_time"] = datetime.now().isoformat()
+                    db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
+                save_heroes_db(db)
+                
+                result_msg = f"""💀 *守護失敗...*
+
+👹 {rank_emoji.get(goblin.rank, '⭐')}{class_emoji.get(goblin.hero_class, '')} {goblin_display}
+ATK:{goblin.atk} DEF:{goblin.def_} SPD:{goblin.spd}
+
+vs
+
+🛡️ {rank_emoji.get(hero.rank, '⭐')}{class_emoji.get(hero.hero_class, '')} 「{hero_display}」
+ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
+
+━━━ 戰鬥記錄 ━━━
+{battle_log}
+━━━━━━━━━━━━━━
+
+❌ 「{hero_display}」守護失敗！
+💀 英雄陣亡，靈魂回歸大地..."""
+        
+        # 清理救援狀態
+        chat_id = update.effective_chat.id
+        if chat_id in _active_rescue:
+            del _active_rescue[chat_id]
+        
+        await update.message.reply_text(result_msg, parse_mode='Markdown')
+        logger.info(f"⚔️ PvE 戰鬥完成 | @{user.username} | {'勝利' if attacker_wins else '失敗'}")
+        
+    except Exception as e:
+        logger.error(f"PvE 戰鬥錯誤: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        # 發生錯誤時也要清理救援狀態
+        chat_id = update.effective_chat.id
+        if chat_id in _active_rescue:
+            del _active_rescue[chat_id]
+        
+        await update.message.reply_text(f"❌ 戰鬥發生錯誤：{e}")
 
 
 async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """處理 PvE 按鈕回調"""
+    """處理 PvE 按鈕回調（先搶後付模式）"""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
-    data = query.data  # pve_yes:pve_123456 or pve_no:pve_123456
+    data = query.data  # pve_claim:pve_123456 or pve_cancel:pve_123456
+    
+    action, pve_id = data.split(":", 1)
+    
+    pve_data = _pending_pve.get(pve_id)
+    
+    if action == "pve_cancel":
+        # 只有發起人可以取消
+        if pve_data and pve_data.get("initiator_id") == user.id:
+            chat_id = pve_data.get("chat_id")
+            if chat_id in _active_rescue:
+                del _active_rescue[chat_id]
+            if pve_id in _pending_pve:
+                del _pending_pve[pve_id]
+            await query.edit_message_text("❌ 救援已取消")
+        else:
+            await query.answer("只有發起人可以取消", show_alert=True)
+        return
+    
+    # action == "pve_claim" → 搶守護
+    if not pve_data:
+        await query.edit_message_text("❌ 救援已過期")
+        return
+    
+    if pve_data["claimed"]:
+        await query.answer("❌ 已被其他英雄搶走！", show_alert=True)
+        return
+    
+    # 檢查保護英雄
+    from hero_game import get_protected_hero
+    protected = get_protected_hero(user.id)
+    if not protected:
+        await query.answer("❌ 你沒有設定保護英雄！用 /nhp 設定", show_alert=True)
+        return
+    
+    if protected.get("status") != "alive":
+        await query.answer("❌ 你的保護英雄已死亡！", show_alert=True)
+        return
+    
+    # 🔒 鎖定！
+    pve_data["claimed"] = True
+    pve_data["claimer_id"] = user.id
+    
+    hero_name = protected.get("name") or f"#{protected.get('card_id')}"
+    
+    await query.edit_message_text(
+        f"🔒 *守護已鎖定！*\n\n"
+        f"👤 英雄：@{user.username or user.first_name}\n"
+        f"🛡️ 出戰：{hero_name}\n\n"
+        f"請輸入 PIN 確認：\n"
+        f"```\n/ntest1 <PIN>\n```",
+        parse_mode='Markdown'
+    )
+    
+    logger.info(f"🔒 PvE 鎖定 | @{user.username} | 保護英雄: {hero_name}")
+
+
+# 舊的 handle_pve_callback 備用（處理 pve_yes/pve_no）
+async def handle_pve_callback_legacy(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """處理 PvE 舊按鈕回調（備用）"""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    data = query.data
     
     action, pve_id = data.split(":", 1)
     
@@ -2709,7 +3256,6 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text("❌ 已取消救援響應")
         return
     
-    # action == "pve_yes"
     pve_data = _pending_pve.get(pve_id)
     
     if not pve_data:
@@ -2720,11 +3266,9 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(f"❌ 救援已被其他英雄響應")
         return
     
-    # 標記為已領取
     pve_data["claimed"] = True
     pve_data["claimer_id"] = user.id
     
-    # 檢查保護英雄
     from hero_game import get_protected_hero, create_goblin, process_battle, Hero, load_heroes_db, save_heroes_db, calculate_pvp_reward
     
     protected = get_protected_hero(user.id)
@@ -2779,15 +3323,15 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         await client.disconnect()
         
-        # 生成哥布林
-        goblin = create_goblin(block_hash, current_daa)
-        
-        # 儲存哥布林到 DB（用於懸賞機制）
+        # 生成哥布林（傳入 db 做編號）
         db = load_heroes_db()
-        if "goblins" not in db:
-            db["goblins"] = {}
-        db["goblins"][str(goblin.card_id)] = {
+        goblin = create_goblin(block_hash, current_daa, db)
+        
+        # 儲存哥布林到 db["heroes"]（怪物 = 系統英雄）
+        db["heroes"][str(goblin.card_id)] = {
             "card_id": goblin.card_id,
+            "owner_id": 0,
+            "owner_address": "",
             "name": goblin.name,
             "hero_class": goblin.hero_class,
             "rank": goblin.rank,
@@ -2797,8 +3341,9 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             "source_hash": block_hash,
             "status": "alive",
             "kills": 0,
+            "battles": 0,
             "created_at": datetime.now().isoformat(),
-            "defeated_heroes": []  # 擊敗的英雄列表
+            "defeated_heroes": []
         }
         save_heroes_db(db)
         logger.info(f"🐲 哥布林誕生 | #{goblin.card_id} {goblin.name} | {goblin.rank}")
@@ -2821,15 +3366,9 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             protected=True
         )
         
-        # ATB 戰鬥
-        # ATB 戰鬥（用 current_daa 作為 event_daa 和 result_daa）
-        updated_hero, updated_goblin, attacker_wins = await process_battle(
-            hero, goblin, current_daa, current_daa, block_hash
-        )
-        
-        # 取得戰鬥記錄（用 ATB 系統）
+        # ATB 戰鬥（直接用 ATB 系統判定勝負）
         from hero_game import calculate_battle_result_atb
-        _, battle_detail = calculate_battle_result_atb(hero, goblin, block_hash)
+        attacker_wins, battle_detail = calculate_battle_result_atb(hero, goblin, block_hash)
         
         # 戰報
         rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}
@@ -2850,9 +3389,9 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 db["heroes"][str(hero.card_id)]["kills"] = hero.kills + 1
                 db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
             
-            # 刪除哥布林（已被擊敗）
-            if str(goblin.card_id) in db.get("goblins", {}):
-                db["goblins"][str(goblin.card_id)]["status"] = "dead"
+            # 標記哥布林死亡（哥布林在 heroes 裡）
+            if str(goblin.card_id) in db.get("heroes", {}):
+                db["heroes"][str(goblin.card_id)]["status"] = "dead"
                 logger.info(f"🐲 哥布林被擊敗 | #{goblin.card_id} by 「{hero_display}」")
             save_heroes_db(db)
             
@@ -2879,17 +3418,23 @@ ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
             hero_data = db.get("heroes", {}).get(str(hero.card_id), {})
             is_protected = hero_data.get("protected", False)
             
-            # 更新哥布林戰績（存活 + 擊殺記錄）
-            if str(goblin.card_id) in db.get("goblins", {}):
-                gob = db["goblins"][str(goblin.card_id)]
-                gob["kills"] = gob.get("kills", 0) + 1
+            # 更新哥布林戰績（哥布林在 heroes 裡，owner_id=0）
+            if str(goblin.card_id) in db.get("heroes", {}):
+                gob = db["heroes"][str(goblin.card_id)]
+                if not is_protected:
+                    gob["kills"] = gob.get("kills", 0) + 1
+                    logger.info(f"🐲 哥布林擊殺英雄 | #{goblin.card_id} kills 「{hero_display}」")
+                else:
+                    logger.info(f"🐲 哥布林擊敗英雄（有保護）| #{goblin.card_id} vs 「{hero_display}」")
+                if "defeated_heroes" not in gob:
+                    gob["defeated_heroes"] = []
                 gob["defeated_heroes"].append({
                     "hero_id": hero.card_id,
                     "hero_name": hero_display,
                     "protected": is_protected,
+                    "actual_kill": not is_protected,
                     "time": datetime.now().isoformat()
                 })
-                logger.info(f"🐲 哥布林擊敗英雄 | #{goblin.card_id} kills 「{hero_display}」")
             
             if is_protected:
                 # 有保護 → 不死
@@ -2915,7 +3460,6 @@ ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
 🛡️ 大地之母的保護發動，英雄倖存！"""
             else:
                 # 無保護 → 死亡
-                from datetime import datetime
                 if str(hero.card_id) in db.get("heroes", {}):
                     db["heroes"][str(hero.card_id)]["status"] = "dead"
                     db["heroes"][str(hero.card_id)]["death_time"] = datetime.now().isoformat()
@@ -3590,7 +4134,8 @@ def register_hero_commands(app):
     # ═══════════════════════════════════════════════════════════════════════
     app.add_handler(CallbackQueryHandler(handle_burn_callback, pattern=r"^burn_(yes|no):"))
     app.add_handler(CallbackQueryHandler(handle_pvp_callback, pattern=r"^pvp_(yes|no):"))
-    app.add_handler(CallbackQueryHandler(handle_pve_callback, pattern=r"^pve_(yes|no):"))
+    app.add_handler(CallbackQueryHandler(handle_pve_callback, pattern=r"^pve_(claim|cancel):"))
+    app.add_handler(CallbackQueryHandler(handle_pve_callback_legacy, pattern=r"^pve_(yes|no):"))
     
     logger.info("🌲 英雄遊戲指令已註冊 (v0.4)")
 

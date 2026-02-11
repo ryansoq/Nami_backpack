@@ -1946,5 +1946,127 @@
     "status": "dead",
     "kills": 0,
     "battles": 1
+  },
+  {
+    "g": "nami_hero",
+    "type": "event",
+    "daa": 384446568,
+    "pre_tx": 384446568,
+    "pay_tx": null,
+    "src": null,
+    "action": "pvp",
+    "attacker": 381635914,
+    "target": 384446568,
+    "result": "win"
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384446568,
+    "pre_tx": 384446568,
+    "card": 381635914,
+    "status": "alive",
+    "kills": 11,
+    "battles": 17
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384446569,
+    "pre_tx": 384446568,
+    "card": 384446568,
+    "status": "dead",
+    "kills": 0,
+    "battles": 1
+  },
+  {
+    "g": "nami_hero",
+    "type": "event",
+    "daa": 384451142,
+    "pre_tx": 384451142,
+    "pay_tx": null,
+    "src": null,
+    "action": "pvp",
+    "attacker": 381635914,
+    "target": 384451142,
+    "result": "win"
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384451142,
+    "pre_tx": 384451142,
+    "card": 381635914,
+    "status": "alive",
+    "kills": 13,
+    "battles": 19
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384451143,
+    "pre_tx": 384451142,
+    "card": 384451142,
+    "status": "dead",
+    "kills": 0,
+    "battles": 1
+  },
+  {
+    "g": "nami_hero",
+    "type": "event",
+    "daa": 384452223,
+    "pre_tx": 384452223,
+    "pay_tx": null,
+    "src": null,
+    "action": "pvp",
+    "attacker": 381635914,
+    "target": 384452223,
+    "result": "lose"
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384452223,
+    "pre_tx": 384452223,
+    "card": 381635914,
+    "status": "alive",
+    "kills": 14,
+    "battles": 21
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384452224,
+    "pre_tx": 384452223,
+    "card": 384452223,
+    "status": "alive",
+    "kills": 0,
+    "battles": 1
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384452223,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "055617e8a04b96e0bdc523334ae5fdd2330589f547a2d3315062f64cef8f00ee",
+    "tx_id": "36eb6bc1b6cdc2a8f5650b009faddf8548ba8c6287697627af2f5f9d4cb02e59",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384566668,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "a06e0859bf9ab98e2246c9674ae384dbedabe021d10e70b7361a1860768e7075",
+    "tx_id": "0c90a4c406e061e2c01e5ac6d132bb14b3a4fcb3e46320d100f0e815deb37186",
+    "signer": "tree"
   }
 ]

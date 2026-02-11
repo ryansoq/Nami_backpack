@@ -185,7 +185,7 @@ class Hero:
             def_=d["def"],
             spd=d["spd"],
             status=d["status"],
-            latest_daa=d["latest_daa"],
+            latest_daa=d.get("latest_daa", d.get("card_id", 0)),
             kills=d.get("kills", 0),
             battles=d.get("battles", 0),
             created_at=d.get("created_at", ""),
@@ -589,43 +589,69 @@ def get_rank_display(rank: str) -> str:
     return rank
 
 
-def create_goblin(block_hash: str, daa: int) -> Hero:
+def create_goblin(block_hash: str, daa: int, db: dict = None) -> Hero:
     """
-    v0.5: 從 block hash 生成哥布林（PvE 怪物）
+    v0.5: 從 block hash 生成魔物（PvE 怪物）
     
-    哥布林 = NPC 英雄，完全複用現有系統：
-    - 職業：哥布林騎士/弓手/法師/盜賊
-    - 稀有度：N/R/SR/SSR
-    - 數值：ATK/DEF/SPD
+    魔物命名系統（按稀有度）：
+    - N (⭐): 哥布林 + 職業
+    - R (⭐⭐): 巨魔 + 職業
+    - SR (⭐⭐⭐): 黑暗精靈 + 職業
+    - SSR (💎): 飛龍 + 元素（火=法師, 風=盜賊, 土=戰士, 木=弓手）
+    - UR/LR (✨): 未知 + 職業
     
     Args:
         block_hash: 命運區塊 hash
-        daa: 區塊 DAA（作為哥布林 ID）
+        daa: 區塊 DAA（作為魔物 ID）
+        db: 英雄資料庫（用於檢查重複名稱）
     
     Returns:
-        Hero 物件（代表哥布林）
+        Hero 物件（代表魔物）
     """
     hero_class, rank, atk, def_, spd = calculate_hero_from_hash(block_hash)
     
-    # 哥布林名稱
-    class_names = {
-        "knight": "哥布林騎士",
-        "mage": "哥布林法師",
-        "archer": "哥布林弓手",
-        "rogue": "哥布林盜賊"
-    }
-    rank_titles = {
-        "N": "小兵",
-        "R": "戰士", 
-        "SR": "精英",
-        "SSR": "王",
-        "UR": "霸主",
-        "LR": "神"
+    # 職業對應名稱（通用）
+    class_suffix = {
+        "knight": "戰士",
+        "mage": "法師",
+        "archer": "弓手",
+        "rogue": "盜賊"
     }
     
-    goblin_name = f"{class_names.get(hero_class, '哥布林')}"
-    if rank in ["SSR", "UR", "LR"]:
-        goblin_name = f"哥布林{rank_titles.get(rank, '')}"
+    # 飛龍的元素名稱（SSR 專用）
+    dragon_elements = {
+        "knight": "土龍",   # 戰士 = 土
+        "mage": "火龍",     # 法師 = 火
+        "archer": "木龍",   # 弓手 = 木
+        "rogue": "風龍"     # 盜賊 = 風
+    }
+    
+    # 根據稀有度決定魔物類型
+    if rank == "N":
+        base_name = f"哥布林{class_suffix.get(hero_class, '兵')}"
+    elif rank == "R":
+        base_name = f"巨魔{class_suffix.get(hero_class, '兵')}"
+    elif rank == "SR":
+        base_name = f"黑暗精靈{class_suffix.get(hero_class, '兵')}"
+    elif rank == "SSR":
+        base_name = dragon_elements.get(hero_class, "飛龍")
+    else:  # UR, LR
+        base_name = f"未知{class_suffix.get(hero_class, '體')}"
+    
+    # 自動編號（重複時才加編號）
+    goblin_name = base_name
+    if db:
+        # 找出同類魔物數量（包含死亡的）
+        existing_count = 0
+        for h in db.get("heroes", {}).values():
+            name = h.get("name", "")
+            # 匹配基本名稱或帶編號的名稱
+            if name == base_name or (name.startswith(base_name) and name[len(base_name):].isdigit()):
+                existing_count += 1
+        
+        # 有重複才加編號（第一隻不加）
+        if existing_count > 0:
+            goblin_name = f"{base_name}{existing_count}"
     
     goblin = Hero(
         card_id=daa,  # 用 DAA 作為臨時 ID
@@ -1582,9 +1608,10 @@ async def process_pvp_onchain(
         # 5a. 攻擊者贏 - 發送 pvp_win 事件
         logger.info(f"   ✅ 攻擊者勝利！發送 pvp_win 事件...")
         
-        # 保存舊的 latest_tx（用於銘文記錄的 pre_tx）
-        attacker_old_ltx = attacker.latest_tx or attacker.tx_id or ""
-        defender_old_ltx = defender.latest_tx or defender.tx_id or ""
+        # 從銘文鏈條取得正確的 pre_tx（不依賴 DB 的 latest_tx）
+        from inscription_store import get_latest_tx
+        attacker_old_ltx = get_latest_tx(attacker.card_id) or attacker.latest_tx or attacker.tx_id or ""
+        defender_old_ltx = get_latest_tx(defender.card_id) or defender.latest_tx or defender.tx_id or ""
         
         win_payload = create_pvp_win_payload(
             hero_id=attacker.card_id,
@@ -1690,9 +1717,10 @@ async def process_pvp_onchain(
         result["loser"] = attacker
         
         # 5b. 攻擊者輸 - 大地之樹發送死亡事件給攻擊者（如果沒受保護）
-        # 保存舊的 latest_tx（用於銘文記錄的 pre_tx）
-        attacker_old_ltx = attacker.latest_tx or attacker.tx_id or ""
-        defender_old_ltx = defender.latest_tx or defender.tx_id or ""
+        # 從銘文鏈條取得正確的 pre_tx（不依賴 DB 的 latest_tx）
+        from inscription_store import get_latest_tx
+        attacker_old_ltx = get_latest_tx(attacker.card_id) or attacker.latest_tx or attacker.tx_id or ""
+        defender_old_ltx = get_latest_tx(defender.card_id) or defender.latest_tx or defender.tx_id or ""
         
         if not attacker_protected:
             logger.info(f"   ❌ 攻擊者落敗！🌲 大地之樹發送死亡事件...")
@@ -2797,3 +2825,83 @@ def resolve_hero_id(identifier: str) -> int | None:
     # 嘗試作為名字
     names = get_hero_names_index()
     return names.get(identifier.lower())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v0.5: 哥布林生成系統
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def create_goblin_hero(daa: int, seed_offset: int = 0) -> dict:
+    """
+    v0.5: 自動生成哥布林英雄（用於獎勵發放後的新一波入侵）
+    
+    流程：
+    1. 用 DAA + offset 作為哥布林的 DAA（每隻不同）
+    2. 取得該 DAA 的真實區塊 hash 作為命運來源
+    3. 創建哥布林 Hero
+    4. 保存到資料庫
+    
+    Args:
+        daa: 觸發 DAA（基準）
+        seed_offset: 偏移量（第 1 隻用 daa，第 2 隻用 daa+1...）
+    
+    Returns:
+        哥布林資料 dict
+    """
+    import hashlib
+    from datetime import datetime
+    
+    # 每隻哥布林用不同的 DAA（當前、當前+1、...）
+    goblin_daa = daa + seed_offset
+    
+    # 嘗試取得真實區塊 hash，失敗則用偽隨機
+    block_hash = None
+    try:
+        from hero_commands import get_first_block_after_daa
+        # get_first_block_after_daa 返回 (daa, hash)
+        result = await get_first_block_after_daa(goblin_daa)
+        if result:
+            _, block_hash = result  # 解包 tuple
+    except Exception as e:
+        logger.warning(f"無法取得 DAA {goblin_daa} 的區塊 hash: {e}")
+    
+    if not block_hash:
+        # 備用：用 DAA 生成偽隨機 hash
+        seed = f"goblin_invasion:{goblin_daa}"
+        block_hash = hashlib.sha256(seed.encode()).hexdigest()
+        logger.info(f"🐲 使用偽隨機 hash 生成哥布林 #{goblin_daa}")
+    
+    # 載入資料庫（用於檢查名稱唯一性）
+    db = load_heroes_db()
+    
+    # 創建哥布林（用真實 DAA，不是 9 開頭的假 ID）
+    goblin = create_goblin(block_hash, goblin_daa, db)
+    
+    # 補充必要欄位
+    goblin_data = {
+        "card_id": goblin_daa,  # 用真實 DAA 作為 ID
+        "owner_id": 0,  # 系統
+        "owner_address": "",
+        "name": goblin.name,
+        "hero_class": goblin.hero_class,
+        "rank": goblin.rank,
+        "atk": goblin.atk,
+        "def": goblin.def_,
+        "spd": goblin.spd,
+        "source_hash": block_hash,
+        "payment_tx": f"system_spawn:{goblin_daa}",  # 系統生成標記
+        "status": "alive",
+        "kills": 0,
+        "battles": 0,
+        "created_at": datetime.now().isoformat(),
+        "spawn_trigger_daa": daa,  # 觸發生成的獎勵 DAA
+        "defeated_heroes": []
+    }
+    
+    # 保存到資料庫
+    db["heroes"][str(goblin.card_id)] = goblin_data
+    save_heroes_db(db)
+    
+    logger.info(f"🐲 哥布林生成: {goblin.name} #{goblin.card_id} | {goblin.rank} {goblin.hero_class}")
+    
+    return goblin_data
