@@ -1956,7 +1956,7 @@ async def hero_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 私聊時顯示世界之樹圖片
     if update.effective_chat.type == "private":
         import os
-        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree.png")
+        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree1.jpg")
         if os.path.exists(tree_image):
             await update.message.reply_photo(photo=open(tree_image, 'rb'), caption=help_text, parse_mode='Markdown')
         else:
@@ -2566,7 +2566,7 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # 發送世界之樹圖片 + 訊息
         import os
-        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree.png")
+        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree1.jpg")
         logger.info(f"🌲 /nr 圖片路徑: {tree_image}, 存在: {os.path.exists(tree_image)}")
         if os.path.exists(tree_image):
             try:
