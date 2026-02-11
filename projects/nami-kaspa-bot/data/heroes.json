@@ -980,7 +980,7 @@
       "atk": 48,
       "def": 93,
       "spd": 76,
-      "status": "alive",
+      "status": "dead",
       "latest_daa": 382138733,
       "kills": 0,
       "battles": 0,
@@ -989,9 +989,11 @@
       "source_hash": "370f9d29d89addd712aac12313761bf02cf3d9bdedcd6bbd47ba069ae2c195df",
       "payment_tx": "6b55c0bc5b0c8e697de07adc343264de06be693d77c2e04a8cd2ba3d2943d500",
       "tx_id": "166df814b37c814fd02360134b2446846d2f14d22f58329e13333e20f6a15e9a",
-      "latest_tx": "166df814b37c814fd02360134b2446846d2f14d22f58329e13333e20f6a15e9a",
+      "latest_tx": "1d7bc12fda768b90f4b58f362ccd3d10db83b7ffa1edf4d3a60761bffc1ca621",
       "name": "",
-      "protected": false
+      "protected": false,
+      "death_reason": "burn",
+      "death_tx": "1d7bc12fda768b90f4b58f362ccd3d10db83b7ffa1edf4d3a60761bffc1ca621"
     },
     "382138948": {
       "card_id": 382138948,
@@ -1480,6 +1482,52 @@
       "latest_tx": "69441e33e6dfdf5cfd8478d2435c673a7a9c47f67653c53a42d7864ddf77caae",
       "name": "",
       "protected": false
+    },
+    "384193129": {
+      "card_id": 384193129,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "rogue",
+      "rank": "SR",
+      "rarity": "SR",
+      "atk": 109,
+      "def": 70,
+      "spd": 115,
+      "status": "alive",
+      "latest_daa": 384193129,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-11T10:58:30.633180",
+      "death_time": "",
+      "source_hash": "daa08347abc8bc6d004fad5c23b17a8b0d0f3c02e304a6277a1f2d0dca5b3b36",
+      "payment_tx": "a06bce1db00024327391cdad10fc0a76c7490497d5152276b92b272577e83561",
+      "tx_id": "af78f991818950ff1f25781e34485e88a1e762f4c78cbbb50442abf75b9e13b0",
+      "latest_tx": "af78f991818950ff1f25781e34485e88a1e762f4c78cbbb50442abf75b9e13b0",
+      "name": "",
+      "protected": false
+    },
+    "384223541": {
+      "card_id": 384223541,
+      "owner_id": 5168530096,
+      "owner_address": "kaspatest:qz5vvgd6la7vqvdvukk8xrtqj868mwk8kxjl27w6ld9rg6t82pqzspm7p994f",
+      "hero_class": "rogue",
+      "rank": "N",
+      "rarity": "N",
+      "atk": 47,
+      "def": 27,
+      "spd": 59,
+      "status": "alive",
+      "latest_daa": 384223541,
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-11T11:49:14.746459",
+      "death_time": "",
+      "source_hash": "2c8fabe90a4739fee377e45bd72054157cfe12789b285b4d1defc5d89da4876e",
+      "payment_tx": "b6c76da76004f36d0548276bdc9be047bfaa3907d6aa53dac997fd12f4505b5c",
+      "tx_id": "66194b185a404ce0a48e57cf3d55ded805cde0e30b72dea5ace47c92d8e0a27d",
+      "latest_tx": "66194b185a404ce0a48e57cf3d55ded805cde0e30b72dea5ace47c92d8e0a27d",
+      "name": "",
+      "protected": false
     }
   },
   "user_heroes": {
@@ -1519,7 +1567,9 @@
       382795484,
       382797141,
       382801609,
-      382804420
+      382804420,
+      384193129,
+      384223541
     ],
     "684243833": [
       380994228,
@@ -1551,11 +1601,11 @@
       383478033
     ]
   },
-  "last_summon_daa": 383478033,
+  "last_summon_daa": 384223541,
   "summon_queue": [],
-  "total_mana_pool": 0,
-  "last_checked_daa": 383718446,
-  "last_reward_daa": 383666666,
+  "total_mana_pool": 20,
+  "last_checked_daa": 384263106,
+  "last_reward_daa": 384166666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -1770,6 +1820,46 @@
       "daa": 383666666,
       "checked_at_daa": 383667153,
       "timestamp": "2026-02-10T20:33:26.120002",
+      "total_pool": 50000000000,
+      "distributed": 49999999997,
+      "recipients_count": 7
+    },
+    {
+      "daa": 383766666,
+      "checked_at_daa": 383766852,
+      "timestamp": "2026-02-10T23:17:07.108662",
+      "total_pool": 50000000000,
+      "distributed": 49999999997,
+      "recipients_count": 7
+    },
+    {
+      "daa": 383866666,
+      "checked_at_daa": 383866933,
+      "timestamp": "2026-02-11T02:04:25.987684",
+      "total_pool": 50000000000,
+      "distributed": 49999999997,
+      "recipients_count": 7
+    },
+    {
+      "daa": 383966666,
+      "checked_at_daa": 383967148,
+      "timestamp": "2026-02-11T04:41:43.804469",
+      "total_pool": 50000000000,
+      "distributed": 49999999997,
+      "recipients_count": 7
+    },
+    {
+      "daa": 384066666,
+      "checked_at_daa": 384067052,
+      "timestamp": "2026-02-11T07:28:08.606541",
+      "total_pool": 50000000000,
+      "distributed": 49999999997,
+      "recipients_count": 7
+    },
+    {
+      "daa": 384166666,
+      "checked_at_daa": 384167186,
+      "timestamp": "2026-02-11T10:15:35.082510",
       "total_pool": 50000000000,
       "distributed": 49999999997,
       "recipients_count": 7

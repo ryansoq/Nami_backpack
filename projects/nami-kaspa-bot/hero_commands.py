@@ -612,7 +612,7 @@ async def get_next_daa_block() -> tuple[int, str]:
     from kaspa import RpcClient
     
     client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
-    await client.connect()
+    await asyncio.wait_for(client.connect(), timeout=10)
     
     try:
         # 取得當前 DAA
@@ -650,7 +650,7 @@ async def get_first_block_after_daa(min_daa: int, max_retries: int = 3) -> tuple
     
     for retry in range(max_retries):
         client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
-        await client.connect()
+        await asyncio.wait_for(client.connect(), timeout=10)
         
         try:
             # 等待 DAA 超過 min_daa
@@ -743,7 +743,7 @@ async def get_tx_confirmed_daa(tx_id: str, timeout: int = 60) -> int:
     from kaspa import RpcClient
     
     client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
-    await client.connect()
+    await asyncio.wait_for(client.connect(), timeout=10)
     
     try:
         for _ in range(timeout):
@@ -2447,18 +2447,25 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /nami_next_reward - 查看下次獎勵發放時間
     """
     try:
-        from kaspa import RpcClient
+        logger.info("🎁 /nr: 開始處理")
         import unified_wallet
         from hero_game import load_heroes_db
+        from kaspa import RpcClient
         
-        # 取得當前 DAA
-        client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-        await client.connect()
+        # 取得當前 DAA（直接連線，帶 timeout）
+        logger.info("🎁 /nr: 連線 RPC...")
         try:
-            info = await client.get_block_dag_info({})
+            client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+            await asyncio.wait_for(client.connect(), timeout=15)
+            logger.info("🎁 /nr: 連線成功，取得 DAA...")
+            info = await asyncio.wait_for(client.get_block_dag_info({}), timeout=15)
             current_daa = info.get("virtualDaaScore", 0)
-        finally:
+            logger.info(f"🎁 /nr: DAA={current_daa}")
             await client.disconnect()
+        except asyncio.TimeoutError:
+            raise Exception("RPC 連線超時")
+        except Exception as e:
+            raise Exception(f"RPC 錯誤: {e}")
         
         # 計算下一個 66666
         current_suffix = current_daa % 100000
@@ -2557,17 +2564,45 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 *獎勵按積分分配！*
 積分 = 存活天數 + 稀有度 + 擊殺×2"""
 
-        # 顯示世界之樹圖片
-        import os
-        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree.png")
-        if os.path.exists(tree_image):
-            await update.message.reply_photo(photo=open(tree_image, 'rb'), caption=msg, parse_mode='Markdown')
-        else:
-            await update.message.reply_text(msg, parse_mode='Markdown')
+        # 直接發送文字（圖片會導致 timeout）
+        await update.message.reply_text(msg, parse_mode='Markdown')
         
     except Exception as e:
         logger.error(f"Next reward error: {e}")
         await update.message.reply_text(f"❌ 查詢失敗：{e}")
+
+
+async def next_reward_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /nrtest - 測試版 /nr（無圖片）
+    """
+    try:
+        from kaspa import RpcClient
+        
+        logger.info("🧪 /nrtest: 開始")
+        client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+        await asyncio.wait_for(client.connect(), timeout=5)
+        logger.info("🧪 /nrtest: 連線成功")
+        info = await asyncio.wait_for(client.get_block_dag_info({}), timeout=5)
+        current_daa = info.get("virtualDaaScore", 0)
+        logger.info(f"🧪 /nrtest: DAA={current_daa}")
+        await client.disconnect()
+        
+        # 計算下次獎勵
+        suffix = current_daa % 100000
+        next_trigger = current_daa - suffix + (66666 if suffix < 66666 else 166666)
+        remaining = next_trigger - current_daa
+        
+        await update.message.reply_text(
+            f"🧪 *NR Test*\n\n"
+            f"DAA: `{current_daa}`\n"
+            f"下次: `{next_trigger}`\n"
+            f"剩餘: {remaining} (~{remaining//10}秒)",
+            parse_mode='Markdown'
+        )
+    except Exception as e:
+        logger.error(f"🧪 /nrtest error: {e}")
+        await update.message.reply_text(f"❌ 測試失敗：{e}")
 
 
 async def hero_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2684,8 +2719,8 @@ async def hero_decode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         from kaspa import RpcClient
         
-        client = RpcClient(url="ws://127.0.0.1:17210", network_id="testnet-10")
-        await client.connect()
+        client = RpcClient(resolver=None, url="ws://127.0.0.1:17210", encoding="borsh")
+        await asyncio.wait_for(client.connect(), timeout=10)
         
         try:
             # 查詢交易
@@ -3188,6 +3223,7 @@ def register_hero_commands(app):
     app.add_handler(CommandHandler("nv", hero_verify))       # nami_verify
     app.add_handler(CommandHandler("nn", hero_name))         # nami_name
     app.add_handler(CommandHandler("nr", next_reward))       # nami_next_reward
+    app.add_handler(CommandHandler("nrtest", next_reward_test))  # 測試版
     app.add_handler(CommandHandler("ns", hero_stats))        # nami_game_status
     app.add_handler(CommandHandler("nse", hero_search))      # nami_search (偵查)
     app.add_handler(CommandHandler("nhp", hero_protect))     # v0.3: nami_hero_protect

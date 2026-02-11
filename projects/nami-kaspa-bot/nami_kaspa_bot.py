@@ -550,6 +550,27 @@ async def chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
+async def testrpc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """測試 RPC 連線"""
+    import time
+    from kaspa import RpcClient
+    
+    start = time.time()
+    try:
+        await update.message.reply_text("🔍 測試中...")
+        
+        client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+        await asyncio.wait_for(client.connect(), timeout=10)
+        info = await asyncio.wait_for(client.get_block_dag_info({}), timeout=10)
+        await client.disconnect()
+        
+        elapsed = time.time() - start
+        daa = info.get("virtualDaaScore", "?")
+        await update.message.reply_text(f"✅ RPC OK!\nDAA: {daa}\n耗時: {elapsed:.2f}s")
+    except Exception as e:
+        elapsed = time.time() - start
+        await update.message.reply_text(f"❌ RPC 失敗: {e}\n耗時: {elapsed:.2f}s")
+
 async def set_announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """設定公告群（在群裡使用）"""
     chat = update.effective_chat
@@ -2136,6 +2157,7 @@ def main():
     
     # 工具指令
     app.add_handler(CommandHandler("chatid", chatid))
+    app.add_handler(CommandHandler("testrpc", testrpc))
     app.add_handler(CommandHandler("set_announce", set_announce))
     
     # 註冊指令（加上 nami_ 前綴避免與其他 Bot 衝突）
