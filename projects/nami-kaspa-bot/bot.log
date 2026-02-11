@@ -1,7 +1,15 @@
-2026-02-11 14:36:27,636 - hero_commands - INFO - 🌲 英雄遊戲指令已註冊 (v0.4)
-2026-02-11 14:36:27,636 - __main__ - INFO - 🌲 娜米的英雄奇幻冒險已載入！
-2026-02-11 14:36:27,636 - __main__ - INFO - 🌊 Nami Kaspa Bot 啟動中...
-2026-02-11 14:36:27,636 - __main__ - INFO - 🎰 自動開獎已啟用（每 30 秒檢查）
-2026-02-11 14:36:31,235 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/getMe "HTTP/1.1 200 OK"
-2026-02-11 14:36:31,237 - telegram.ext.Application - INFO - Application started
-2026-02-11 14:36:34,940 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/deleteWebhook "HTTP/1.1 200 OK"
+2026-02-11 14:37:25,874 - hero_commands - INFO - 🌲 英雄遊戲指令已註冊 (v0.4)
+2026-02-11 14:37:25,875 - __main__ - INFO - 🌲 娜米的英雄奇幻冒險已載入！
+2026-02-11 14:37:25,875 - __main__ - INFO - 🌊 Nami Kaspa Bot 啟動中...
+2026-02-11 14:37:25,875 - __main__ - INFO - 🎰 自動開獎已啟用（每 30 秒檢查）
+2026-02-11 14:37:30,960 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/getMe "HTTP/1.1 200 OK"
+2026-02-11 14:37:30,965 - telegram.ext.Application - INFO - Application started
+2026-02-11 14:37:31,278 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/deleteWebhook "HTTP/1.1 200 OK"
+2026-02-11 14:37:32,152 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/getUpdates "HTTP/1.1 200 OK"
+2026-02-11 14:37:32,158 - hero_commands - INFO - 🎁 /nr: 開始處理
+2026-02-11 14:37:32,158 - hero_commands - INFO - 🎁 /nr: 連線 RPC...
+2026-02-11 14:37:32,187 - hero_commands - INFO - 🎁 /nr: 連線成功，取得 DAA...
+2026-02-11 14:37:32,192 - hero_commands - INFO - 🎁 /nr: DAA=384326239
+2026-02-11 14:37:32,200 - hero_commands - INFO - 🌲 send_with_world_tree: 路徑=/home/ymchang/nami-backpack/projects/nami-kaspa-bot/../pixel-hero-stage/world_tree1.jpg
+2026-02-11 14:37:32,200 - hero_commands - INFO - 🌲 send_with_world_tree: 存在=True
+2026-02-11 14:37:32,201 - hero_commands - INFO - 🌲 send_with_world_tree: 嘗試發送圖片...

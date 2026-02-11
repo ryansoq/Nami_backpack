@@ -265,27 +265,36 @@ async def send_with_world_tree(update, text: str, parse_mode: str = 'Markdown'):
     統一處理：圖片存在就發圖+caption，否則純文字
     """
     import os
+    import sys
+    import traceback
+    
     tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree1.jpg")
     
     logger.info(f"🌲 send_with_world_tree: 路徑={tree_image}")
     logger.info(f"🌲 send_with_world_tree: 存在={os.path.exists(tree_image)}")
+    logger.info(f"🌲 send_with_world_tree: caption長度={len(text)}")
+    sys.stdout.flush()
+    sys.stderr.flush()
     
     if os.path.exists(tree_image):
         try:
             logger.info("🌲 send_with_world_tree: 嘗試發送圖片...")
+            sys.stdout.flush()
             with open(tree_image, 'rb') as img_file:
-                await update.message.reply_photo(
+                result = await update.message.reply_photo(
                     photo=img_file,
                     caption=text,
                     parse_mode=parse_mode
                 )
-            logger.info("🌲 send_with_world_tree: 圖片發送成功！")
+            logger.info(f"🌲 send_with_world_tree: 圖片發送成功！ result={result}")
             return True
         except Exception as e:
-            logger.warning(f"世界之樹圖片發送失敗: {e}，改用純文字")
+            logger.error(f"🌲 世界之樹圖片發送失敗: {type(e).__name__}: {e}")
+            logger.error(f"🌲 Traceback: {traceback.format_exc()}")
     else:
         logger.warning(f"🌲 send_with_world_tree: 圖片不存在！")
     
+    logger.info("🌲 send_with_world_tree: 改用純文字發送")
     await update.message.reply_text(text, parse_mode=parse_mode)
     return False
 
