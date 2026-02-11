@@ -2564,8 +2564,21 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 *獎勵按積分分配！*
 積分 = 存活天數 + 稀有度 + 擊殺×2"""
 
-        # 直接發送文字（圖片會導致 timeout）
-        await update.message.reply_text(msg, parse_mode='Markdown')
+        # 發送世界之樹圖片 + 訊息
+        import os
+        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree.png")
+        if os.path.exists(tree_image):
+            try:
+                await update.message.reply_photo(
+                    photo=open(tree_image, 'rb'),
+                    caption=msg,
+                    parse_mode='Markdown'
+                )
+            except Exception as img_err:
+                logger.warning(f"/nr 圖片發送失敗: {img_err}，改用純文字")
+                await update.message.reply_text(msg, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(msg, parse_mode='Markdown')
         
     except Exception as e:
         logger.error(f"Next reward error: {e}")
