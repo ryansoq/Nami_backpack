@@ -2519,8 +2519,8 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
             -rank_order.get(x[1].get("rank") or x[1].get("rarity", "N"), 1)
         ))
         
-        # 前 5 名
-        top5_lines = []
+        # 前 10 名
+        top_lines = []
         rank_emoji = {
             "N": "⭐", "common": "⭐",
             "R": "⭐⭐", "uncommon": "⭐⭐",
@@ -2531,7 +2531,7 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         class_emoji = {"knight": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
         
-        for i, (hid, h) in enumerate(alive_heroes[:5], 1):
+        for i, (hid, h) in enumerate(alive_heroes[:10], 1):
             name = h.get("name")
             display = f"「{name}」" if name else f"#{hid}"
             kills = h.get("kills", 0)
@@ -2539,9 +2539,9 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
             re = rank_emoji.get(rank, "⭐")
             ce = class_emoji.get(h.get("hero_class"), "")
             protected = "🛡️" if h.get("protected") else ""
-            top5_lines.append(f"{i}. {re}{ce} {display} {protected}({kills}殺)")
+            top_lines.append(f"{i}. {re}{ce} {display} {protected}({kills}殺)")
         
-        top5_str = "\n".join(top5_lines) if top5_lines else "無存活英雄"
+        top_str = "\n".join(top_lines) if top_lines else "無存活英雄"
         
         msg = f"""🌲 *下次獎勵發放*
 
@@ -2558,8 +2558,8 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 👥 存活英雄: {alive_count} 位
 📊 上次發放: #{last_reward_daa or '尚未發放'}
 
-🏆 *當前排行榜 TOP 5*
-{top5_str}
+🏆 *當前排行榜 TOP 10*
+{top_str}
 
 *獎勵按積分分配！*
 積分 = 存活天數 + 稀有度 + 擊殺×2"""
