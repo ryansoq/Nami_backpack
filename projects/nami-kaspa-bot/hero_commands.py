@@ -2567,17 +2567,22 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 發送世界之樹圖片 + 訊息
         import os
         tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree.png")
+        logger.info(f"🌲 /nr 圖片路徑: {tree_image}, 存在: {os.path.exists(tree_image)}")
         if os.path.exists(tree_image):
             try:
-                await update.message.reply_photo(
-                    photo=open(tree_image, 'rb'),
-                    caption=msg,
-                    parse_mode='Markdown'
-                )
+                logger.info("🌲 /nr 發送圖片中...")
+                with open(tree_image, 'rb') as img_file:
+                    await update.message.reply_photo(
+                        photo=img_file,
+                        caption=msg,
+                        parse_mode='Markdown'
+                    )
+                logger.info("🌲 /nr 圖片發送成功！")
             except Exception as img_err:
                 logger.warning(f"/nr 圖片發送失敗: {img_err}，改用純文字")
                 await update.message.reply_text(msg, parse_mode='Markdown')
         else:
+            logger.warning(f"/nr 圖片不存在: {tree_image}")
             await update.message.reply_text(msg, parse_mode='Markdown')
         
     except Exception as e:

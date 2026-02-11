@@ -1,7 +1,7 @@
-2026-02-11 14:26:08,615 - hero_commands - INFO - 🌲 英雄遊戲指令已註冊 (v0.4)
-2026-02-11 14:26:08,615 - __main__ - INFO - 🌲 娜米的英雄奇幻冒險已載入！
-2026-02-11 14:26:08,616 - __main__ - INFO - 🌊 Nami Kaspa Bot 啟動中...
-2026-02-11 14:26:08,616 - __main__ - INFO - 🎰 自動開獎已啟用（每 30 秒檢查）
-2026-02-11 14:26:10,628 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/getMe "HTTP/1.1 200 OK"
-2026-02-11 14:26:10,633 - telegram.ext.Application - INFO - Application started
-2026-02-11 14:26:10,935 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/deleteWebhook "HTTP/1.1 200 OK"
+2026-02-11 14:27:15,761 - hero_commands - INFO - 🌲 英雄遊戲指令已註冊 (v0.4)
+2026-02-11 14:27:15,761 - __main__ - INFO - 🌲 娜米的英雄奇幻冒險已載入！
+2026-02-11 14:27:15,761 - __main__ - INFO - 🌊 Nami Kaspa Bot 啟動中...
+2026-02-11 14:27:15,761 - __main__ - INFO - 🎰 自動開獎已啟用（每 30 秒檢查）
+2026-02-11 14:27:18,226 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/getMe "HTTP/1.1 200 OK"
+2026-02-11 14:27:18,228 - telegram.ext.Application - INFO - Application started
+2026-02-11 14:27:21,910 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7031382774:AAFCkbE2j8Jbj9b_dw6tia5qCr-5P1Dtvak/deleteWebhook "HTTP/1.1 200 OK"
