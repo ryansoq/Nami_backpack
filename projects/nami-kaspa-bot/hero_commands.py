@@ -3256,9 +3256,10 @@ async def hero_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "🏷️ *英雄命名*\n\n"
             "用法：\n"
-            "```\n/nami_name <英雄ID> <名字>\n```\n\n"
+            "```\n/nn <ID或名字> <新名字>\n```\n\n"
             "例如：\n"
-            "`/nami_name 380312869 Excalibur`\n\n"
+            "`/nn 380312869 Excalibur`\n"
+            "`/nn 舊名字 新名字`\n\n"
             "規則：\n"
             "• 2-12 字元\n"
             "• 中文、英文、數字、底線\n"
@@ -3267,11 +3268,21 @@ async def hero_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    try:
-        hero_id = int(context.args[0])
-        name = context.args[1]
-    except (ValueError, IndexError):
-        await update.message.reply_text("❌ 用法：`/nami_name <英雄ID> <名字>`", parse_mode='Markdown')
+    # 支援 ID 或現有名字
+    from hero_game import resolve_hero_id
+    
+    identifier = context.args[0]
+    name = context.args[1]
+    
+    hero_id = resolve_hero_id(identifier)
+    if hero_id is None:
+        await update.message.reply_text(
+            f"❌ 找不到英雄「{identifier}」\n\n"
+            "可以用 ID 或現有名字，例如：\n"
+            "`/nn 380312869 新名字`\n"
+            "`/nn 舊名字 新名字`",
+            parse_mode='Markdown'
+        )
         return
     
     # 驗證名字格式（支援中文）

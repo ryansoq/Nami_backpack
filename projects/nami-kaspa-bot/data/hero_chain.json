@@ -1858,5 +1858,29 @@
     "rank": "N",
     "tx_id": "66194b185a404ce0a48e57cf3d55ded805cde0e30b72dea5ace47c92d8e0a27d",
     "signer": "player"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384223541,
+    "pre_tx": "66194b185a404ce0a48e57cf3d55ded805cde0e30b72dea5ace47c92d8e0a27d",
+    "pay_tx": null,
+    "src": null,
+    "reason": "burn",
+    "payment_tx": "79a7118d3e617318c34028b8de5480d61385ca241d1a96434d29e5977079dfcb",
+    "tx_id": "f220ee500baf691fd4aa53b6cd01cb87a593d22b442b7626a3489699f29d67a1"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 383473129,
+    "pre_tx": "74f536ddce70aa2768856a12128d95bf232c47ab0f484e5ef96d885a8453633d",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 384193129,
+    "battle_tx": "cfb00b880e1bcccba835a6e99c358e8a0e0204f8c3c8cf3576b37024b2dbcff4",
+    "tx_id": "97c81c705bf1595059080ddb4344928e2a6049f415edf32fde8559fc3a42f200",
+    "signer": "tree"
   }
 ]

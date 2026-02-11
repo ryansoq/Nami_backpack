@@ -1,0 +1,13 @@
+{
+  "type": "pvp_win",
+  "hero_id": 384193129,
+  "seq": 1,
+  "tx_id": "cfb00b880e1bcccba835a6e99c358e8a0e0204f8c3c8cf3576b37024b2dbcff4",
+  "pre_tx": "af78f991818950ff1f25781e34485e88a1e762f4c78cbbb50442abf75b9e13b0",
+  "payment_tx": "61bc7440a92057dcfb005d3f4a04356259c53ad7b1f3c641407c455411647ebf",
+  "source_hash": "439fb75f7bda27ef448d398d2e8c26eac80dd06fbce8baddb18390b8612293b0",
+  "payload": null,
+  "verified": true,
+  "timestamp": "2026-02-11T13:13:36.366661",
+  "target_id": 383473129
+}

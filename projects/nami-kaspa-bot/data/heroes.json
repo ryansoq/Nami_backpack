@@ -1399,16 +1399,16 @@
       "atk": 132,
       "def": 25,
       "spd": 18,
-      "status": "alive",
+      "status": "dead",
       "latest_daa": 383473129,
       "kills": 0,
-      "battles": 0,
+      "battles": 1,
       "created_at": "2026-02-10T15:09:24.263002",
-      "death_time": "",
+      "death_time": "2026-02-11T13:13:31.017490",
       "source_hash": "4c8bf7d0e399116eb2626e254114e0aa86805b0a656da73baeaa230f230c696e",
       "payment_tx": "c6ba46715c7a74e9a1e55cdf71fa64df2ab53568eac53f94b58f9838eab49cc9",
       "tx_id": "74f536ddce70aa2768856a12128d95bf232c47ab0f484e5ef96d885a8453633d",
-      "latest_tx": "74f536ddce70aa2768856a12128d95bf232c47ab0f484e5ef96d885a8453633d",
+      "latest_tx": "97c81c705bf1595059080ddb4344928e2a6049f415edf32fde8559fc3a42f200",
       "name": "",
       "protected": false
     },
@@ -1495,15 +1495,15 @@
       "spd": 115,
       "status": "alive",
       "latest_daa": 384193129,
-      "kills": 0,
-      "battles": 0,
+      "kills": 1,
+      "battles": 1,
       "created_at": "2026-02-11T10:58:30.633180",
       "death_time": "",
       "source_hash": "daa08347abc8bc6d004fad5c23b17a8b0d0f3c02e304a6277a1f2d0dca5b3b36",
       "payment_tx": "a06bce1db00024327391cdad10fc0a76c7490497d5152276b92b272577e83561",
       "tx_id": "af78f991818950ff1f25781e34485e88a1e762f4c78cbbb50442abf75b9e13b0",
-      "latest_tx": "af78f991818950ff1f25781e34485e88a1e762f4c78cbbb50442abf75b9e13b0",
-      "name": "",
+      "latest_tx": "cfb00b880e1bcccba835a6e99c358e8a0e0204f8c3c8cf3576b37024b2dbcff4",
+      "name": "逆襲",
       "protected": false
     },
     "384223541": {
@@ -1516,7 +1516,7 @@
       "atk": 47,
       "def": 27,
       "spd": 59,
-      "status": "alive",
+      "status": "dead",
       "latest_daa": 384223541,
       "kills": 0,
       "battles": 0,
@@ -1525,9 +1525,11 @@
       "source_hash": "2c8fabe90a4739fee377e45bd72054157cfe12789b285b4d1defc5d89da4876e",
       "payment_tx": "b6c76da76004f36d0548276bdc9be047bfaa3907d6aa53dac997fd12f4505b5c",
       "tx_id": "66194b185a404ce0a48e57cf3d55ded805cde0e30b72dea5ace47c92d8e0a27d",
-      "latest_tx": "66194b185a404ce0a48e57cf3d55ded805cde0e30b72dea5ace47c92d8e0a27d",
+      "latest_tx": "f220ee500baf691fd4aa53b6cd01cb87a593d22b442b7626a3489699f29d67a1",
       "name": "",
-      "protected": false
+      "protected": false,
+      "death_reason": "burn",
+      "death_tx": "f220ee500baf691fd4aa53b6cd01cb87a593d22b442b7626a3489699f29d67a1"
     }
   },
   "user_heroes": {
@@ -1603,9 +1605,9 @@
   },
   "last_summon_daa": 384223541,
   "summon_queue": [],
-  "total_mana_pool": 20,
-  "last_checked_daa": 384263106,
-  "last_reward_daa": 384166666,
+  "total_mana_pool": 6,
+  "last_checked_daa": 384278363,
+  "last_reward_daa": 384266666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -1862,6 +1864,14 @@
       "timestamp": "2026-02-11T10:15:35.082510",
       "total_pool": 50000000000,
       "distributed": 49999999997,
+      "recipients_count": 7
+    },
+    {
+      "daa": 384266666,
+      "checked_at_daa": 384266770,
+      "timestamp": "2026-02-11T12:58:18.596704",
+      "total_pool": 52000000000,
+      "distributed": 35749999997,
       "recipients_count": 7
     }
   ]
