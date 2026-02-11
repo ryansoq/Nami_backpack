@@ -2768,13 +2768,14 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         info = await client.get_block_dag_info({})
         current_daa = info.get("virtualDaaScore", 0)
         
-        # 取最新區塊作為命運區塊
-        blocks = await client.get_blocks(include_transactions=False, low_hash=None)
-        if blocks and blocks.get("blocks"):
-            fate_block = blocks["blocks"][0]
-            block_hash = fate_block.get("verboseData", {}).get("hash", "")
+        # 用 tipHashes 作為命運區塊
+        tip_hashes = info.get("tipHashes", [])
+        if tip_hashes:
+            block_hash = tip_hashes[0]  # 取第一個 tip
         else:
-            block_hash = f"{current_daa:064x}"  # fallback
+            # fallback: 用 DAA 生成偽 hash
+            import hashlib
+            block_hash = hashlib.sha256(f"goblin_{current_daa}".encode()).hexdigest()
         
         await client.disconnect()
         
