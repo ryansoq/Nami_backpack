@@ -1914,5 +1914,37 @@
     "status": "dead",
     "kills": 0,
     "battles": 1
+  },
+  {
+    "g": "nami_hero",
+    "type": "event",
+    "daa": 384433217,
+    "pre_tx": 384433217,
+    "pay_tx": null,
+    "src": null,
+    "action": "pvp",
+    "attacker": 381635914,
+    "target": 384433217,
+    "result": "win"
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384433217,
+    "pre_tx": 384433217,
+    "card": 381635914,
+    "status": "alive",
+    "kills": 9,
+    "battles": 15
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384433218,
+    "pre_tx": 384433217,
+    "card": 384433217,
+    "status": "dead",
+    "kills": 0,
+    "battles": 1
   }
 ]

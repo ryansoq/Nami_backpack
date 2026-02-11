@@ -2806,9 +2806,9 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             hero, goblin, current_daa, current_daa, block_hash
         )
         
-        # 取得戰鬥記錄（從 calculate_battle_result 重新計算）
-        from hero_game import calculate_battle_result
-        _, battle_detail = calculate_battle_result(hero, goblin, block_hash)
+        # 取得戰鬥記錄（用 ATB 系統）
+        from hero_game import calculate_battle_result_atb
+        _, battle_detail = calculate_battle_result_atb(hero, goblin, block_hash)
         
         # 戰報
         rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}

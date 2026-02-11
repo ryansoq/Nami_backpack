@@ -309,9 +309,9 @@
       "def": 116,
       "spd": 82,
       "status": "alive",
-      "latest_daa": 384429989,
-      "kills": 8,
-      "battles": 14,
+      "latest_daa": 384433217,
+      "kills": 10,
+      "battles": 16,
       "created_at": "",
       "death_time": "",
       "source_hash": "",
@@ -1553,6 +1553,29 @@
       "latest_tx": "",
       "name": "哥布林盜賊",
       "protected": false
+    },
+    "384433217": {
+      "card_id": 384433217,
+      "owner_id": 0,
+      "owner_address": "",
+      "hero_class": "rogue",
+      "rank": "N",
+      "rarity": "N",
+      "atk": 97,
+      "def": 55,
+      "spd": 12,
+      "status": "dead",
+      "latest_daa": 384433217,
+      "kills": 0,
+      "battles": 1,
+      "created_at": "",
+      "death_time": "2026-02-11T17:35:10.786000",
+      "source_hash": "1447116228f86412a4f7a491aeb628e3da778626ca3aad5b0818cb44a428cd48",
+      "payment_tx": "",
+      "tx_id": "",
+      "latest_tx": "",
+      "name": "哥布林盜賊",
+      "protected": false
     }
   },
   "user_heroes": {
@@ -1628,8 +1651,8 @@
   },
   "last_summon_daa": 384223541,
   "summon_queue": [],
-  "total_mana_pool": 6,
-  "last_checked_daa": 384430767,
+  "total_mana_pool": 13,
+  "last_checked_daa": 384435053,
   "last_reward_daa": 384366666,
   "reward_history": [
     {
