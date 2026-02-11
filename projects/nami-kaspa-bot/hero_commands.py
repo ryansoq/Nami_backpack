@@ -2645,6 +2645,247 @@ async def next_reward_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 測試失敗：{e}")
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# v0.5: PvE 守護模式
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# 儲存待處理的 PvE 救援
+_pending_pve = {}
+
+async def pve_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /ntest1 - PvE 測試：發起救援通告
+    """
+    user = update.effective_user
+    chat = update.effective_chat
+    
+    # 只允許 GM 使用
+    if user.id not in [5168530096]:  # Ryan's ID
+        await update.message.reply_text("❌ 此指令僅供測試")
+        return
+    
+    # 發起救援通告
+    pve_id = f"pve_{int(time.time())}"
+    _pending_pve[pve_id] = {
+        "chat_id": chat.id,
+        "created_at": time.time(),
+        "claimed": False,
+        "claimer_id": None
+    }
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("🛡️ 守護 (10 mana)", callback_data=f"pve_yes:{pve_id}"),
+            InlineKeyboardButton("❌ 取消", callback_data=f"pve_no:{pve_id}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "📣 *大地之樹的救援通告！*\n\n"
+        "「有東西正在襲擊世界之樹！」\n"
+        "「英雄們，請前來守護！」\n\n"
+        "⏱️ 100 秒內響應\n"
+        "💰 消耗 10 mana\n"
+        "🛡️ 使用你的保護英雄出戰",
+        parse_mode='Markdown',
+        reply_markup=reply_markup
+    )
+    
+    logger.info(f"🧪 PvE 測試發起 | pve_id={pve_id} | by @{user.username}")
+
+
+async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """處理 PvE 按鈕回調"""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    data = query.data  # pve_yes:pve_123456 or pve_no:pve_123456
+    
+    action, pve_id = data.split(":", 1)
+    
+    if action == "pve_no":
+        await query.edit_message_text("❌ 已取消救援響應")
+        return
+    
+    # action == "pve_yes"
+    pve_data = _pending_pve.get(pve_id)
+    
+    if not pve_data:
+        await query.edit_message_text("❌ 救援已過期")
+        return
+    
+    if pve_data["claimed"]:
+        await query.edit_message_text(f"❌ 救援已被其他英雄響應")
+        return
+    
+    # 標記為已領取
+    pve_data["claimed"] = True
+    pve_data["claimer_id"] = user.id
+    
+    # 檢查保護英雄
+    from hero_game import get_protected_hero, create_goblin, process_battle, Hero, load_heroes_db, save_heroes_db, calculate_pvp_reward
+    
+    protected = get_protected_hero(user.id)
+    if not protected:
+        pve_data["claimed"] = False
+        await query.edit_message_text(
+            "❌ 你沒有設定保護英雄！\n\n"
+            "請先用 `/nhp <英雄ID>` 設定",
+            parse_mode='Markdown'
+        )
+        return
+    
+    # 檢查餘額
+    try:
+        hero_data = protected
+        pk_hex, address = None, hero_data.get("owner_address")
+        
+        # 取得錢包
+        from hero_game import get_hero_wallet
+        pk_hex, address = None, hero_data.get("owner_address")
+        
+        balance = await get_hero_balance(address)
+        if balance < 10_00000000:  # 10 mana
+            pve_data["claimed"] = False
+            await query.edit_message_text(
+                f"❌ mana 不足！\n\n"
+                f"需要：10 mana\n"
+                f"目前：{balance / 1e8:.2f} mana"
+            )
+            return
+    except Exception as e:
+        logger.warning(f"餘額檢查失敗: {e}")
+    
+    await query.edit_message_text("⚔️ 正在響應救援...\n🎲 抽取怪物中...")
+    
+    try:
+        # 取得命運區塊
+        from kaspa import RpcClient
+        client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
+        await asyncio.wait_for(client.connect(), timeout=10)
+        info = await client.get_block_dag_info({})
+        current_daa = info.get("virtualDaaScore", 0)
+        
+        # 取最新區塊作為命運區塊
+        blocks = await client.get_blocks(include_transactions=False, low_hash=None)
+        if blocks and blocks.get("blocks"):
+            fate_block = blocks["blocks"][0]
+            block_hash = fate_block.get("verboseData", {}).get("hash", "")
+        else:
+            block_hash = f"{current_daa:064x}"  # fallback
+        
+        await client.disconnect()
+        
+        # 生成哥布林
+        goblin = create_goblin(block_hash, current_daa)
+        
+        # 重建玩家英雄
+        hero = Hero(
+            card_id=protected["card_id"],
+            owner_id=user.id,
+            owner_address=protected.get("owner_address", ""),
+            hero_class=protected["hero_class"],
+            rank=protected.get("rank", protected.get("rarity", "N")),
+            atk=protected["atk"],
+            def_=protected["def"],
+            spd=protected["spd"],
+            status="alive",
+            latest_daa=protected.get("latest_daa", 0),
+            kills=protected.get("kills", 0),
+            battles=protected.get("battles", 0),
+            name=protected.get("name", ""),
+            protected=True
+        )
+        
+        # ATB 戰鬥
+        attacker_wins, battle_detail = await process_battle(hero, goblin, block_hash)
+        
+        # 戰報
+        from atb_battle import ATBBattle
+        rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}
+        class_emoji = {"knight": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
+        
+        hero_display = hero.name or f"#{hero.card_id}"
+        goblin_display = goblin.name
+        
+        battle_log = battle_detail.get("battle_log", "")
+        
+        if attacker_wins:
+            # 玩家勝利
+            reward_mana = calculate_pvp_reward(block_hash)
+            
+            # 更新擊殺數
+            db = load_heroes_db()
+            if str(hero.card_id) in db.get("heroes", {}):
+                db["heroes"][str(hero.card_id)]["kills"] = hero.kills + 1
+                db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
+                save_heroes_db(db)
+            
+            result_msg = f"""🏆 *守護成功！*
+
+👹 {rank_emoji.get(goblin.rank, '⭐')}{class_emoji.get(goblin.hero_class, '')} {goblin_display}
+ATK:{goblin.atk} DEF:{goblin.def_} SPD:{goblin.spd}
+
+vs
+
+🛡️ {rank_emoji.get(hero.rank, '⭐')}{class_emoji.get(hero.hero_class, '')} 「{hero_display}」
+ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
+
+━━━ 戰鬥記錄 ━━━
+{battle_log}
+━━━━━━━━━━━━━━
+
+✅ 「{hero_display}」守護成功！
+💰 獲得 {reward_mana} mana
+⚔️ 擊殺數 +1"""
+        else:
+            # 玩家失敗（但不會死）
+            db = load_heroes_db()
+            if str(hero.card_id) in db.get("heroes", {}):
+                db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
+                save_heroes_db(db)
+            
+            result_msg = f"""💀 *守護失敗...*
+
+👹 {rank_emoji.get(goblin.rank, '⭐')}{class_emoji.get(goblin.hero_class, '')} {goblin_display}
+ATK:{goblin.atk} DEF:{goblin.def_} SPD:{goblin.spd}
+
+vs
+
+🛡️ {rank_emoji.get(hero.rank, '⭐')}{class_emoji.get(hero.hero_class, '')} 「{hero_display}」
+ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
+
+━━━ 戰鬥記錄 ━━━
+{battle_log}
+━━━━━━━━━━━━━━
+
+❌ 「{hero_display}」守護失敗！
+🛡️ 但因為是 PvE，英雄沒有死亡"""
+        
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=result_msg,
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"⚔️ PvE 戰鬥完成 | @{user.username} | {'勝利' if attacker_wins else '失敗'}")
+        
+    except Exception as e:
+        logger.error(f"PvE 戰鬥錯誤: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"❌ 戰鬥發生錯誤：{e}"
+        )
+    finally:
+        # 清理
+        if pve_id in _pending_pve:
+            del _pending_pve[pve_id]
+
+
 async def hero_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /nami_game_status - 查看遊戲統計
@@ -3267,12 +3508,14 @@ def register_hero_commands(app):
     app.add_handler(CommandHandler("ns", hero_stats))        # nami_game_status
     app.add_handler(CommandHandler("nse", hero_search))      # nami_search (偵查)
     app.add_handler(CommandHandler("nhp", hero_protect))     # v0.3: nami_hero_protect
+    app.add_handler(CommandHandler("ntest1", pve_test))      # v0.5: PvE 測試
     
     # ═══════════════════════════════════════════════════════════════════════
     # v0.4: Callback Query Handlers（按鈕回調）
     # ═══════════════════════════════════════════════════════════════════════
     app.add_handler(CallbackQueryHandler(handle_burn_callback, pattern=r"^burn_(yes|no):"))
     app.add_handler(CallbackQueryHandler(handle_pvp_callback, pattern=r"^pvp_(yes|no):"))
+    app.add_handler(CallbackQueryHandler(handle_pve_callback, pattern=r"^pve_(yes|no):"))
     
     logger.info("🌲 英雄遊戲指令已註冊 (v0.4)")
 

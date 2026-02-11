@@ -588,6 +588,65 @@ def get_rank_display(rank: str) -> str:
             return r.display
     return rank
 
+
+def create_goblin(block_hash: str, daa: int) -> Hero:
+    """
+    v0.5: 從 block hash 生成哥布林（PvE 怪物）
+    
+    哥布林 = NPC 英雄，完全複用現有系統：
+    - 職業：哥布林騎士/弓手/法師/盜賊
+    - 稀有度：N/R/SR/SSR
+    - 數值：ATK/DEF/SPD
+    
+    Args:
+        block_hash: 命運區塊 hash
+        daa: 區塊 DAA（作為哥布林 ID）
+    
+    Returns:
+        Hero 物件（代表哥布林）
+    """
+    hero_class, rank, atk, def_, spd = calculate_hero_from_hash(block_hash)
+    
+    # 哥布林名稱
+    class_names = {
+        "knight": "哥布林騎士",
+        "mage": "哥布林法師",
+        "archer": "哥布林弓手",
+        "rogue": "哥布林盜賊"
+    }
+    rank_titles = {
+        "N": "小兵",
+        "R": "戰士", 
+        "SR": "精英",
+        "SSR": "王",
+        "UR": "霸主",
+        "LR": "神"
+    }
+    
+    goblin_name = f"{class_names.get(hero_class, '哥布林')}"
+    if rank in ["SSR", "UR", "LR"]:
+        goblin_name = f"哥布林{rank_titles.get(rank, '')}"
+    
+    goblin = Hero(
+        card_id=daa,  # 用 DAA 作為臨時 ID
+        owner_id=0,   # 系統擁有
+        owner_address="",
+        hero_class=hero_class,
+        rank=rank,
+        atk=atk,
+        def_=def_,
+        spd=spd,
+        status="alive",
+        latest_daa=daa,
+        kills=0,
+        battles=0,
+        created_at="",
+        source_hash=block_hash,
+        name=goblin_name
+    )
+    
+    return goblin
+
 def get_rank_stars(rank: str) -> str:
     """取得 Rank 的星星顯示"""
     for r in Rank:
