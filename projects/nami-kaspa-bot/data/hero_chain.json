@@ -1882,5 +1882,37 @@
     "battle_tx": "cfb00b880e1bcccba835a6e99c358e8a0e0204f8c3c8cf3576b37024b2dbcff4",
     "tx_id": "97c81c705bf1595059080ddb4344928e2a6049f415edf32fde8559fc3a42f200",
     "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "event",
+    "daa": 384429989,
+    "pre_tx": 384429989,
+    "pay_tx": null,
+    "src": null,
+    "action": "pvp",
+    "attacker": 381635914,
+    "target": 384429989,
+    "result": "win"
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384429989,
+    "pre_tx": 384429989,
+    "card": 381635914,
+    "status": "alive",
+    "kills": 8,
+    "battles": 14
+  },
+  {
+    "g": "nami_hero",
+    "type": "state",
+    "daa": 384429990,
+    "pre_tx": 384429989,
+    "card": 384429989,
+    "status": "dead",
+    "kills": 0,
+    "battles": 1
   }
 ]

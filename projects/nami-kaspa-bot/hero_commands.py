@@ -2811,7 +2811,6 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         _, battle_detail = calculate_battle_result(hero, goblin, block_hash)
         
         # 戰報
-        from atb_battle import ATBBattle
         rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}
         class_emoji = {"knight": "⚔️", "mage": "🔮", "archer": "🏹", "rogue": "🗡️"}
         
