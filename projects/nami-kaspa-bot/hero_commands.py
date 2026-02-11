@@ -2782,6 +2782,27 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         # 生成哥布林
         goblin = create_goblin(block_hash, current_daa)
         
+        # 儲存哥布林到 DB（用於懸賞機制）
+        db = load_heroes_db()
+        if "goblins" not in db:
+            db["goblins"] = {}
+        db["goblins"][str(goblin.card_id)] = {
+            "card_id": goblin.card_id,
+            "name": goblin.name,
+            "hero_class": goblin.hero_class,
+            "rank": goblin.rank,
+            "atk": goblin.atk,
+            "def": goblin.def_,
+            "spd": goblin.spd,
+            "source_hash": block_hash,
+            "status": "alive",
+            "kills": 0,
+            "created_at": datetime.now().isoformat(),
+            "defeated_heroes": []  # 擊敗的英雄列表
+        }
+        save_heroes_db(db)
+        logger.info(f"🐲 哥布林誕生 | #{goblin.card_id} {goblin.name} | {goblin.rank}")
+        
         # 重建玩家英雄
         hero = Hero(
             card_id=protected["card_id"],
@@ -2823,12 +2844,17 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             # 玩家勝利
             reward_mana = calculate_pvp_reward(block_hash)
             
-            # 更新擊殺數
+            # 更新英雄擊殺數
             db = load_heroes_db()
             if str(hero.card_id) in db.get("heroes", {}):
                 db["heroes"][str(hero.card_id)]["kills"] = hero.kills + 1
                 db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
-                save_heroes_db(db)
+            
+            # 刪除哥布林（已被擊敗）
+            if str(goblin.card_id) in db.get("goblins", {}):
+                db["goblins"][str(goblin.card_id)]["status"] = "dead"
+                logger.info(f"🐲 哥布林被擊敗 | #{goblin.card_id} by 「{hero_display}」")
+            save_heroes_db(db)
             
             result_msg = f"""🏆 *守護成功！*
 
@@ -2853,11 +2879,23 @@ ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
             hero_data = db.get("heroes", {}).get(str(hero.card_id), {})
             is_protected = hero_data.get("protected", False)
             
+            # 更新哥布林戰績（存活 + 擊殺記錄）
+            if str(goblin.card_id) in db.get("goblins", {}):
+                gob = db["goblins"][str(goblin.card_id)]
+                gob["kills"] = gob.get("kills", 0) + 1
+                gob["defeated_heroes"].append({
+                    "hero_id": hero.card_id,
+                    "hero_name": hero_display,
+                    "protected": is_protected,
+                    "time": datetime.now().isoformat()
+                })
+                logger.info(f"🐲 哥布林擊敗英雄 | #{goblin.card_id} kills 「{hero_display}」")
+            
             if is_protected:
                 # 有保護 → 不死
                 if str(hero.card_id) in db.get("heroes", {}):
                     db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
-                    save_heroes_db(db)
+                save_heroes_db(db)
                 
                 result_msg = f"""💀 *守護失敗...*
 
