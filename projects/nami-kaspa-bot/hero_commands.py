@@ -2801,7 +2801,14 @@ async def handle_pve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         
         # ATB 戰鬥
-        attacker_wins, battle_detail = await process_battle(hero, goblin, block_hash)
+        # ATB 戰鬥（用 current_daa 作為 event_daa 和 result_daa）
+        updated_hero, updated_goblin, attacker_wins = await process_battle(
+            hero, goblin, current_daa, current_daa, block_hash
+        )
+        
+        # 取得戰鬥記錄（從 calculate_battle_result 重新計算）
+        from hero_game import calculate_battle_result
+        _, battle_detail = calculate_battle_result(hero, goblin, block_hash)
         
         # 戰報
         from atb_battle import ATBBattle
