@@ -2456,9 +2456,9 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info("🎁 /nr: 連線 RPC...")
         try:
             client = RpcClient(resolver=None, url='ws://127.0.0.1:17210', encoding='borsh')
-            await asyncio.wait_for(client.connect(), timeout=15)
+            await asyncio.wait_for(client.connect(), timeout=30)
             logger.info("🎁 /nr: 連線成功，取得 DAA...")
-            info = await asyncio.wait_for(client.get_block_dag_info({}), timeout=15)
+            info = await asyncio.wait_for(client.get_block_dag_info({}), timeout=30)
             current_daa = info.get("virtualDaaScore", 0)
             logger.info(f"🎁 /nr: DAA={current_daa}")
             await client.disconnect()
