@@ -258,6 +258,30 @@ async def send_announcement_photo(bot, photo, caption: str, parse_mode: str = 'M
     except Exception as e:
         logger.error(f"公告圖片發送失敗: {e}")
 
+
+async def send_with_world_tree(update, text: str, parse_mode: str = 'Markdown'):
+    """
+    發送訊息，附帶世界之樹圖片
+    統一處理：圖片存在就發圖+caption，否則純文字
+    """
+    import os
+    tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree1.jpg")
+    
+    if os.path.exists(tree_image):
+        try:
+            with open(tree_image, 'rb') as img_file:
+                await update.message.reply_photo(
+                    photo=img_file,
+                    caption=text,
+                    parse_mode=parse_mode
+                )
+            return True
+        except Exception as e:
+            logger.warning(f"世界之樹圖片發送失敗: {e}，改用純文字")
+    
+    await update.message.reply_text(text, parse_mode=parse_mode)
+    return False
+
 async def announce_hero_birth(bot, hero, username: str):
     """v0.3: 公告英雄誕生（星星格式 + 圖片）"""
     # v0.3 Rank 顯示
@@ -1953,16 +1977,8 @@ async def hero_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💡 支援 ID 或名字：
 `/np sky 380344861 1234`"""
     
-    # 私聊時顯示世界之樹圖片
-    if update.effective_chat.type == "private":
-        import os
-        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree1.jpg")
-        if os.path.exists(tree_image):
-            await update.message.reply_photo(photo=open(tree_image, 'rb'), caption=help_text, parse_mode='Markdown')
-        else:
-            await update.message.reply_text(help_text, parse_mode='Markdown')
-    else:
-        await update.message.reply_text(help_text, parse_mode='Markdown')
+    # 發送世界之樹圖片 + 說明（統一函數）
+    await send_with_world_tree(update, help_text)
 
 
 async def hero_rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2564,26 +2580,8 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
 *獎勵按積分分配！*
 積分 = 存活天數 + 稀有度 + 擊殺×2"""
 
-        # 發送世界之樹圖片 + 訊息
-        import os
-        tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree1.jpg")
-        logger.info(f"🌲 /nr 圖片路徑: {tree_image}, 存在: {os.path.exists(tree_image)}")
-        if os.path.exists(tree_image):
-            try:
-                logger.info("🌲 /nr 發送圖片中...")
-                with open(tree_image, 'rb') as img_file:
-                    await update.message.reply_photo(
-                        photo=img_file,
-                        caption=msg,
-                        parse_mode='Markdown'
-                    )
-                logger.info("🌲 /nr 圖片發送成功！")
-            except Exception as img_err:
-                logger.warning(f"/nr 圖片發送失敗: {img_err}，改用純文字")
-                await update.message.reply_text(msg, parse_mode='Markdown')
-        else:
-            logger.warning(f"/nr 圖片不存在: {tree_image}")
-            await update.message.reply_text(msg, parse_mode='Markdown')
+        # 發送世界之樹圖片 + 訊息（統一函數）
+        await send_with_world_tree(update, msg)
         
     except Exception as e:
         logger.error(f"Next reward error: {e}")
