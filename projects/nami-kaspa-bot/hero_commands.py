@@ -2841,13 +2841,18 @@ ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
 💰 獲得 {reward_mana} mana
 ⚔️ 擊殺數 +1"""
         else:
-            # 玩家失敗（但不會死）
+            # 玩家失敗 - 跟 PvP 一樣的死亡邏輯
             db = load_heroes_db()
-            if str(hero.card_id) in db.get("heroes", {}):
-                db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
-                save_heroes_db(db)
+            hero_data = db.get("heroes", {}).get(str(hero.card_id), {})
+            is_protected = hero_data.get("protected", False)
             
-            result_msg = f"""💀 *守護失敗...*
+            if is_protected:
+                # 有保護 → 不死
+                if str(hero.card_id) in db.get("heroes", {}):
+                    db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
+                    save_heroes_db(db)
+                
+                result_msg = f"""💀 *守護失敗...*
 
 👹 {rank_emoji.get(goblin.rank, '⭐')}{class_emoji.get(goblin.hero_class, '')} {goblin_display}
 ATK:{goblin.atk} DEF:{goblin.def_} SPD:{goblin.spd}
@@ -2862,7 +2867,32 @@ ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
 ━━━━━━━━━━━━━━
 
 ❌ 「{hero_display}」守護失敗！
-🛡️ 但因為是 PvE，英雄沒有死亡"""
+🛡️ 大地之母的保護發動，英雄倖存！"""
+            else:
+                # 無保護 → 死亡
+                from datetime import datetime
+                if str(hero.card_id) in db.get("heroes", {}):
+                    db["heroes"][str(hero.card_id)]["status"] = "dead"
+                    db["heroes"][str(hero.card_id)]["death_time"] = datetime.now().isoformat()
+                    db["heroes"][str(hero.card_id)]["battles"] = hero.battles + 1
+                    save_heroes_db(db)
+                
+                result_msg = f"""💀 *守護失敗...*
+
+👹 {rank_emoji.get(goblin.rank, '⭐')}{class_emoji.get(goblin.hero_class, '')} {goblin_display}
+ATK:{goblin.atk} DEF:{goblin.def_} SPD:{goblin.spd}
+
+vs
+
+🛡️ {rank_emoji.get(hero.rank, '⭐')}{class_emoji.get(hero.hero_class, '')} 「{hero_display}」
+ATK:{hero.atk} DEF:{hero.def_} SPD:{hero.spd}
+
+━━━ 戰鬥記錄 ━━━
+{battle_log}
+━━━━━━━━━━━━━━
+
+❌ 「{hero_display}」守護失敗！
+💀 英雄陣亡，靈魂回歸大地..."""
         
         await context.bot.send_message(
             chat_id=query.message.chat_id,
