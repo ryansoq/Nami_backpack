@@ -262,39 +262,23 @@ async def send_announcement_photo(bot, photo, caption: str, parse_mode: str = 'M
 async def send_with_world_tree(update, text: str, parse_mode: str = 'Markdown'):
     """
     發送訊息，附帶世界之樹圖片
-    統一處理：圖片存在就發圖+caption，否則純文字
+    用 GitHub raw URL，讓 Telegram 自己下載（比本地上傳快）
     """
-    import os
-    import sys
-    import traceback
+    # GitHub raw URL（比本地上傳穩定）
+    tree_url = "https://raw.githubusercontent.com/ryansoq/Nami_backpack/main/projects/pixel-hero-stage/world_tree1.jpg"
     
-    tree_image = os.path.join(os.path.dirname(__file__), "..", "pixel-hero-stage", "world_tree1.jpg")
+    try:
+        logger.info("🌲 send_with_world_tree: 用 URL 發送圖片...")
+        await update.message.reply_photo(
+            photo=tree_url,
+            caption=text,
+            parse_mode=parse_mode
+        )
+        logger.info("🌲 send_with_world_tree: 圖片發送成功！")
+        return True
+    except Exception as e:
+        logger.warning(f"🌲 世界之樹圖片發送失敗: {e}，改用純文字")
     
-    logger.info(f"🌲 send_with_world_tree: 路徑={tree_image}")
-    logger.info(f"🌲 send_with_world_tree: 存在={os.path.exists(tree_image)}")
-    logger.info(f"🌲 send_with_world_tree: caption長度={len(text)}")
-    sys.stdout.flush()
-    sys.stderr.flush()
-    
-    if os.path.exists(tree_image):
-        try:
-            logger.info("🌲 send_with_world_tree: 嘗試發送圖片...")
-            sys.stdout.flush()
-            with open(tree_image, 'rb') as img_file:
-                result = await update.message.reply_photo(
-                    photo=img_file,
-                    caption=text,
-                    parse_mode=parse_mode
-                )
-            logger.info(f"🌲 send_with_world_tree: 圖片發送成功！ result={result}")
-            return True
-        except Exception as e:
-            logger.error(f"🌲 世界之樹圖片發送失敗: {type(e).__name__}: {e}")
-            logger.error(f"🌲 Traceback: {traceback.format_exc()}")
-    else:
-        logger.warning(f"🌲 send_with_world_tree: 圖片不存在！")
-    
-    logger.info("🌲 send_with_world_tree: 改用純文字發送")
     await update.message.reply_text(text, parse_mode=parse_mode)
     return False
 
