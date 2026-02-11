@@ -259,22 +259,46 @@ async def send_announcement_photo(bot, photo, caption: str, parse_mode: str = 'M
         logger.error(f"公告圖片發送失敗: {e}")
 
 
+# 全域變數：世界之樹圖片的 file_id（Telegram cache）
+_world_tree_file_id = None
+
 async def send_with_world_tree(update, text: str, parse_mode: str = 'Markdown'):
     """
     發送訊息，附帶世界之樹圖片
-    用 GitHub raw URL，讓 Telegram 自己下載（比本地上傳快）
+    優先用 file_id（快），fallback 到 URL
     """
-    # GitHub raw URL（比本地上傳穩定）
+    global _world_tree_file_id
+    
+    # 優先用 cached file_id
+    if _world_tree_file_id:
+        try:
+            logger.info("🌲 send_with_world_tree: 用 file_id 發送...")
+            msg = await update.message.reply_photo(
+                photo=_world_tree_file_id,
+                caption=text,
+                parse_mode=parse_mode
+            )
+            logger.info("🌲 send_with_world_tree: file_id 發送成功！")
+            return True
+        except Exception as e:
+            logger.warning(f"🌲 file_id 發送失敗: {e}，清除 cache")
+            _world_tree_file_id = None
+    
+    # Fallback: 用 URL（並 cache file_id）
     tree_url = "https://raw.githubusercontent.com/ryansoq/Nami_backpack/main/projects/pixel-hero-stage/world_tree1.jpg"
     
     try:
         logger.info("🌲 send_with_world_tree: 用 URL 發送圖片...")
-        await update.message.reply_photo(
+        msg = await update.message.reply_photo(
             photo=tree_url,
             caption=text,
             parse_mode=parse_mode
         )
-        logger.info("🌲 send_with_world_tree: 圖片發送成功！")
+        # Cache file_id for future use
+        if msg.photo:
+            _world_tree_file_id = msg.photo[-1].file_id
+            logger.info(f"🌲 已 cache file_id: {_world_tree_file_id[:20]}...")
+        logger.info("🌲 send_with_world_tree: URL 發送成功！")
         return True
     except Exception as e:
         logger.warning(f"🌲 世界之樹圖片發送失敗: {e}，改用純文字")
