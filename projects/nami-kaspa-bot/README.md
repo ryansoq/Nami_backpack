@@ -3,7 +3,10 @@
 
 > *結合區塊鏈 + 卡片收集 + ATB 戰鬥 + PoS 獎勵的鏈遊*
 
-Telegram Bot: [@Nami_Kaspa_Bot](https://t.me/Nami_Kaspa_Bot)
+**Version: v0.5.0** | [📜 更新日誌](CHANGELOG.md)
+
+Telegram Bot: [@Nami_Kaspa_Bot](https://t.me/Nami_Kaspa_Bot)  
+像素舞台: [pixel-hero-stage](https://ryansoq.github.io/Nami_backpack/projects/pixel-hero-stage/)
 
 ---
 

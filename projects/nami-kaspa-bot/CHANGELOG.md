@@ -1,87 +1,92 @@
-# Changelog
+# 📜 更新日誌 (Changelog)
 
-娜米的英雄奇幻冒險 - 版本更新記錄
+## [v0.5.0] - 2026-02-11
 
----
+### ✨ 新功能
+- **CI/CD 自動部署** — 每小時檢查 git 更新，無人使用時自動重啟
+- **`/nn` 支援用名字改名** — `/nn 舊名字 新名字`
+- **怪物系統 (PvE)** — 點擊怪物進行戰鬥
 
-## v0.3.0 (2026-02-07)
-
-### 🔒 安全機制
-
-- **管理員系統**
-  - `ADMIN_IDS` 設定管理員列表
-  - `is_admin()` 檢查管理員權限
-
-- **維護模式**
-  - `MAINTENANCE_MODE` 全局開關
-  - 開啟時只有管理員能執行操作
-  - 其他用戶收到「🛠️ 系統維護中」提示
-
-- **錢包鎖**
-  - `WALLET_LOCK` asyncio.Lock 防止 UTXO 衝突
-  - `with_wallet_lock()` 確保同時只有一個錢包操作
-
-### 🛠️ 管理員指令
-
-- `/nami_admin_maintenance [on|off]` - 開關維護模式
-- `/nami_admin_status` - 查看系統狀態
-  - 維護模式狀態
-  - 錢包鎖狀態
-  - 排隊人數
-  - 英雄統計、獎池
-
-### 🛡️ 保護機制
-
-- `/nami_hero_protect` (`/npp`) - 英雄保護（規劃中）
-
-### 🔧 改進
-
-- `hero_summon`, `hero_attack`, `hero_burn` 加入維護模式檢查
-- 排隊系統 (`tree_queue`) 穩定性提升
+### 🔧 優化
+- `/nr` timeout 5s → 15s（改善 RPC 連線穩定性）
+- 保護英雄顯示優化
 
 ---
 
-## v0.2.0 (2026-02-06)
+## [v0.4.1] - 2026-02-08
 
-### 🌳 大地之樹排隊系統
+### ⚔️ ATB 戰報視覺優化
+- HP 顯示在攻擊行後面 `(敵HP:461)`
+- 用 🔵🔴 區分攻守方
+- Combo 計數保留
+- 瀕死 ⚠️，擊殺 💀
 
-- Queue 機制：指令加鎖，一次服務一人
-- 其他人排隊等待，收到 ⌛️ 提示
-- 防止並發 UTXO 衝突
-
-### ⚔️ PvP 完整戰報
-
-- 群聊公告顯示完整戰鬥詳情
-- 三回合對決、雙方屬性、勝負結果
-
-### 🦸 英雄管理
-
-- 每人最多 10 隻存活英雄
-- 顯示英雄存活時間（⏳1d2h）
-- 超限時引導玩家燒卡
-
-### 📝 指令縮寫
-
-| 完整指令 | 縮寫 |
-|---------|------|
-| /nami_hero | /nh |
-| /nami_heroes | /nhs |
-| /nami_pvp | /np |
-| /nami_burn | /nb |
-| /nami_hero_info | /ni |
-| /nami_verify | /nv |
-| /nami_name | /nn |
-| /nami_next_reward | /nr |
-| /nami_game_status | /ns |
+### 🔧 修復
+- burn 功能補上 `save_death_inscription`
+- `/nse` 偵查：看自己免費，看別人 10 mana
+- 獎勵發放優先顯示英雄別名
 
 ---
 
-## v0.1.0 (2026-02-05)
+## [v0.4.0] - 2026-02-09
 
-### 🎮 初始版本
+### 🎮 像素英雄舞台
+- Canvas 2D 遊戲引擎，英雄會走動、戰鬥、說話
+- 戰鬥回放系統，讀取 JSON 播放 ATB 動畫
+- 使用 Midjourney 像素圖 + 稀有度光暈效果
+- 網址: https://ryansoq.github.io/Nami_backpack/projects/pixel-hero-stage/
 
-- 基礎召喚系統（10 mana）
-- 4 職業 × 4 稀有度
-- PvP 戰鬥（2-8 mana）
-- 敗者永久死亡
-- 鏈上銘文驗證
+### ⚔️ ATB 戰鬥引擎 v0.5
+- `BattleLog.events[]` — 結構化事件記錄
+- Canvas 事件同步（battle_start, attack, skill, evade, death...）
+
+### 🛡️ 職業調整
+- warrior → knight（戰士 → 騎士）
+
+---
+
+## [v0.3.0] - 2026-02-06
+
+### 🎴 召喚系統重構
+- **通用事件機制** — 付費 → DAA → 命運區塊 → 銘文
+- **出生證明閉環** — payment_tx + source_hash 可驗證
+- **銘文鏈條** — pre_tx 串聯事件歷史
+
+### 💰 費用機制
+| 項目 | 費用 |
+|------|------|
+| 召喚 | 10 mana |
+| PvP | 10 mana |
+| 銷毀 | 10 mana |
+
+### 🏆 獎勵系統
+- DAA 66666 觸發獎勵
+- 按積分分配（存活天數 + 稀有度 + 擊殺×2）
+
+---
+
+## [v0.2.0] - 2026-02-03
+
+### ⛏️ ShioKaze 挖礦成功！
+- 修復 pre_pow_hash 計算（需要 keyed blake2b）
+- 在 Testnet 挖到區塊！
+
+### 🔧 技術修復
+- RPC 連線管理器（自動重連、超時處理）
+- Storage mass 限制研究
+
+---
+
+## [v0.1.0] - 2026-02-01
+
+### 🌱 專案誕生
+- Kaspa Testnet 錢包創建
+- 基礎指令：`/nami_wallet`, `/nami_faucet`, `/nami_balance`
+- 英雄召喚原型
+
+---
+
+```
+🌲 願大地之樹照耀每位英雄 ✨
+～ Alive to Earn ～
+```
