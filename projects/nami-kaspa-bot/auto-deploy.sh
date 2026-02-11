@@ -1,6 +1,6 @@
 #!/bin/bash
-# 🚀 Auto-deploy: 檢查 git 更新，有變化就重啟 bot
-# 用 cron 每 2 分鐘跑一次: */2 * * * * /path/to/auto-deploy.sh
+# 🚀 Auto-deploy: 檢查 git 更新，沒人用時才重啟 bot
+# 用 cron 每小時跑一次: 0 * * * * /path/to/auto-deploy.sh
 
 set -e
 cd "$(dirname "$0")"
@@ -28,6 +28,18 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 log "🔄 發現更新: $LOCAL -> $REMOTE"
+
+# 檢查最近 5 分鐘有沒有活動（bot.log 有新內容）
+if [ -f "bot.log" ]; then
+    LAST_MOD=$(stat -c %Y bot.log 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    DIFF=$((NOW - LAST_MOD))
+    
+    if [ "$DIFF" -lt 300 ]; then
+        log "⏳ 有人在用 (${DIFF}s ago)，延後部署"
+        exit 0
+    fi
+fi
 
 # Pull 更新
 git pull origin main --quiet

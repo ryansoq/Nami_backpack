@@ -1503,7 +1503,7 @@
       "payment_tx": "a06bce1db00024327391cdad10fc0a76c7490497d5152276b92b272577e83561",
       "tx_id": "af78f991818950ff1f25781e34485e88a1e762f4c78cbbb50442abf75b9e13b0",
       "latest_tx": "cfb00b880e1bcccba835a6e99c358e8a0e0204f8c3c8cf3576b37024b2dbcff4",
-      "name": "逆襲",
+      "name": "偷心",
       "protected": false
     },
     "384223541": {
@@ -1606,7 +1606,7 @@
   "last_summon_daa": 384223541,
   "summon_queue": [],
   "total_mana_pool": 6,
-  "last_checked_daa": 384283163,
+  "last_checked_daa": 384288219,
   "last_reward_daa": 384266666,
   "reward_history": [
     {
