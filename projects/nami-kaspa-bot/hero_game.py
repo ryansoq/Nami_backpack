@@ -45,7 +45,7 @@ PVP_REWARD_MAX = 5       # PvP 勝利獎勵最大值
 SUMMON_COOLDOWN = 5  # 秒
 
 # 版本
-GAME_VERSION = "0.4"  # ATB 戰鬥系統
+GAME_VERSION = "0.5.1"  # 事件驅動 + 群組公告優化
 
 # Bot 錢包設定
 BOT_WALLET_FILE = Path(__file__).parent.parent.parent.parent / "clawd/.secrets/testnet-wallet.json"

@@ -2218,10 +2218,47 @@ def main():
     
     # 獎勵發放檢查背景任務
     async def run_reward_check():
-        from reward_system import check_and_distribute, format_reward_announcement, find_trigger_daa_in_range
-        from hero_game import load_heroes_db
+        """v0.5.1: 事件驅動獎勵檢查（DAA 訂閱）"""
+        from reward_system import check_and_distribute, format_reward_announcement, should_trigger_reward
+        from hero_game import load_heroes_db, save_heroes_db
         from hero_commands import tree_queue
         import unified_wallet
+        
+        try:
+            from kaspa_events import KaspaEvents
+            events = KaspaEvents()
+            
+            if await events.connect():
+                logger.info("🎯 v0.5.1: 事件驅動獎勵系統啟動")
+                await events.subscribe_daa()
+                
+                last_triggered = 0
+                
+                async for daa in events.daa_stream():
+                    # 檢查是否觸發獎勵
+                    if should_trigger_reward(daa) and daa != last_triggered:
+                        last_triggered = daa
+                        logger.info(f"🌲 DAA {daa} 觸發獎勵發放！")
+                        
+                        # 獲取排隊鎖
+                        await tree_queue.acquire(0)
+                        try:
+                            tree_balance = await unified_wallet.get_tree_balance()
+                            result = await check_and_distribute(daa, tree_balance)
+                            
+                            if result:
+                                logger.info(f"🎉 獎勵發放完成！")
+                                from hero_commands import announce_reward
+                                await announce_reward(app.bot, result)
+                        finally:
+                            tree_queue.release()
+                            
+        except Exception as e:
+            logger.warning(f"事件驅動失敗，降級為輪詢模式: {e}")
+        
+        # 降級：如果事件驅動失敗，用舊的輪詢方式
+        logger.info("📡 使用輪詢模式監控獎勵")
+        from reward_system import find_trigger_daa_in_range
         from kaspa import RpcClient
         
         while True:

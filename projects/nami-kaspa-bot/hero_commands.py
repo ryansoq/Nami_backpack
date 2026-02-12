@@ -425,7 +425,7 @@ async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, d
 
 async def announce_pvp_result(bot, result: dict, my_hero, target_hero, 
                                attacker_name: str, defender_name: str):
-    """v0.3: 公告完整 PvP 戰報到群聊（星星格式）"""
+    """v0.5.1: 精簡 PvP 戰報（行動裝置友善）"""
     
     # v0.3 Rank 顯示
     def get_rank_short(hero):
@@ -528,42 +528,29 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
             rounds_text += f"R{i} {r['name']}: {r['atk_val']} vs {r['def_val']} {r_result}\n"
         score = f"{detail.get('atk_wins', 0)}:{detail.get('def_wins', 0)}"
     
-    msg = f"""{result_emoji} <b>PvP 結果：{result_text}</b>
-
-🔵 <b>攻方</b> #{my_hero.card_id} ({my_rank} {my_mult})
-HP:{getattr(my_hero, 'max_hp', 500)} ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
-
-🔴 <b>守方</b> #{target_hero.card_id} ({target_rank} {target_mult})
-HP:{getattr(target_hero, 'max_hp', 500)} ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
-
-📊 <b>ATB 戰報</b>
-{rounds_text}
-<b>{score}</b>
-
----
-
-🏆 <b>勝者</b>：#{winner.card_id} {winner_class}
-   @{winner_name} | 擊殺：{winner.kills}
-
-{loser_emoji} <b>敗者</b>：#{loser.card_id} {loser_class}
-   @{loser_name} | {loser_fate}
-
-📝 <b>鏈上記錄</b>：
-付費: <code>{result['payment_tx'][:16]}...</code>"""
+    # v0.5.1: 精簡公告（行動裝置友善）
+    winner_display = winner.name if winner.name else f"#{winner.card_id}"
+    loser_display = loser.name if loser.name else f"#{loser.card_id}"
+    winner_rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}.get(getattr(winner, 'rank', 'N'), "⭐")
+    loser_rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}.get(getattr(loser, 'rank', 'N'), "⭐")
+    class_emoji = {"knight": "⚔️", "mage": "🔮", "rogue": "🗡️", "archer": "🏹"}
     
-    if result.get("win_tx"):
-        msg += f"\n勝利: <code>{result['win_tx'][:20]}...</code>"
+    msg = f"""{result_emoji} <b>{result_text}</b>
+
+{winner_rank_emoji}{class_emoji.get(winner.hero_class, '')} <b>{winner_display}</b>
+⚔️{winner.atk} 🛡️{winner.def_} ⚡{winner.spd}
+🏆 勝利！擊殺 +1 (共{winner.kills}殺)
+
+vs
+
+{loser_rank_emoji}{class_emoji.get(loser.hero_class, '')} <b>{loser_display}</b>
+⚔️{loser.atk} 🛡️{loser.def_} ⚡{loser.spd}
+{loser_emoji} {loser_fate}"""
     
-    # 只有敗者真的死了才顯示死亡 TX
+    # 只有真的死亡才顯示死亡訊息
     if result.get("death_tx"):
-        msg += f"\n死亡: <code>{result['death_tx'][:20]}...</code>"
-        msg += f"\n\n🔗 <a href='https://explorer-tn10.kaspa.org/txs/{result['death_tx']}'>區塊瀏覽器</a>"
-        msg += "\n\n<i>願靈魂回歸大地之樹...</i> 🌲"
-    else:
-        # 敗者有保護，沒死
-        msg += "\n\n🛡️ <i>敗者受保護，免於死亡</i>"
+        msg += f"\n\n💀 <i>靈魂回歸大地之樹...</i>"
     
-    # v0.4.1: 暫時關閉圖片，純文字發送完整戰報（避免 caption 1024 字元限制）
     await send_announcement(bot, msg, parse_mode='HTML')
 
 async def announce_reward(bot, result: dict):
@@ -2004,7 +1991,8 @@ async def hero_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /help - 快速指令列表
     """
-    help_text = """🌊 *娜米的英雄奇幻冒險*
+    help_text = """🌲 *娜米的英雄奇幻冒險 v0.5.1*
+_事件驅動 + 群組公告優化_
 
 *📜 指令（完整 / 縮寫）*
 

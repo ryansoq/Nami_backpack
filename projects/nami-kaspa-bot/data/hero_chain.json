@@ -2172,5 +2172,57 @@
     "battle_tx": "10d5e216c3a8905d92020ffd35fc1e22ac4fef0fa8faa909d1b13fb203082aad",
     "tx_id": "2b874b195d51dfe898ac945b29f9794188ea31c1354bc407ee4521f223bcbc85",
     "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 385166666,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 384193129,
+    "battle_tx": "7eb4f43b471f0a208117c8458e6f54383ff967f3adf2a75af22329dd6c643081",
+    "tx_id": "99538120a97fa04a4fd71aebc3831e0e4ebe7c045413d9e79f6cc27c79b78a70",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 385166667,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 384193129,
+    "battle_tx": "178a63eb2f029dccf52efcb17a6d0edd6b4ce1de3fd873f192b2fa42ab845942",
+    "tx_id": "13b26b8588aa7c50af060d9631c95d00cd327cd39d2ad323d7cd1f295f72f8b8",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384866666,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 384193129,
+    "battle_tx": "783ed2a378801b67b390db17777dbf313e772df3b7bf6b758a589d13af89f235",
+    "tx_id": "38e8c599b79b7258dc65c42248aa8a68ce5eb32182092a09bc7bc2b648f3979f",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384666666,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 384193129,
+    "battle_tx": "c61cb95a2bcb346944ba759fcb3ee7a0afae57977ef8cbbefa688b4354ebc4b3",
+    "tx_id": "d43b28c7e15db9ccf48f36026b399b9111cdd47d265fd1a2387ad4ce73247931",
+    "signer": "tree"
   }
 ]
