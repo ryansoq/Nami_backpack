@@ -723,6 +723,7 @@ def calculate_battle_result_atb(attacker: Hero, defender: Hero, block_hash: str)
         "battle_log": result["logs"].get_full_log(),
         "stats": result["stats"],
         "events": result["logs"].events,  # v0.5 Canvas 真實事件
+        "max_combo": result["logs"].get_max_combo(),  # v0.5.2 最高連擊
     }
     
     if not result["draw"]:

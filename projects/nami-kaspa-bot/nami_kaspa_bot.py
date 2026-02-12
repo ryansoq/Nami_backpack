@@ -1210,6 +1210,48 @@ async def handle_send_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text("❌ 已取消轉帳")
 
 
+async def handle_battle_log_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v0.5.3: 處理「查看完整戰鬥」按鈕"""
+    from hero_commands import get_cached_battle_log
+    
+    query = update.callback_query
+    await query.answer()
+    
+    # 解析 battle_id
+    data = query.data  # "battle:abc12345"
+    battle_id = data.split(":")[1] if ":" in data else None
+    
+    if not battle_id:
+        await query.answer("❌ 無效的戰報 ID", show_alert=True)
+        return
+    
+    # 取得緩存的戰報
+    battle_log = get_cached_battle_log(battle_id)
+    
+    if not battle_log:
+        await query.answer("⏰ 戰報已過期（1小時後清除）", show_alert=True)
+        return
+    
+    # 發送完整戰報（作為回覆）
+    try:
+        await query.message.reply_text(
+            f"📜 <b>完整戰鬥記錄</b>\n\n<pre>{battle_log}</pre>",
+            parse_mode='HTML'
+        )
+        await query.answer("📜 戰報已展開！")
+    except Exception as e:
+        logger.error(f"展開戰報失敗: {e}")
+        # 如果太長，嘗試截斷
+        if len(battle_log) > 3500:
+            battle_log = battle_log[:3500] + "\n...(截斷)"
+            await query.message.reply_text(
+                f"📜 <b>完整戰鬥記錄</b>\n\n<pre>{battle_log}</pre>",
+                parse_mode='HTML'
+            )
+        else:
+            await query.answer(f"❌ 展開失敗：{e}", show_alert=True)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 輪盤指令
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2182,6 +2224,7 @@ def main():
     # Callback handlers
     app.add_handler(CallbackQueryHandler(handle_wallet_callback, pattern=r"^wallet_(yes|no):"))
     app.add_handler(CallbackQueryHandler(handle_send_callback, pattern=r"^send_(yes|no):"))
+    app.add_handler(CallbackQueryHandler(handle_battle_log_callback, pattern=r"^battle:"))
     
     # 保留舊指令（私聊用）
     app.add_handler(CommandHandler("help", help_cmd))

@@ -229,7 +229,7 @@ def get_announcement_chat_id() -> int | None:
             return data.get("chat_id")
     return None
 
-async def send_announcement(bot, message: str, parse_mode: str = 'Markdown'):
+async def send_announcement(bot, message: str, parse_mode: str = 'Markdown', reply_markup=None):
     """發送公告到群組"""
     chat_id = get_announcement_chat_id()
     if not chat_id:
@@ -238,7 +238,8 @@ async def send_announcement(bot, message: str, parse_mode: str = 'Markdown'):
         await bot.send_message(
             chat_id=chat_id,
             text=message,
-            parse_mode=parse_mode
+            parse_mode=parse_mode,
+            reply_markup=reply_markup
         )
     except Exception as e:
         logger.error(f"公告發送失敗: {e}")
@@ -423,45 +424,44 @@ async def announce_hero_death(bot, hero, reason: str, killer_name: str = None, d
     
     await send_announcement(bot, msg, parse_mode='HTML')
 
+# v0.5.3: 戰報 cache（用於 inline button 展開）
+import time
+import uuid
+_battle_log_cache = {}  # {battle_id: {"log": str, "timestamp": int}}
+
+def cache_battle_log(battle_log: str) -> str:
+    """緩存完整戰報，返回 battle_id"""
+    battle_id = str(uuid.uuid4())[:8]
+    _battle_log_cache[battle_id] = {
+        "log": battle_log,
+        "timestamp": int(time.time())
+    }
+    # 清理超過 1 小時的舊緩存
+    now = int(time.time())
+    for bid in list(_battle_log_cache.keys()):
+        if now - _battle_log_cache[bid]["timestamp"] > 3600:
+            del _battle_log_cache[bid]
+    return battle_id
+
+def get_cached_battle_log(battle_id: str) -> str:
+    """取得緩存的戰報"""
+    if battle_id in _battle_log_cache:
+        return _battle_log_cache[battle_id]["log"]
+    return None
+
 async def announce_pvp_result(bot, result: dict, my_hero, target_hero, 
                                attacker_name: str, defender_name: str):
-    """v0.5.1: 精簡 PvP 戰報（行動裝置友善）"""
+    """v0.5.3: 精簡戰報 + inline button 展開完整 ATB"""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     
-    # v0.3 Rank 顯示
-    def get_rank_short(hero):
-        rank = getattr(hero, 'rank', getattr(hero, 'rarity', 'N'))
-        return {
-            "N": "⭐N", "R": "⭐⭐R", "SR": "⭐⭐⭐SR",
-            "SSR": "💎SSR", "UR": "✨UR", "LR": "🔱LR",
-            "common": "⭐N", "uncommon": "⭐⭐R", "rare": "⭐⭐⭐SR",
-            "epic": "💎SSR", "legendary": "✨UR", "mythic": "🔱LR"
-        }.get(rank, f"⭐{rank}")
+    class_emoji = {"knight": "⚔️", "mage": "🔮", "rogue": "🗡️", "archer": "🏹"}
+    rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}
+    rank_hp = {"N": 500, "R": 600, "SR": 750, "SSR": 1000, "UR": 1200, "LR": 1500}
     
-    class_names = {
-        "knight": "騎士", "mage": "法師", "rogue": "盜賊", "archer": "弓箭手"
-    }
-    rarity_mult = {
-        "common": "x1.0", "uncommon": "x1.2", "rare": "x1.5",
-        "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0"
-    }
-    
-    # v0.3: 使用 Rank 顯示
-    my_rank = get_rank_short(my_hero)
-    target_rank = get_rank_short(target_hero)
-    
-    # Rank 加成倍率
-    rank_mult = {
-        "N": "x1.0", "R": "x1.2", "SR": "x1.5", "SSR": "x2.0", "UR": "x3.0", "LR": "x5.0",
-        "common": "x1.0", "uncommon": "x1.1", "rare": "x1.2", "epic": "x1.5", "legendary": "x2.0", "mythic": "x3.0"
-    }
-    my_mult = rank_mult.get(getattr(my_hero, 'rank', my_hero.rarity), "x1.0")
-    target_mult = rank_mult.get(getattr(target_hero, 'rank', target_hero.rarity), "x1.0")
-    
-    # 檢查是否命運逆轉
+    # 確定勝負
     detail = result.get("battle_detail", {})
     is_reversal = detail.get("reversal", False)
     
-    # 確定勝負
     if result["attacker_wins"]:
         if is_reversal:
             result_emoji = "⚡"
@@ -471,87 +471,76 @@ async def announce_pvp_result(bot, result: dict, my_hero, target_hero,
             result_text = "攻方獲勝！"
         winner = my_hero
         loser = target_hero
-        winner_name = attacker_name
-        loser_name = defender_name
     else:
         result_emoji = "🛡️"
         result_text = "守方反殺！"
         winner = target_hero
         loser = my_hero
-        winner_name = defender_name
-        loser_name = attacker_name
-    
-    winner_class = class_names.get(winner.hero_class, winner.hero_class)
-    loser_class = class_names.get(loser.hero_class, loser.hero_class)
     
     # 判斷敗者是否有保護
     loser_protected = result.get("defender_protected") if result["attacker_wins"] else result.get("attacker_protected")
-    loser_fate = "🛡️ 受保護（免死）" if loser_protected else "永久死亡"
-    loser_emoji = "🛡️" if loser_protected else "☠️"
+    loser_fate = "🛡️ 免死" if loser_protected else "☠️ 永久死亡"
     
-    # 格式化戰鬥詳情（v0.4 ATB 系統）
-    detail = result.get("battle_detail", {})
+    # 顯示名稱
+    atk_display = my_hero.name if my_hero.name else f"#{my_hero.card_id}"
+    def_display = target_hero.name if target_hero.name else f"#{target_hero.card_id}"
+    atk_rank = rank_emoji.get(getattr(my_hero, 'rank', 'N'), "⭐")
+    def_rank = rank_emoji.get(getattr(target_hero, 'rank', 'N'), "⭐")
+    atk_class = class_emoji.get(my_hero.hero_class, '')
+    def_class = class_emoji.get(target_hero.hero_class, '')
     
-    # 檢查是否是 ATB 版本
+    # 根據 Rank 取得 HP
+    atk_hp = rank_hp.get(getattr(my_hero, 'rank', 'N'), 500)
+    def_hp = rank_hp.get(getattr(target_hero, 'rank', 'N'), 500)
+    
+    # ATB 統計
+    battle_id = None
+    stats_text = ""
     if detail.get("atb_version"):
-        # v0.4 ATB 戰報
         battle_log = detail.get("battle_log", "")
         stats = detail.get("stats", {})
         loops = detail.get("loops", 0)
-        is_draw = detail.get("draw", False)
+        max_combo = detail.get("max_combo", 0)
         
-        # 取戰報的最後幾行（精華部分）
+        # 統計行
+        combo_text = f" | 🔥{max_combo}連" if max_combo >= 2 else ""
+        evades = stats.get('p1_evades', 0) + stats.get('p2_evades', 0)
+        skills = stats.get('p1_skills', 0) + stats.get('p2_skills', 0)
+        stats_text = f"📊 {loops}回合 | 閃避{evades} | 大招{skills}{combo_text}"
+        
+        # 緩存完整戰報
         log_lines = battle_log.split("\n")
-        # v0.4.1: 新格式以 🔵⚡ 或 🔴⚡ 開頭，也要抓樹枝行 ├─ └─
-        battle_lines = [l for l in log_lines if 
-                        l.startswith("🔵") or l.startswith("🔴") or 
-                        l.startswith("├─") or l.startswith("└─") or
-                        l.startswith("⚡") or l.startswith("🗡️") or 
-                        l.startswith("🧙") or l.startswith("⚔️") or 
-                        l.startswith("🏹") or l.startswith("💨") or l.startswith("🔥")]
-        
-        # v0.4.1: 完整戰報（純文字，4096 字元限制夠用）
-        battle_summary = "\n".join(battle_lines)
-        
-        rounds_text = f"<pre>{battle_summary}</pre>" if battle_summary else ""
-        score = f"回合:{loops} | 閃避:{stats.get('p1_evades',0)+stats.get('p2_evades',0)} | 大招:{stats.get('p1_skills',0)+stats.get('p2_skills',0)}"
-    else:
-        # 舊版三回合格式
-        rounds_text = ""
-        for i, r in enumerate(detail.get("rounds", []), 1):
-            if r["winner"] == "atk":
-                r_result = "🔵"
-            elif r["winner"] == "def":
-                r_result = "🔴"
-            else:
-                r_result = "⚪"
-            rounds_text += f"R{i} {r['name']}: {r['atk_val']} vs {r['def_val']} {r_result}\n"
-        score = f"{detail.get('atk_wins', 0)}:{detail.get('def_wins', 0)}"
+        battle_lines = [l for l in log_lines if l.startswith("🔵") or l.startswith("🔴")]
+        if battle_lines:
+            full_log = "\n".join(battle_lines)
+            battle_id = cache_battle_log(full_log)
     
-    # v0.5.1: 精簡公告（行動裝置友善）
-    winner_display = winner.name if winner.name else f"#{winner.card_id}"
-    loser_display = loser.name if loser.name else f"#{loser.card_id}"
-    winner_rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}.get(getattr(winner, 'rank', 'N'), "⭐")
-    loser_rank_emoji = {"N": "⭐", "R": "⭐⭐", "SR": "⭐⭐⭐", "SSR": "💎", "UR": "✨", "LR": "🔱"}.get(getattr(loser, 'rank', 'N'), "⭐")
-    class_emoji = {"knight": "⚔️", "mage": "🔮", "rogue": "🗡️", "archer": "🏹"}
-    
+    # ═══ 精簡戰報 ═══
     msg = f"""{result_emoji} <b>{result_text}</b>
 
-{winner_rank_emoji}{class_emoji.get(winner.hero_class, '')} <b>{winner_display}</b>
-⚔️{winner.atk} 🛡️{winner.def_} ⚡{winner.spd}
-🏆 勝利！擊殺 +1 (共{winner.kills}殺)
+🔵 {atk_rank}{atk_class} <b>{atk_display}</b>
+❤️{atk_hp} ⚔️{my_hero.atk} 🛡️{my_hero.def_} ⚡{my_hero.spd}
 
-vs
+🔴 {def_rank}{def_class} <b>{def_display}</b>
+❤️{def_hp} ⚔️{target_hero.atk} 🛡️{target_hero.def_} ⚡{target_hero.spd}
 
-{loser_rank_emoji}{class_emoji.get(loser.hero_class, '')} <b>{loser_display}</b>
-⚔️{loser.atk} 🛡️{loser.def_} ⚡{loser.spd}
-{loser_emoji} {loser_fate}"""
+{stats_text}
+
+🏆 <b>{winner.name or f'#{winner.card_id}'}</b> 擊殺+1 (共{winner.kills}殺)
+💀 <b>{loser.name or f'#{loser.card_id}'}</b> {loser_fate}"""
     
-    # 只有真的死亡才顯示死亡訊息
+    # 只有真的死亡才顯示
     if result.get("death_tx"):
         msg += f"\n\n💀 <i>靈魂回歸大地之樹...</i>"
     
-    await send_announcement(bot, msg, parse_mode='HTML')
+    # 建立 inline button（如果有戰報）
+    keyboard = None
+    if battle_id:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📜 查看完整戰鬥", callback_data=f"battle:{battle_id}")]
+        ])
+    
+    await send_announcement(bot, msg, parse_mode='HTML', reply_markup=keyboard)
 
 async def announce_reward(bot, result: dict):
     """公告獎勵發放"""
