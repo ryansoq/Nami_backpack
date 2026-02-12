@@ -21,7 +21,7 @@ by Nami 🌊
 import asyncio
 import logging
 from typing import Optional, AsyncGenerator, Set
-from kaspa import RpcClient
+from kaspa import RpcClient, Address
 
 logger = logging.getLogger(__name__)
 
@@ -94,10 +94,13 @@ class KaspaEvents:
             raise RuntimeError("Not connected")
         
         def callback(event):
-            if self._loop and self._daa_queue:
-                self._loop.call_soon_threadsafe(
-                    self._daa_queue.put_nowait, event
-                )
+            try:
+                if self._loop and self._daa_queue and not self._loop.is_closed():
+                    self._loop.call_soon_threadsafe(
+                        self._daa_queue.put_nowait, event
+                    )
+            except Exception:
+                pass  # 忽略關閉時的錯誤
         
         self._client.add_event_listener('virtual-daa-score-changed', callback)
         await self._client.subscribe_virtual_daa_score_changed()
@@ -149,15 +152,18 @@ class KaspaEvents:
         self._watched_addresses.update(addresses)
         
         def callback(event):
-            if self._loop and self._utxo_queue:
-                self._loop.call_soon_threadsafe(
-                    self._utxo_queue.put_nowait, event
-                )
+            try:
+                if self._loop and self._utxo_queue and not self._loop.is_closed():
+                    self._loop.call_soon_threadsafe(
+                        self._utxo_queue.put_nowait, event
+                    )
+            except Exception:
+                pass
         
         self._client.add_event_listener('utxos-changed', callback)
-        await self._client.subscribe_utxos_changed({
-            "addresses": list(self._watched_addresses)
-        })
+        # 轉換字串地址為 Address 物件
+        address_objects = [Address(addr) for addr in self._watched_addresses]
+        await self._client.subscribe_utxos_changed(address_objects)
         logger.info(f"📡 Subscribed to UTXO changes for {len(self._watched_addresses)} addresses")
     
     async def utxo_stream(self) -> AsyncGenerator[dict, None]:
