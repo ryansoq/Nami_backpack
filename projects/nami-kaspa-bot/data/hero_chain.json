@@ -2081,5 +2081,70 @@
     "battle_tx": "d44a16c93dcd23bd7e70ee1b96e9af46220511005d5fa2d93940ab5618317403",
     "tx_id": "43b88f3723d1b419f5ceea00b824bc697c19b7550af50491f2fda45ee170ef45",
     "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384966667,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 384193129,
+    "battle_tx": "77fb81f58a6d9ae93cff586d9b49a9e391b1b85e0c85e6f792c09131711fe818",
+    "tx_id": "aa00d91d7423ac1f0aa9d6db757bc5e883269d4316f7b77efa73cde03e9d8375",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384966666,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 384193129,
+    "battle_tx": "8bb4c67a13731a4b13de3d055f829f4d0c5631de5e243be91ea017dc9f84cb42",
+    "tx_id": "cd81cbf5a92014509a9e13842a97f5d4d663d90fe475686e51ea83abb552777c",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384666667,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381648803,
+    "battle_tx": "5a104aa9b07c1d7add740c4108cc8d44afd3bde3a133489b282cddf8a14d2f16",
+    "tx_id": "4dce397253e95d2cb753c4841776edc789c9b698fe82d6ed5232563b608eef41",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384866667,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381648803,
+    "battle_tx": "930a9ba5a8323f673b22c3072d43a720af32c18cbbe8533ddea5453c10658782",
+    "tx_id": "14a258ae05a7291dc1ec2485e0fdd0bcfcff4f33d8f57f12769167ceb0c1d9e9",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 384766667,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381648803,
+    "battle_tx": "e3056a6e2a2023e4019558902f8660111931b3a2b4b18b977b7d6b7c72a12a26",
+    "tx_id": "593cd554c8259fbbec4fd737e09560777555ad725a9239cd76c19feb4a5ff39d",
+    "signer": "tree"
   }
 ]

@@ -1,6 +1,6 @@
 {
-  "id": "pvp_381648803_vs_384566669_1770835417",
-  "timestamp": "2026-02-12T02:43:37.932176",
+  "id": "pvp_381648803_vs_384766667_1770862046",
+  "timestamp": "2026-02-12T10:07:26.221190",
   "attacker": {
     "card_id": 381648803,
     "name": "背刺你",
@@ -11,13 +11,13 @@
     "spd": 129
   },
   "defender": {
-    "card_id": 384566669,
-    "name": "黑暗精靈戰士1",
-    "class": "knight",
-    "rarity": "SR",
-    "atk": 139,
-    "def": 105,
-    "spd": 37
+    "card_id": 384766667,
+    "name": "巨魔弓手",
+    "class": "archer",
+    "rarity": "R",
+    "atk": 30,
+    "def": 32,
+    "spd": 16
   },
   "events": [
     {
@@ -30,16 +30,16 @@
       "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 10,
-      "msg": "背刺你 攻擊！造成 10 傷害"
+      "damage": 76,
+      "msg": "背刺你 攻擊！造成 76 傷害"
     },
     {
       "tick": 40,
       "type": "attack",
       "who": "defender",
       "target": "attacker",
-      "damage": 49,
-      "msg": "黑暗精靈戰士1 攻擊！造成 49 傷害"
+      "damage": 1,
+      "msg": "巨魔弓手 攻擊！造成 1 傷害"
     },
     {
       "tick": 50,
@@ -54,42 +54,17 @@
       "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 3,
-      "msg": "背刺你 攻擊！造成 3 傷害"
-    },
-    {
-      "tick": 90,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
+      "damage": 78,
+      "msg": "背刺你 攻擊！造成 78 傷害"
     },
     {
       "tick": 90,
       "type": "evade",
       "who": "attacker",
-      "msg": "背刺你 閃避了 黑暗精靈戰士1 的攻擊！"
+      "msg": "背刺你 閃避了 巨魔弓手 的攻擊！"
     },
     {
-      "tick": 140,
-      "type": "backstab",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 234,
-      "msg": "背刺你 🗡️背刺！攻擊！造成 234 傷害"
-    },
-    {
-      "tick": 140,
-      "type": "attack",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 52,
-      "msg": "黑暗精靈戰士1 攻擊！造成 52 傷害"
-    },
-    {
-      "tick": 170,
+      "tick": 130,
       "type": "skill",
       "who": "attacker",
       "skill_name": "幻影",
@@ -97,137 +72,56 @@
       "msg": "背刺你 發動【幻影】！準備閃避"
     },
     {
-      "tick": 190,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 10,
-      "msg": "背刺你 攻擊！造成 10 傷害"
-    },
-    {
-      "tick": 190,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 190,
-      "type": "evade",
-      "who": "attacker",
-      "msg": "背刺你 閃避了 黑暗精靈戰士1 的攻擊！"
-    },
-    {
-      "tick": 240,
+      "tick": 140,
       "type": "backstab",
       "who": "attacker",
       "target": "defender",
-      "damage": 233,
-      "msg": "背刺你 🗡️背刺！攻擊！造成 233 傷害"
+      "damage": 300,
+      "msg": "背刺你 🗡️背刺！攻擊！造成 300 傷害"
     },
     {
-      "tick": 240,
-      "type": "attack",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 47,
-      "msg": "黑暗精靈戰士1 攻擊！造成 47 傷害"
-    },
-    {
-      "tick": 270,
-      "type": "skill",
-      "who": "attacker",
-      "skill_name": "幻影",
-      "damage": 0,
-      "msg": "背刺你 發動【幻影】！準備閃避"
-    },
-    {
-      "tick": 280,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 290,
+      "tick": 140,
       "type": "evade",
       "who": "attacker",
-      "msg": "背刺你 閃避了 黑暗精靈戰士1 的攻擊！"
+      "msg": "背刺你 閃避了 巨魔弓手 的攻擊！"
     },
     {
-      "tick": 320,
+      "tick": 190,
       "type": "backstab",
       "who": "attacker",
       "target": "defender",
-      "damage": 227,
-      "msg": "背刺你 🗡️背刺！攻擊！造成 227 傷害"
+      "damage": 309,
+      "msg": "背刺你 🗡️背刺！攻擊！造成 309 傷害"
     },
     {
-      "tick": 340,
-      "type": "berserk",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 332,
-      "msg": "黑暗精靈戰士1 🔥狂暴！攻擊！造成 332 傷害"
-    },
-    {
-      "tick": 350,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 390,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 2,
-      "msg": "背刺你 攻擊！造成 2 傷害"
-    },
-    {
-      "tick": 390,
-      "type": "berserk",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 329,
-      "msg": "黑暗精靈戰士1 🔥狂暴！攻擊！造成 329 傷害"
-    },
-    {
-      "tick": 390,
+      "tick": 190,
       "type": "death",
-      "who": "attacker",
-      "msg": "💀 背刺你 倒下了..."
+      "who": "defender",
+      "msg": "💀 巨魔弓手 倒下了..."
     },
     {
-      "tick": 390,
+      "tick": 190,
       "type": "battle_end",
-      "winner": "defender",
-      "msg": "🏆 黑暗精靈戰士1 獲得勝利！"
+      "winner": "attacker",
+      "msg": "🏆 背刺你 獲得勝利！"
     }
   ],
   "result": {
-    "winner": "defender",
-    "winner_name": "黑暗精靈戰士1",
-    "loser_name": "背刺你",
-    "winner_card_id": 384566669,
-    "loser_card_id": 381648803
+    "winner": "attacker",
+    "winner_name": "背刺你",
+    "loser_name": "巨魔弓手",
+    "winner_card_id": 381648803,
+    "loser_card_id": 384766667
   },
   "stats": {
-    "loops": 40,
-    "p1_attacks": 7,
-    "p2_attacks": 8,
-    "p1_skills": 3,
-    "p2_skills": 4,
-    "p1_evades": 3,
+    "loops": 20,
+    "p1_attacks": 4,
+    "p2_attacks": 3,
+    "p1_skills": 2,
+    "p2_skills": 0,
+    "p1_evades": 2,
     "p2_evades": 0,
-    "p1_damage_dealt": 719,
-    "p2_damage_dealt": 809
+    "p1_damage_dealt": 763,
+    "p2_damage_dealt": 1
   }
 }
