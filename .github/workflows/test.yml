@@ -1,0 +1,59 @@
+name: 🧪 Nami Kaspa Bot Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'projects/nami-kaspa-bot/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'projects/nami-kaspa-bot/**'
+  workflow_dispatch:  # 手動觸發
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+    
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+    
+    - name: 📦 Install dependencies
+      run: |
+        pip install pytest pytest-asyncio
+        # 安裝專案依賴（如果有 requirements.txt）
+        if [ -f projects/nami-kaspa-bot/requirements.txt ]; then
+          pip install -r projects/nami-kaspa-bot/requirements.txt
+        fi
+        # 安裝 kaspa SDK (mock 版本用於測試)
+        pip install kaspa || echo "kaspa SDK not available, using mocks"
+    
+    - name: 🧪 Run Tests
+      working-directory: projects/nami-kaspa-bot
+      run: |
+        python -m pytest tests/test_hero_game.py tests/test_reward_system.py tests/test_integration.py \
+          -v \
+          --tb=short \
+          --color=yes \
+          -x
+      env:
+        PYTHONPATH: ${{ github.workspace }}/projects/nami-kaspa-bot
+    
+    - name: 📊 Test Summary
+      if: always()
+      run: |
+        echo "## 🧪 測試結果" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "測試範圍：" >> $GITHUB_STEP_SUMMARY
+        echo "- 英雄屬性生成" >> $GITHUB_STEP_SUMMARY
+        echo "- ATB 戰鬥系統" >> $GITHUB_STEP_SUMMARY
+        echo "- 哥布林系統" >> $GITHUB_STEP_SUMMARY
+        echo "- 獎勵分配" >> $GITHUB_STEP_SUMMARY
+        echo "- 整合流程" >> $GITHUB_STEP_SUMMARY
