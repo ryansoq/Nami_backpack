@@ -1566,13 +1566,18 @@ async def hero_attack(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
         # 用名字查找（英雄 + 哥布林都在 heroes 裡）
+        # v0.5.1: 優先找存活的，避免同名死亡英雄干擾
         arg_lower = arg.lower()
+        found_dead = None  # 備用：如果沒有存活的，用死亡的
         for hero_id, hero_data in db.get("heroes", {}).items():
             if hero_data.get("name", "").lower() == arg_lower:
                 # 如果指定 owner_id，只找自己的英雄
                 if owner_id is None or hero_data.get("owner_id") == owner_id:
-                    return int(hero_id)
-        return None
+                    if hero_data.get("status") == "alive":
+                        return int(hero_id)  # 優先返回存活的
+                    else:
+                        found_dead = int(hero_id)  # 記住死亡的備用
+        return found_dead  # 沒有存活的才返回死亡的（會在後續檢查報錯）
     
     # ═══════════════════════════════════════════════════════════════════════
     # v0.4: 多種輸入模式解析
