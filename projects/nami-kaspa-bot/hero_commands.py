@@ -2624,7 +2624,7 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         goblin_lines = []
         # 處理同名哥布林編號
         name_count = {}
-        for gid, g in alive_goblins[:5]:
+        for gid, g in alive_goblins[:10]:
             name = g.get("name", "哥布林")
             # 同名編號
             if name in name_count:

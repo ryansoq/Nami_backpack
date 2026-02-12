@@ -1,23 +1,23 @@
 {
-  "id": "pvp_381635914_vs_384566668_1770818710",
-  "timestamp": "2026-02-11T22:05:10.705435",
+  "id": "pvp_381648803_vs_384566669_1770835417",
+  "timestamp": "2026-02-12T02:43:37.932176",
   "attacker": {
-    "card_id": 381635914,
-    "name": "走位風騷",
+    "card_id": 381648803,
+    "name": "背刺你",
     "class": "rogue",
-    "rarity": "R",
-    "atk": 98,
-    "def": 116,
-    "spd": 82
+    "rarity": "SR",
+    "atk": 112,
+    "def": 90,
+    "spd": 129
   },
   "defender": {
-    "card_id": 384566668,
-    "name": "哥布林戰士1",
+    "card_id": 384566669,
+    "name": "黑暗精靈戰士1",
     "class": "knight",
-    "rarity": "N",
-    "atk": 62,
-    "def": 87,
-    "spd": 92
+    "rarity": "SR",
+    "atk": 139,
+    "def": 105,
+    "spd": 37
   },
   "events": [
     {
@@ -30,297 +30,204 @@
       "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 7,
-      "msg": "走位風騷 攻擊！造成 7 傷害"
+      "damage": 10,
+      "msg": "背刺你 攻擊！造成 10 傷害"
     },
     {
       "tick": 40,
       "type": "attack",
       "who": "defender",
       "target": "attacker",
-      "damage": 1,
-      "msg": "哥布林戰士1 攻擊！造成 1 傷害"
+      "damage": 49,
+      "msg": "黑暗精靈戰士1 攻擊！造成 49 傷害"
     },
     {
-      "tick": 80,
+      "tick": 50,
       "type": "skill",
       "who": "attacker",
       "skill_name": "幻影",
       "damage": 0,
-      "msg": "走位風騷 發動【幻影】！準備閃避"
+      "msg": "背刺你 發動【幻影】！準備閃避"
     },
     {
       "tick": 90,
       "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 10,
-      "msg": "走位風騷 攻擊！造成 10 傷害"
+      "damage": 3,
+      "msg": "背刺你 攻擊！造成 3 傷害"
     },
     {
       "tick": 90,
-      "type": "evade",
-      "who": "attacker",
-      "msg": "走位風騷 閃避了 哥布林戰士1 的攻擊！"
-    },
-    {
-      "tick": 110,
       "type": "skill",
       "who": "defender",
       "target": "attacker",
       "skill_name": "衝擊之暈",
       "damage": 0,
-      "msg": "哥布林戰士1 發動【衝擊之暈】！造成 0 傷害"
+      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
+    },
+    {
+      "tick": 90,
+      "type": "evade",
+      "who": "attacker",
+      "msg": "背刺你 閃避了 黑暗精靈戰士1 的攻擊！"
+    },
+    {
+      "tick": 140,
+      "type": "backstab",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 234,
+      "msg": "背刺你 🗡️背刺！攻擊！造成 234 傷害"
     },
     {
       "tick": 140,
       "type": "attack",
       "who": "defender",
       "target": "attacker",
-      "damage": 1,
-      "msg": "哥布林戰士1 攻擊！造成 1 傷害"
+      "damage": 52,
+      "msg": "黑暗精靈戰士1 攻擊！造成 52 傷害"
     },
     {
-      "tick": 160,
-      "type": "backstab",
+      "tick": 170,
+      "type": "skill",
       "who": "attacker",
-      "target": "defender",
-      "damage": 202,
-      "msg": "走位風騷 🗡️背刺！攻擊！造成 202 傷害"
+      "skill_name": "幻影",
+      "damage": 0,
+      "msg": "背刺你 發動【幻影】！準備閃避"
     },
     {
       "tick": 190,
       "type": "attack",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 1,
-      "msg": "哥布林戰士1 攻擊！造成 1 傷害"
-    },
-    {
-      "tick": 210,
-      "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 9,
-      "msg": "走位風騷 攻擊！造成 9 傷害"
+      "damage": 10,
+      "msg": "背刺你 攻擊！造成 10 傷害"
     },
     {
-      "tick": 220,
+      "tick": 190,
       "type": "skill",
       "who": "defender",
       "target": "attacker",
       "skill_name": "衝擊之暈",
       "damage": 0,
-      "msg": "哥布林戰士1 發動【衝擊之暈】！造成 0 傷害"
+      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
+    },
+    {
+      "tick": 190,
+      "type": "evade",
+      "who": "attacker",
+      "msg": "背刺你 閃避了 黑暗精靈戰士1 的攻擊！"
+    },
+    {
+      "tick": 240,
+      "type": "backstab",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 233,
+      "msg": "背刺你 🗡️背刺！攻擊！造成 233 傷害"
     },
     {
       "tick": 240,
       "type": "attack",
       "who": "defender",
       "target": "attacker",
-      "damage": 1,
-      "msg": "哥布林戰士1 攻擊！造成 1 傷害"
+      "damage": 47,
+      "msg": "黑暗精靈戰士1 攻擊！造成 47 傷害"
     },
     {
       "tick": 270,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 16,
-      "msg": "走位風騷 攻擊！造成 16 傷害"
-    },
-    {
-      "tick": 290,
-      "type": "attack",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 1,
-      "msg": "哥布林戰士1 攻擊！造成 1 傷害"
-    },
-    {
-      "tick": 300,
       "type": "skill",
       "who": "attacker",
       "skill_name": "幻影",
       "damage": 0,
-      "msg": "走位風騷 發動【幻影】！準備閃避"
+      "msg": "背刺你 發動【幻影】！準備閃避"
+    },
+    {
+      "tick": 280,
+      "type": "skill",
+      "who": "defender",
+      "target": "attacker",
+      "skill_name": "衝擊之暈",
+      "damage": 0,
+      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
+    },
+    {
+      "tick": 290,
+      "type": "evade",
+      "who": "attacker",
+      "msg": "背刺你 閃避了 黑暗精靈戰士1 的攻擊！"
     },
     {
       "tick": 320,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 7,
-      "msg": "走位風騷 攻擊！造成 7 傷害"
-    },
-    {
-      "tick": 340,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "哥布林戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 340,
-      "type": "evade",
-      "who": "attacker",
-      "msg": "走位風騷 閃避了 哥布林戰士1 的攻擊！"
-    },
-    {
-      "tick": 390,
       "type": "backstab",
       "who": "attacker",
       "target": "defender",
-      "damage": 205,
-      "msg": "走位風騷 🗡️背刺！攻擊！造成 205 傷害"
+      "damage": 227,
+      "msg": "背刺你 🗡️背刺！攻擊！造成 227 傷害"
+    },
+    {
+      "tick": 340,
+      "type": "berserk",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 332,
+      "msg": "黑暗精靈戰士1 🔥狂暴！攻擊！造成 332 傷害"
+    },
+    {
+      "tick": 350,
+      "type": "skill",
+      "who": "defender",
+      "target": "attacker",
+      "skill_name": "衝擊之暈",
+      "damage": 0,
+      "msg": "黑暗精靈戰士1 發動【衝擊之暈】！造成 0 傷害"
+    },
+    {
+      "tick": 390,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 2,
+      "msg": "背刺你 攻擊！造成 2 傷害"
     },
     {
       "tick": 390,
       "type": "berserk",
       "who": "defender",
       "target": "attacker",
-      "damage": 68,
-      "msg": "哥布林戰士1 🔥狂暴！攻擊！造成 68 傷害"
+      "damage": 329,
+      "msg": "黑暗精靈戰士1 🔥狂暴！攻擊！造成 329 傷害"
     },
     {
-      "tick": 420,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "哥布林戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 440,
-      "type": "berserk",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 73,
-      "msg": "哥布林戰士1 🔥狂暴！攻擊！造成 73 傷害"
-    },
-    {
-      "tick": 470,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 10,
-      "msg": "走位風騷 攻擊！造成 10 傷害"
-    },
-    {
-      "tick": 480,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "哥布林戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 490,
-      "type": "berserk",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 69,
-      "msg": "哥布林戰士1 🔥狂暴！攻擊！造成 69 傷害"
-    },
-    {
-      "tick": 530,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 15,
-      "msg": "走位風騷 攻擊！造成 15 傷害"
-    },
-    {
-      "tick": 540,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "哥布林戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 540,
-      "type": "berserk",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 71,
-      "msg": "哥布林戰士1 🔥狂暴！攻擊！造成 71 傷害"
-    },
-    {
-      "tick": 590,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 8,
-      "msg": "走位風騷 攻擊！造成 8 傷害"
-    },
-    {
-      "tick": 590,
-      "type": "berserk",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 74,
-      "msg": "哥布林戰士1 🔥狂暴！攻擊！造成 74 傷害"
-    },
-    {
-      "tick": 600,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "衝擊之暈",
-      "damage": 0,
-      "msg": "哥布林戰士1 發動【衝擊之暈】！造成 0 傷害"
-    },
-    {
-      "tick": 640,
-      "type": "berserk",
-      "who": "defender",
-      "target": "attacker",
-      "damage": 68,
-      "msg": "哥布林戰士1 🔥狂暴！攻擊！造成 68 傷害"
-    },
-    {
-      "tick": 650,
-      "type": "attack",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 14,
-      "msg": "走位風騷 攻擊！造成 14 傷害"
-    },
-    {
-      "tick": 650,
+      "tick": 390,
       "type": "death",
-      "who": "defender",
-      "msg": "💀 哥布林戰士1 倒下了..."
+      "who": "attacker",
+      "msg": "💀 背刺你 倒下了..."
     },
     {
-      "tick": 650,
+      "tick": 390,
       "type": "battle_end",
-      "winner": "attacker",
-      "msg": "🏆 走位風騷 獲得勝利！"
+      "winner": "defender",
+      "msg": "🏆 黑暗精靈戰士1 獲得勝利！"
     }
   ],
   "result": {
-    "winner": "attacker",
-    "winner_name": "走位風騷",
-    "loser_name": "哥布林戰士1",
-    "winner_card_id": 381635914,
-    "loser_card_id": 384566668
+    "winner": "defender",
+    "winner_name": "黑暗精靈戰士1",
+    "loser_name": "背刺你",
+    "winner_card_id": 384566669,
+    "loser_card_id": 381648803
   },
   "stats": {
-    "loops": 66,
-    "p1_attacks": 11,
-    "p2_attacks": 13,
-    "p1_skills": 2,
-    "p2_skills": 7,
-    "p1_evades": 2,
+    "loops": 40,
+    "p1_attacks": 7,
+    "p2_attacks": 8,
+    "p1_skills": 3,
+    "p2_skills": 4,
+    "p1_evades": 3,
     "p2_evades": 0,
-    "p1_damage_dealt": 503,
-    "p2_damage_dealt": 428
+    "p1_damage_dealt": 719,
+    "p2_damage_dealt": 809
   }
 }
