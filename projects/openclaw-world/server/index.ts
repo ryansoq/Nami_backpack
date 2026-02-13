@@ -570,8 +570,8 @@ async function main() {
   gameLoop.start();
 
   // ── Heartbeat scanner: auto-idle & auto-kick inactive agents ──
-  const IDLE_TIMEOUT_MS = 5 * 60 * 1000;   // 5 min → idle
-  const KICK_TIMEOUT_MS = 15 * 60 * 1000;  // 15 min → kick
+  const IDLE_TIMEOUT_MS = 30 * 60 * 1000;   // 30 min → idle
+  const KICK_TIMEOUT_MS = 120 * 60 * 1000;  // 2 hr → kick
 
   setInterval(() => {
     const now = Date.now();
