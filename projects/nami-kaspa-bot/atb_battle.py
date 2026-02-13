@@ -111,10 +111,13 @@ RAGE_MULTIPLIER = 2       # 爆發模式技能累積倍率
 
 # Rank -> HP 對照表
 RANK_HP = {
+    # v0.3+ Rank 系統 - 6階 (Thanks Bob for catching this! 🔍)
     "N": 500,
     "R": 600,
     "SR": 750,
     "SSR": 1000,
+    "UR": 1300,      # 傳說級 - 新增
+    "LR": 1800,      # 神話級 - 新增
 }
 
 # 職業大招設定

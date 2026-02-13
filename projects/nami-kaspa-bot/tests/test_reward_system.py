@@ -110,10 +110,12 @@ class TestRewardDistribution:
     
     def test_rarity_affects_score(self):
         """稀有度影響積分"""
-        # RARITY_BONUS 使用 common/uncommon/rare 等格式
-        assert RARITY_BONUS["common"] < RARITY_BONUS["uncommon"]
-        assert RARITY_BONUS["uncommon"] < RARITY_BONUS["rare"]
-        assert RARITY_BONUS["rare"] < RARITY_BONUS["epic"]
+        # RARITY_BONUS 使用 N/R/SR/SSR/UR/LR 等格式 (v0.3+ Rank 系統)
+        assert RARITY_BONUS["N"] < RARITY_BONUS["R"]
+        assert RARITY_BONUS["R"] < RARITY_BONUS["SR"]
+        assert RARITY_BONUS["SR"] < RARITY_BONUS["SSR"]
+        assert RARITY_BONUS["SSR"] < RARITY_BONUS["UR"]
+        assert RARITY_BONUS["UR"] < RARITY_BONUS["LR"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
