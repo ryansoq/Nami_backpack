@@ -21,9 +21,15 @@ export function createBuildings(scene: THREE.Scene): {
   const obstacles: { x: number; z: number; radius: number }[] = [];
 
   // ══════════════════════════════════════════════════════════
-  // ║              功能建築（放在邊邊）                        ║
+  // ║        功能建築（暫時隱藏，之後自己做）                   ║
   // ══════════════════════════════════════════════════════════
 
+  // TODO: 自己重新設計這三個建築
+  // - Moltbook (左側牆邊)
+  // - Clawhub (右側牆邊)  
+  // - Worlds Portal (後方牆邊)
+
+  /*
   // ── Moltbook Bulletin Board (左側牆邊) ─────────────────────
   const moltbook = createMoltbookBoard();
   moltbook.position.set(-22, 0, 0);
@@ -67,6 +73,7 @@ export function createBuildings(scene: THREE.Scene): {
     mesh: portal,
   });
   obstacles.push({ x: 0, z: -22, radius: 3 });
+  */
 
   // ══════════════════════════════════════════════════════════
   // ║              房間隔間牆壁                                ║
