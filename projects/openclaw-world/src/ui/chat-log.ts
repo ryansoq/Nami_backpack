@@ -10,14 +10,34 @@ interface ChatLogAPI {
 export function setupChatLog(): ChatLogAPI {
   const container = document.getElementById("chat-log")!;
 
-  const titleEl = document.createElement("div");
+  // Header with toggle button
+  const headerEl = document.createElement("div");
+  headerEl.className = "chat-header";
+  
+  const titleEl = document.createElement("span");
   titleEl.className = "chat-title";
   titleEl.textContent = "World Chat";
-  container.appendChild(titleEl);
+  headerEl.appendChild(titleEl);
+  
+  const toggleEl = document.createElement("span");
+  toggleEl.className = "chat-toggle";
+  toggleEl.textContent = "▾";
+  headerEl.appendChild(toggleEl);
+  
+  container.appendChild(headerEl);
 
   const messagesEl = document.createElement("div");
   messagesEl.className = "chat-messages";
   container.appendChild(messagesEl);
+  
+  // Collapse / expand on header click
+  let collapsed = false;
+  headerEl.addEventListener("click", () => {
+    collapsed = !collapsed;
+    messagesEl.style.display = collapsed ? "none" : "";
+    toggleEl.textContent = collapsed ? "▸" : "▾";
+    container.classList.toggle("collapsed", collapsed);
+  });
 
   // Parse markdown-style formatting: @mentions, `code`, ```code blocks```
   function parseMarkdown(text: string): string {
