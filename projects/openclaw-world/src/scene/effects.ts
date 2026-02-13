@@ -97,7 +97,7 @@ export class EffectsManager {
     }
   }
 
-  /** Show a chat bubble above a lobster (auto-expires after 6s) */
+  /** Show a chat bubble above an agent (auto-expires after 15s) */
   showBubble(agentId: string, text: string): void {
     this.removeBubble(agentId);
 
@@ -116,7 +116,9 @@ export class EffectsManager {
       expiresAt: Date.now() + 15000,
     };
     this.bubbles.set(agentId, entry);
-    this.attachToAgent(agentId, obj);
+    
+    const attached = this.attachToAgent(agentId, obj);
+    console.log(`[bubble] ${agentId}: attached=${attached}, text="${text.slice(0,30)}"`);
   }
 
   /** Remove a chat bubble */
@@ -200,14 +202,16 @@ export class EffectsManager {
     }
   }
 
-  /** Attach a CSS2DObject to a lobster group in the scene */
-  private attachToAgent(agentId: string, obj: CSS2DObject): void {
+  /** Attach a CSS2DObject to an agent group in the scene */
+  private attachToAgent(agentId: string, obj: CSS2DObject): boolean {
+    let found = false;
     this.scene.traverse((child) => {
-      // Support both lobster and cylinderPerson avatars
       if (child.userData.agentId === agentId && 
           (child.name === "lobster" || child.name === "cylinderPerson")) {
         child.add(obj);
+        found = true;
       }
     });
+    return found;
   }
 }
