@@ -1,5 +1,5 @@
 interface ChatLogAPI {
-  addMessage(agentId: string, text: string): void;
+  addMessage(agentId: string, text: string, timestamp?: number): void;
   addSystem(text: string): void;
 }
 
@@ -101,8 +101,8 @@ export function setupChatLog(): ChatLogAPI {
   }
 
   return {
-    addMessage(agentId: string, text: string) {
-      const time = new Date().toLocaleTimeString([], {
+    addMessage(agentId: string, text: string, timestamp?: number) {
+      const time = new Date(timestamp ?? Date.now()).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       });

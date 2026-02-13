@@ -75,11 +75,7 @@ ws.on("connected", async () => {
       // Show historical chat messages
       for (const evt of data.events) {
         if (evt.worldType === "chat") {
-          const time = new Date(evt.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-          chatLog.addMessage(evt.agentId, evt.text);
+          chatLog.addMessage(evt.agentId, evt.text, evt.timestamp);
         }
       }
     }
