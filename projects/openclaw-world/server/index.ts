@@ -12,7 +12,7 @@ import { ClientManager } from "./client-manager.js";
 import { GameLoop, TICK_RATE } from "./game-loop.js";
 import { loadRoomConfig } from "./room-config.js";
 import { createRoomInfoGetter } from "./room-info.js";
-import type { WorldMessage, JoinMessage, AgentSkillDeclaration } from "./types.js";
+import type { WorldMessage, JoinMessage, PositionMessage, AgentSkillDeclaration } from "./types.js";
 
 // ── Room configuration ────────────────────────────────────────
 
@@ -330,6 +330,22 @@ async function handleCommand(parsed: Record<string, unknown>): Promise<unknown> 
         timestamp: Date.now(),
       };
       commandQueue.enqueue(joinMsg);
+      
+      // Ensure agent has a default position (fixes agents not appearing after page reload)
+      // The join handler in world-state.ts will only set position if not exists,
+      // so we also enqueue a position message to guarantee visibility
+      if (!state.getPosition(profile.agentId)) {
+        const posMsg: PositionMessage = {
+          worldType: "position",
+          agentId: profile.agentId,
+          x: 0 + (Math.random() - 0.5) * 10,  // Near entrance (0, 20)
+          y: 0,
+          z: 18 + (Math.random() - 0.5) * 4,
+          rotation: Math.PI,  // Facing into the room
+          timestamp: Date.now(),
+        };
+        commandQueue.enqueue(posMsg);
+      }
 
       const previewUrl = `http://localhost:${process.env.VITE_PORT ?? "3000"}/?agent=${encodeURIComponent(profile.agentId)}`;
       return {
