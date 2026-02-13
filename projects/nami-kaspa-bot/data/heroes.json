@@ -2460,6 +2460,44 @@
       "tx_id": "",
       "latest_tx": "3f72c46133ce632aeb004469276b36c0d7a703726e225356a263cf958bcf6511",
       "protected": false
+    },
+    "386266666": {
+      "card_id": 386266666,
+      "owner_id": 0,
+      "owner_address": "",
+      "name": "哥布林戰士6",
+      "hero_class": "knight",
+      "rank": "N",
+      "atk": 71,
+      "def": 10,
+      "spd": 48,
+      "source_hash": "094809d697d83b395f8863c5d0a913b35e7dbc9bf0112d8437eade2e14b821ee",
+      "payment_tx": "system_spawn:386266666",
+      "status": "alive",
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-14T02:08:52.697257",
+      "spawn_trigger_daa": 386266666,
+      "defeated_heroes": []
+    },
+    "386266667": {
+      "card_id": 386266667,
+      "owner_id": 0,
+      "owner_address": "",
+      "name": "哥布林戰士7",
+      "hero_class": "knight",
+      "rank": "N",
+      "atk": 71,
+      "def": 10,
+      "spd": 48,
+      "source_hash": "094809d697d83b395f8863c5d0a913b35e7dbc9bf0112d8437eade2e14b821ee",
+      "payment_tx": "system_spawn:386266667",
+      "status": "alive",
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-14T02:08:52.742473",
+      "spawn_trigger_daa": 386266666,
+      "defeated_heroes": []
     }
   },
   "user_heroes": {
@@ -2538,9 +2576,9 @@
   },
   "last_summon_daa": 385326772,
   "summon_queue": [],
-  "total_mana_pool": 52,
-  "last_checked_daa": 386166666,
-  "last_reward_daa": 385966666,
+  "total_mana_pool": 0,
+  "last_checked_daa": 386466666,
+  "last_reward_daa": 386266666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -2941,6 +2979,14 @@
       "timestamp": "2026-02-13T17:48:34.871007",
       "total_pool": 50800000000,
       "distributed": 5799999996,
+      "recipients_count": 7
+    },
+    {
+      "daa": 386266666,
+      "checked_at_daa": 386466666,
+      "timestamp": "2026-02-14T02:08:52.760592",
+      "total_pool": 55200000000,
+      "distributed": 40199999996,
       "recipients_count": 7
     }
   ],

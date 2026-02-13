@@ -549,7 +549,7 @@ async function handleCommand(parsed: Record<string, unknown>): Promise<unknown> 
 // ── Startup ────────────────────────────────────────────────────
 
 async function main() {
-  console.log("🦞 OpenClaw Ocean World starting...");
+  console.log("🏢 OpenClaw Office starting...");
   console.log(`[room] Room ID: ${config.roomId} | Name: "${config.roomName}"`);
   if (config.roomDescription) {
     console.log(`[room] Description: ${config.roomDescription}`);
@@ -568,6 +568,40 @@ async function main() {
   });
 
   gameLoop.start();
+
+  // ── Heartbeat scanner: auto-idle & auto-kick inactive agents ──
+  const IDLE_TIMEOUT_MS = 5 * 60 * 1000;   // 5 min → idle
+  const KICK_TIMEOUT_MS = 15 * 60 * 1000;  // 15 min → kick
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const profile of registry.getAll()) {
+      if (!state.hasAgent(profile.agentId)) continue;
+      const elapsed = now - profile.lastSeen;
+
+      if (elapsed > KICK_TIMEOUT_MS) {
+        // Auto-kick: remove from world
+        console.log(`[heartbeat] ⏰ Kicking ${profile.agentId} (inactive ${Math.round(elapsed / 60000)}min)`);
+        const leaveMsg: WorldMessage = {
+          worldType: "leave",
+          agentId: profile.agentId,
+          timestamp: now,
+        };
+        commandQueue.enqueue(leaveMsg);
+      } else if (elapsed > IDLE_TIMEOUT_MS) {
+        // Auto-idle
+        const actionMsg: WorldMessage = {
+          worldType: "action",
+          agentId: profile.agentId,
+          action: "idle",
+          timestamp: now,
+        };
+        commandQueue.enqueue(actionMsg);
+      }
+    }
+  }, 60_000); // Check every 1 minute
+
+  console.log(`[heartbeat] Scanner active: idle=${IDLE_TIMEOUT_MS / 60000}min, kick=${KICK_TIMEOUT_MS / 60000}min`);
 }
 
 main().catch((err) => {
