@@ -193,9 +193,12 @@ export class EffectsManager {
         entry.object.visible = camPos.distanceTo(_worldPos) < PROXIMITY_RADIUS;
       }
     }
-    // Bubbles always visible regardless of distance
     for (const entry of this.bubbles.values()) {
-      entry.object.visible = true;
+      const parent = entry.object.parent;
+      if (parent) {
+        parent.getWorldPosition(_worldPos);
+        entry.object.visible = camPos.distanceTo(_worldPos) < PROXIMITY_RADIUS;
+      }
     }
   }
 
