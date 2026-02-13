@@ -113,7 +113,7 @@ export class EffectsManager {
     const entry: BubbleEntry = {
       object: obj,
       agentId,
-      expiresAt: Date.now() + 6000,
+      expiresAt: Date.now() + 15000,
     };
     this.bubbles.set(agentId, entry);
     this.attachToAgent(agentId, obj);
