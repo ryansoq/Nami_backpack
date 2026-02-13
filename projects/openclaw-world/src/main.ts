@@ -202,6 +202,9 @@ ws.connect();
 const pickRaycaster = new THREE.Raycaster();
 const pickPointer = new THREE.Vector2();
 
+// Prevent right-click context menu (WoW-style camera rotation)
+renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
+
 renderer.domElement.addEventListener("click", (event: MouseEvent) => {
   // Don't process clicks when building panel is open
   if (buildingPanel.isVisible()) return;
@@ -298,6 +301,7 @@ function animate() {
     }
   }
 
+  if ((controls as any)._keyPan) (controls as any)._keyPan();
   controls.update();
 
   // Report camera position to server for AOI filtering (every 1s)

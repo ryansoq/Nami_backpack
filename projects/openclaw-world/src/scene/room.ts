@@ -37,7 +37,7 @@ export function createScene() {
   camera.position.set(20, 18, 20);
   camera.lookAt(0, 0, 0);
 
-  // ── Controls ───────────────────────────────────────────────
+  // ── Controls (WoW-style) ────────────────────────────────────
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
@@ -45,6 +45,46 @@ export function createScene() {
   controls.minDistance = 5;
   controls.maxDistance = 80;
   controls.target.set(0, 0, 0);
+  
+  // WoW-style: right-click to rotate, disable left-click rotate
+  controls.mouseButtons = {
+    LEFT: null as unknown as THREE.MOUSE,       // 左鍵不做事
+    MIDDLE: THREE.MOUSE.DOLLY,                   // 中鍵縮放
+    RIGHT: THREE.MOUSE.ROTATE,                   // 右鍵旋轉
+  };
+  controls.enablePan = false; // 平移用鍵盤
+
+  // WASD / Arrow keys → pan camera
+  const keyState = new Set<string>();
+  const PAN_SPEED = 0.5;
+
+  window.addEventListener("keydown", (e) => {
+    keyState.add(e.key.toLowerCase());
+  });
+  window.addEventListener("keyup", (e) => {
+    keyState.delete(e.key.toLowerCase());
+  });
+
+  // Per-frame keyboard pan (called in animation loop via controls._keyPan)
+  (controls as any)._keyPan = () => {
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+    const delta = new THREE.Vector3();
+    if (keyState.has("w") || keyState.has("arrowup"))    delta.add(forward);
+    if (keyState.has("s") || keyState.has("arrowdown"))  delta.sub(forward);
+    if (keyState.has("d") || keyState.has("arrowright")) delta.add(right);
+    if (keyState.has("a") || keyState.has("arrowleft"))  delta.sub(right);
+
+    if (delta.lengthSq() > 0) {
+      delta.normalize().multiplyScalar(PAN_SPEED);
+      controls.target.add(delta);
+      camera.position.add(delta);
+    }
+  };
 
   // ── Clock ──────────────────────────────────────────────────
   const clock = new THREE.Clock();
