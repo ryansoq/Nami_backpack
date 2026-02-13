@@ -137,7 +137,7 @@ class WorldBridge:
     def leave(self):
         """離開辦公室"""
         return httpx.post(self.url, json={
-            "command": "leave",
+            "command": "world-leave",
             "args": {"agentId": self.agent_id}
         }).json()
     
