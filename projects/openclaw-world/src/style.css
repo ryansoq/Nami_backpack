@@ -200,6 +200,34 @@ body {
   border-radius: 3px;
 }
 
+.chat-code-inline {
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 0.85em;
+  background: rgba(0, 0, 0, 0.08);
+  color: #c7254e;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.chat-code-block {
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 0.8em;
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 4px 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 3px solid #3498db;
+}
+
+.chat-code-block code {
+  background: none;
+  padding: 0;
+}
+
 /* ── Profile Panel (right slide-in) ────────────────────────── */
 
 #profile-panel {

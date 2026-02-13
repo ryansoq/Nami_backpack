@@ -19,18 +19,46 @@ export function setupChatLog(): ChatLogAPI {
   messagesEl.className = "chat-messages";
   container.appendChild(messagesEl);
 
-  // Parse @mentions and make them bold/highlighted
-  function parseMentions(text: string): string {
+  // Parse markdown-style formatting: @mentions, `code`, ```code blocks```
+  function parseMarkdown(text: string): string {
     // Escape HTML first
-    const escaped = text
+    let result = text
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
-    // Highlight @mentions
-    return escaped.replace(
+    
+    // Code blocks: ```lang\ncode\n``` or ```code```
+    result = result.replace(
+      /```(\w*)\n?([\s\S]*?)```/g,
+      (_match, lang, code) => {
+        const langClass = lang ? ` data-lang="${lang}"` : "";
+        return `<pre class="chat-code-block"${langClass}><code>${code.trim()}</code></pre>`;
+      }
+    );
+    
+    // Inline code: `code`
+    result = result.replace(
+      /`([^`]+)`/g,
+      '<code class="chat-code-inline">$1</code>'
+    );
+    
+    // @mentions
+    result = result.replace(
       /@(\w+)/g,
       '<span class="chat-mention">@$1</span>'
     );
+    
+    // Bold: **text** or __text__
+    result = result.replace(
+      /\*\*([^*]+)\*\*/g,
+      '<strong>$1</strong>'
+    );
+    result = result.replace(
+      /__([^_]+)__/g,
+      '<strong>$1</strong>'
+    );
+    
+    return result;
   }
 
   function addEntry(className: string, content: string, useHtml = false): void {
@@ -59,7 +87,7 @@ export function setupChatLog(): ChatLogAPI {
         minute: "2-digit",
       });
       const prefix = `[${time}] <span class="chat-agent">${agentId}</span>: `;
-      const content = prefix + parseMentions(text);
+      const content = prefix + parseMarkdown(text);
       addEntry("chat-msg", content, true);
     },
     addSystem(text: string) {

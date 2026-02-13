@@ -1,23 +1,23 @@
 {
-  "id": "pvp_381648803_vs_385366667_1770897375",
-  "timestamp": "2026-02-12T19:56:15.177322",
+  "id": "pvp_381635914_vs_385466666_1770975617",
+  "timestamp": "2026-02-13T17:40:17.406169",
   "attacker": {
-    "card_id": 381648803,
-    "name": "背刺你",
+    "card_id": 381635914,
+    "name": "走位風騷",
     "class": "rogue",
-    "rarity": "SR",
-    "atk": 112,
-    "def": 90,
-    "spd": 129
+    "rarity": "R",
+    "atk": 98,
+    "def": 116,
+    "spd": 82
   },
   "defender": {
-    "card_id": 385366667,
-    "name": "巨魔弓手3",
-    "class": "archer",
-    "rarity": "R",
-    "atk": 45,
-    "def": 118,
-    "spd": 79
+    "card_id": 385466666,
+    "name": "哥布林盜賊5",
+    "class": "rogue",
+    "rarity": "N",
+    "atk": 29,
+    "def": 68,
+    "spd": 29
   },
   "events": [
     {
@@ -30,8 +30,8 @@
       "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 1,
-      "msg": "背刺你 攻擊！造成 1 傷害"
+      "damage": 27,
+      "msg": "走位風騷 攻擊！造成 27 傷害"
     },
     {
       "tick": 40,
@@ -39,60 +39,53 @@
       "who": "defender",
       "target": "attacker",
       "damage": 1,
-      "msg": "巨魔弓手3 攻擊！造成 1 傷害"
+      "msg": "哥布林盜賊5 攻擊！造成 1 傷害"
     },
     {
-      "tick": 50,
+      "tick": 80,
       "type": "skill",
       "who": "attacker",
       "skill_name": "幻影",
       "damage": 0,
-      "msg": "背刺你 發動【幻影】！準備閃避"
+      "msg": "走位風騷 發動【幻影】！準備閃避"
     },
     {
       "tick": 90,
       "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 1,
-      "msg": "背刺你 攻擊！造成 1 傷害"
+      "damage": 31,
+      "msg": "走位風騷 攻擊！造成 31 傷害"
     },
     {
       "tick": 90,
       "type": "evade",
       "who": "attacker",
-      "msg": "背刺你 閃避了 巨魔弓手3 的攻擊！"
-    },
-    {
-      "tick": 120,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "穿透射擊",
-      "damage": 135,
-      "msg": "巨魔弓手3 發動【穿透射擊】！造成 135 傷害"
-    },
-    {
-      "tick": 130,
-      "type": "skill",
-      "who": "attacker",
-      "skill_name": "幻影",
-      "damage": 0,
-      "msg": "背刺你 發動【幻影】！準備閃避"
+      "msg": "走位風騷 閃避了 哥布林盜賊5 的攻擊！"
     },
     {
       "tick": 140,
-      "type": "evade",
-      "who": "attacker",
-      "msg": "背刺你 閃避了 巨魔弓手3 的攻擊！"
-    },
-    {
-      "tick": 150,
       "type": "backstab",
       "who": "attacker",
       "target": "defender",
-      "damage": 220,
-      "msg": "背刺你 🗡️背刺！攻擊！造成 220 傷害"
+      "damage": 229,
+      "msg": "走位風騷 🗡️背刺！攻擊！造成 229 傷害"
+    },
+    {
+      "tick": 140,
+      "type": "attack",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 1,
+      "msg": "哥布林盜賊5 攻擊！造成 1 傷害"
+    },
+    {
+      "tick": 190,
+      "type": "attack",
+      "who": "attacker",
+      "target": "defender",
+      "damage": 29,
+      "msg": "走位風騷 攻擊！造成 29 傷害"
     },
     {
       "tick": 190,
@@ -100,7 +93,7 @@
       "who": "defender",
       "target": "attacker",
       "damage": 1,
-      "msg": "巨魔弓手3 攻擊！造成 1 傷害"
+      "msg": "哥布林盜賊5 攻擊！造成 1 傷害"
     },
     {
       "tick": 200,
@@ -108,90 +101,89 @@
       "who": "attacker",
       "skill_name": "幻影",
       "damage": 0,
-      "msg": "背刺你 發動【幻影】！準備閃避"
+      "msg": "走位風騷 發動【幻影】！準備閃避"
     },
     {
-      "tick": 200,
+      "tick": 240,
       "type": "attack",
       "who": "attacker",
       "target": "defender",
-      "damage": 1,
-      "msg": "背刺你 攻擊！造成 1 傷害"
+      "damage": 29,
+      "msg": "走位風騷 攻擊！造成 29 傷害"
+    },
+    {
+      "tick": 240,
+      "type": "skill",
+      "who": "defender",
+      "skill_name": "幻影",
+      "damage": 0,
+      "msg": "哥布林盜賊5 發動【幻影】！準備閃避"
     },
     {
       "tick": 240,
       "type": "evade",
       "who": "attacker",
-      "msg": "背刺你 閃避了 巨魔弓手3 的攻擊！"
-    },
-    {
-      "tick": 250,
-      "type": "backstab",
-      "who": "attacker",
-      "target": "defender",
-      "damage": 218,
-      "msg": "背刺你 🗡️背刺！攻擊！造成 218 傷害"
-    },
-    {
-      "tick": 250,
-      "type": "skill",
-      "who": "defender",
-      "target": "attacker",
-      "skill_name": "穿透射擊",
-      "damage": 135,
-      "msg": "巨魔弓手3 發動【穿透射擊】！造成 135 傷害"
-    },
-    {
-      "tick": 280,
-      "type": "skill",
-      "who": "attacker",
-      "skill_name": "幻影",
-      "damage": 0,
-      "msg": "背刺你 發動【幻影】！準備閃避"
+      "msg": "走位風騷 閃避了 哥布林盜賊5 的攻擊！"
     },
     {
       "tick": 290,
       "type": "evade",
-      "who": "attacker",
-      "msg": "背刺你 閃避了 巨魔弓手3 的攻擊！"
+      "who": "defender",
+      "msg": "哥布林盜賊5 閃避了 走位風騷 的攻擊！"
     },
     {
-      "tick": 300,
+      "tick": 290,
+      "type": "backstab",
+      "who": "defender",
+      "target": "attacker",
+      "damage": 1,
+      "msg": "哥布林盜賊5 🗡️背刺！攻擊！造成 1 傷害"
+    },
+    {
+      "tick": 320,
+      "type": "skill",
+      "who": "attacker",
+      "skill_name": "幻影",
+      "damage": 0,
+      "msg": "走位風騷 發動【幻影】！準備閃避"
+    },
+    {
+      "tick": 340,
       "type": "backstab",
       "who": "attacker",
       "target": "defender",
-      "damage": 217,
-      "msg": "背刺你 🗡️背刺！攻擊！造成 217 傷害"
+      "damage": 224,
+      "msg": "走位風騷 🗡️背刺！攻擊！造成 224 傷害"
     },
     {
-      "tick": 300,
+      "tick": 340,
       "type": "death",
       "who": "defender",
-      "msg": "💀 巨魔弓手3 倒下了..."
+      "msg": "💀 哥布林盜賊5 倒下了..."
     },
     {
-      "tick": 300,
+      "tick": 340,
       "type": "battle_end",
       "winner": "attacker",
-      "msg": "🏆 背刺你 獲得勝利！"
+      "msg": "🏆 走位風騷 獲得勝利！"
     }
   ],
   "result": {
     "winner": "attacker",
-    "winner_name": "背刺你",
-    "loser_name": "巨魔弓手3",
-    "winner_card_id": 381648803,
-    "loser_card_id": 385366667
+    "winner_name": "走位風騷",
+    "loser_name": "哥布林盜賊5",
+    "winner_card_id": 381635914,
+    "loser_card_id": 385466666
   },
   "stats": {
-    "loops": 31,
-    "p1_attacks": 6,
+    "loops": 35,
+    "p1_attacks": 7,
     "p2_attacks": 6,
-    "p1_skills": 4,
-    "p2_skills": 2,
-    "p1_evades": 4,
-    "p2_evades": 0,
-    "p1_damage_dealt": 658,
-    "p2_damage_dealt": 272
+    "p1_skills": 3,
+    "p2_skills": 1,
+    "p1_evades": 2,
+    "p2_evades": 1,
+    "p1_damage_dealt": 569,
+    "p2_damage_dealt": 4
   }
 }

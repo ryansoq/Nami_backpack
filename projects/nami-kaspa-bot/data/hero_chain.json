@@ -2335,5 +2335,18 @@
     "battle_tx": "bef053af05d6abcbc3eb153ca1741efb0e18c6d0547a1f85c24bec84eb774367",
     "tx_id": "93fbd135240540e90d04b300c845535b62015de50b36e5b3584c0087ea0351a2",
     "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 385466666,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "3cdf4d4e2615476a64f330eb972de54308fa8a27b72b3a1ca6077c15318614b8",
+    "tx_id": "19b45168fdc75acd4af5b285a00f1ec956acede9c69db42b4c46931200d6c235",
+    "signer": "tree"
   }
 ]

@@ -310,14 +310,14 @@
       "spd": 82,
       "status": "alive",
       "latest_daa": 384452223,
-      "kills": 20,
-      "battles": 35,
+      "kills": 21,
+      "battles": 36,
       "created_at": "",
       "death_time": "",
       "source_hash": "7923314c1a760a6b3e431985443c464239c966e23317f5e36326acba63ccd32a",
       "payment_tx": "e49373bde5cdafa2ba666109ea9417b14b2810652f05ab7a0f2e19f102e1f5c4",
       "tx_id": "",
-      "latest_tx": "b628158e7fa6db6d901b915f44f0d602bc58b83f6341315c8b1fcbc7a2061907",
+      "latest_tx": "3cdf4d4e2615476a64f330eb972de54308fa8a27b72b3a1ca6077c15318614b8",
       "name": "走位風騷",
       "protected": true,
       "birth_tx": "adb850138b312c3842b732a4c206a036a988a204b1581581ac7715954a9f8891"
@@ -2229,12 +2229,18 @@
       "spd": 29,
       "source_hash": "11f0c71b41739cd2acfb41d6952ba3973182f2e800d7dcf63e976cdee3aa5e47",
       "payment_tx": "system_spawn:385466666",
-      "status": "alive",
+      "status": "dead",
       "kills": 0,
-      "battles": 0,
+      "battles": 1,
       "created_at": "2026-02-12T22:18:40.987486",
       "spawn_trigger_daa": 385466666,
-      "defeated_heroes": []
+      "defeated_heroes": [],
+      "rarity": "N",
+      "latest_daa": 385466666,
+      "death_time": "2026-02-13T17:40:08.430188",
+      "tx_id": "",
+      "latest_tx": "19b45168fdc75acd4af5b285a00f1ec956acede9c69db42b4c46931200d6c235",
+      "protected": false
     },
     "385466667": {
       "card_id": 385466667,
@@ -2387,6 +2393,25 @@
       "created_at": "2026-02-13T09:28:45.902015",
       "spawn_trigger_daa": 385866666,
       "defeated_heroes": []
+    },
+    "385966666": {
+      "card_id": 385966666,
+      "owner_id": 0,
+      "owner_address": "",
+      "name": "巨魔法師",
+      "hero_class": "mage",
+      "rank": "R",
+      "atk": 116,
+      "def": 30,
+      "spd": 97,
+      "source_hash": "e1c48483cab981eaebe586b5755d2b4a9635aab1aedc1efbcf78761db5b5cdfb",
+      "payment_tx": "system_spawn:385966666",
+      "status": "alive",
+      "kills": 0,
+      "battles": 0,
+      "created_at": "2026-02-13T17:48:34.857628",
+      "spawn_trigger_daa": 385966666,
+      "defeated_heroes": []
     }
   },
   "user_heroes": {
@@ -2466,8 +2491,8 @@
   "last_summon_daa": 385326772,
   "summon_queue": [],
   "total_mana_pool": 0,
-  "last_checked_daa": 385866666,
-  "last_reward_daa": 385866666,
+  "last_checked_daa": 386166666,
+  "last_reward_daa": 385966666,
   "reward_history": [
     {
       "daa": 381066666,
@@ -2860,6 +2885,14 @@
       "timestamp": "2026-02-13T09:28:45.916840",
       "total_pool": 50000000000,
       "distributed": 4999999999,
+      "recipients_count": 7
+    },
+    {
+      "daa": 385966666,
+      "checked_at_daa": 386166666,
+      "timestamp": "2026-02-13T17:48:34.871007",
+      "total_pool": 50800000000,
+      "distributed": 5799999996,
       "recipients_count": 7
     }
   ],
