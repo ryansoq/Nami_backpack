@@ -141,7 +141,7 @@ export interface AgentState {
 // ── Proximity constants ────────────────────────────────────────
 
 /** Distance within which labels/bubbles are visible */
-export const PROXIMITY_RADIUS = 80;
+export const PROXIMITY_RADIUS = 50;
 
 /** World bounds (100x100 room) */
 export const WORLD_SIZE = 100;
