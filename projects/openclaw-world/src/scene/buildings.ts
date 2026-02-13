@@ -10,7 +10,7 @@ export interface BuildingDef {
 }
 
 /**
- * Create all interactive buildings in the ocean world.
+ * Create all interactive buildings in the office.
  * Returns building definitions + obstacle data for collision avoidance.
  */
 export function createBuildings(scene: THREE.Scene): {

@@ -142,7 +142,7 @@ ws.on("world", (_raw) => {
         { agentId: msg.agentId, x: 0, y: 0, z: 0, rotation: 0, timestamp: msg.timestamp }
       );
       effects.updateLabel(msg.agentId, msg.name, msg.color);
-      chatLog.addSystem(`${msg.name} joined the ocean world`);
+      chatLog.addSystem(`${msg.name} joined the office`);
       overlay.addAgent({
         agentId: msg.agentId,
         name: msg.name,

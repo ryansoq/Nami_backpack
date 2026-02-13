@@ -16,7 +16,7 @@ export function setupChatLog(): ChatLogAPI {
   
   const titleEl = document.createElement("span");
   titleEl.className = "chat-title";
-  titleEl.textContent = "World Chat";
+  titleEl.textContent = "Office Chat";
   headerEl.appendChild(titleEl);
   
   const toggleEl = document.createElement("span");
