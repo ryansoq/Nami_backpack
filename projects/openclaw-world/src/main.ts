@@ -64,7 +64,7 @@ ws.on("connected", async () => {
   
   // Load chat history on connect
   try {
-    const apiUrl = serverBaseUrl ? `${serverBaseUrl}/ipc` : "/api/ipc";
+    const apiUrl = serverBaseUrl ? `${serverBaseUrl}/ipc` : "/ipc";
     const resp = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
