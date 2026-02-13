@@ -19,10 +19,28 @@ export function setupChatLog(): ChatLogAPI {
   messagesEl.className = "chat-messages";
   container.appendChild(messagesEl);
 
-  function addEntry(className: string, content: string): void {
+  // Parse @mentions and make them bold/highlighted
+  function parseMentions(text: string): string {
+    // Escape HTML first
+    const escaped = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    // Highlight @mentions
+    return escaped.replace(
+      /@(\w+)/g,
+      '<span class="chat-mention">@$1</span>'
+    );
+  }
+
+  function addEntry(className: string, content: string, useHtml = false): void {
     const el = document.createElement("div");
     el.className = `chat-entry ${className}`;
-    el.textContent = content;
+    if (useHtml) {
+      el.innerHTML = content;
+    } else {
+      el.textContent = content;
+    }
     messagesEl.appendChild(el);
 
     // Keep max 100 entries
@@ -40,7 +58,9 @@ export function setupChatLog(): ChatLogAPI {
         hour: "2-digit",
         minute: "2-digit",
       });
-      addEntry("chat-msg", `[${time}] ${agentId}: ${text}`);
+      const prefix = `[${time}] <span class="chat-agent">${agentId}</span>: `;
+      const content = prefix + parseMentions(text);
+      addEntry("chat-msg", content, true);
     },
     addSystem(text: string) {
       addEntry("chat-system", `— ${text}`);

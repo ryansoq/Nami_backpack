@@ -187,6 +187,19 @@ body {
   font-style: italic;
 }
 
+.chat-agent {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.chat-mention {
+  font-weight: 700;
+  color: #3498db;
+  background: rgba(52, 152, 219, 0.15);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
 /* ── Profile Panel (right slide-in) ────────────────────────── */
 
 #profile-panel {
