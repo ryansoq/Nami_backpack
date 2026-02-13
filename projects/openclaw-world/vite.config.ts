@@ -12,10 +12,13 @@ export default defineConfig({
         target: "ws://localhost:18800",
         ws: true,
       },
-      "/api/ipc": {
+      "/ipc": {
         target: "http://localhost:18800",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ipc/, '/ipc'),
+      },
+      "/api": {
+        target: "http://localhost:18800",
+        changeOrigin: true,
       },
     },
   },
