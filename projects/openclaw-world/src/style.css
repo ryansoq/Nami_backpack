@@ -156,6 +156,38 @@ body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+/* 桌面版：底部置中、更大 */
+@media (min-width: 768px) {
+  #chat-log {
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(600px, 60vw);
+    max-height: 280px;
+    padding: 16px;
+  }
+  #chat-log.collapsed {
+    transform: translateX(-50%);
+  }
+  .chat-title {
+    font-size: 13px;
+  }
+  .chat-entry {
+    font-size: 13px;
+  }
+  .chat-toggle {
+    font-size: 12px;
+  }
+}
+
+/* 大螢幕：更寬 */
+@media (min-width: 1200px) {
+  #chat-log {
+    width: min(720px, 50vw);
+    max-height: 320px;
+  }
 }
 
 .chat-header {
