@@ -203,7 +203,9 @@ export class EffectsManager {
   /** Attach a CSS2DObject to a lobster group in the scene */
   private attachToAgent(agentId: string, obj: CSS2DObject): void {
     this.scene.traverse((child) => {
-      if (child.userData.agentId === agentId && child.name === "lobster") {
+      // Support both lobster and cylinderPerson avatars
+      if (child.userData.agentId === agentId && 
+          (child.name === "lobster" || child.name === "cylinderPerson")) {
         child.add(obj);
       }
     });

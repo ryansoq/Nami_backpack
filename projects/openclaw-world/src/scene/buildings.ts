@@ -232,9 +232,10 @@ export function createBuildings(scene: THREE.Scene): {
   scene.add(coffeeTable);
   obstacles.push({ x: -12, z: 14, radius: 1 });
 
-  // 📺 電視（在小圓桌更前方）
+  // 📺 電視（在小圓桌更前方，面向沙發）
   const tv = createTV();
   tv.position.set(-12, 0, 17);
+  tv.rotation.y = Math.PI; // 轉 180 度面向沙發
   scene.add(tv);
   obstacles.push({ x: -12, z: 17, radius: 1.5 });
 
