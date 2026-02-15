@@ -38,10 +38,10 @@ class TestTriggerCondition:
     """獎勵觸發條件測試"""
     
     def test_trigger_suffix_66666(self):
-        """結尾 66666 應觸發"""
-        assert should_trigger_reward(385066666) == True
-        assert should_trigger_reward(385166666) == True
-        assert should_trigger_reward(100066666) == True
+        """結尾 666666 應觸發"""
+        assert should_trigger_reward(3850666666) == True
+        assert should_trigger_reward(3851666666) == True
+        assert should_trigger_reward(1000666666) == True
     
     def test_no_trigger_other_suffix(self):
         """其他結尾不應觸發"""
@@ -52,36 +52,36 @@ class TestTriggerCondition:
     
     def test_find_trigger_in_range(self):
         """區間內找到觸發點"""
-        # 區間包含 385066666
-        result = find_trigger_daa_in_range(385066000, 385067000)
-        assert result == 385066666
+        # 區間包含 3850666666
+        result = find_trigger_daa_in_range(3850666600, 3850666700)
+        assert result == 3850666666
         
         # 區間不包含觸發點
-        result = find_trigger_daa_in_range(385067000, 385068000)
+        result = find_trigger_daa_in_range(3850666700, 3850666800)
         assert result is None
     
     def test_find_trigger_boundary(self):
         """邊界條件測試"""
         # 剛好在起點（不含）
-        result = find_trigger_daa_in_range(385066666, 385066700)
+        result = find_trigger_daa_in_range(3850666666, 3850666700)
         assert result is None  # start 不含
         
         # 剛好在終點（含）
-        result = find_trigger_daa_in_range(385066600, 385066666)
-        assert result == 385066666
+        result = find_trigger_daa_in_range(3850666600, 3850666666)
+        assert result == 3850666666
     
     def test_trigger_interval(self):
-        """觸發間隔約 100000 DAA"""
+        """觸發間隔約 1000000 DAA"""
         triggers = []
-        for daa in range(385000000, 385300000):
+        for daa in range(3850666660, 3852666670):
             if should_trigger_reward(daa):
                 triggers.append(daa)
         
-        assert len(triggers) == 3  # 066666, 166666, 266666
+        assert len(triggers) == 3  # 3850666666, 3851666666, 3852666666
         
-        # 間隔應為 100000
+        # 間隔應為 1000000
         for i in range(1, len(triggers)):
-            assert triggers[i] - triggers[i-1] == 100000
+            assert triggers[i] - triggers[i-1] == 1000000
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
