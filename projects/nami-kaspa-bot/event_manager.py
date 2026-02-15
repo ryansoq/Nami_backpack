@@ -479,7 +479,7 @@ async def _test():
         print(f"🎯 DAA: {daa}")
         
         # 測試獎勵觸發
-        if daa % 66666 < 10:
+        if daa % 666666 < 10:
             print(f"🎉 Reward trigger at DAA {daa}!")
     
     # 註冊 UTXO 處理器

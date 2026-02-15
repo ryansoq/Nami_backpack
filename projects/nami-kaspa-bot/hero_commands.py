@@ -2051,7 +2051,7 @@ _在區塊鏈的盡頭，大地之樹守護著英雄們的命運_
 • 任何人可用 `/nv` 驗證，無法作弊
 
 *🌲 大地祝福（積分獎勵）*
-• DAA 結尾 66666 發放獎勵
+• DAA 結尾 666666 發放獎勵
 • 積分 = 存活天數 + 稀有度 + 擊殺×2
 • 只有活著的英雄才能獲得祝福！
 
@@ -2514,12 +2514,12 @@ async def next_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             raise Exception(f"RPC 錯誤: {e}")
         
-        # 計算下一個 66666
+        # 計算下一個 666666
         current_suffix = current_daa % 100000
-        if current_suffix < 66666:
-            next_trigger = current_daa - current_suffix + 66666
+        if current_suffix < 666666:
+            next_trigger = current_daa - current_suffix + 666666
         else:
-            next_trigger = current_daa - current_suffix + 166666
+            next_trigger = current_daa - current_suffix + 1666666
         
         remaining_daa = next_trigger - current_daa
         remaining_seconds = remaining_daa // 10  # ~10 DAA/秒
@@ -2700,7 +2700,7 @@ async def next_reward_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # 計算下次獎勵
         suffix = current_daa % 100000
-        next_trigger = current_daa - suffix + (66666 if suffix < 66666 else 166666)
+        next_trigger = current_daa - suffix + (666666 if suffix < 666666 else 1666666)
         remaining = next_trigger - current_daa
         
         await update.message.reply_text(

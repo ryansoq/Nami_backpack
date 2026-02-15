@@ -3,7 +3,7 @@
 🌲 大地之樹獎勵系統
 ==================
 
-觸發條件：DAA 結尾 66666
+觸發條件：DAA 結尾 666666
 分配方式：獎勵池 70% 按積分比例發放給存活英雄
 """
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # 配置
 # ═══════════════════════════════════════════════════════════════════════════════
 
-REWARD_TRIGGER_SUFFIX = "66666"  # DAA 結尾 66666 觸發（約每 2.78 小時）
+REWARD_TRIGGER_SUFFIX = "666666"  # DAA 結尾 666666 觸發（約每 2.78 小時）
 BASE_REWARD_MANA = 500  # 大地之母每回合提供的起始 mana
 REWARD_POOL_RATIO = 0.7  # 70% 進獎勵池
 MIN_REWARD = 100000  # 最小發放金額 0.001 tKAS
@@ -419,18 +419,18 @@ def find_trigger_daa_in_range(start_daa: int, end_daa: int) -> Optional[int]:
     if start_daa >= end_daa:
         return None
     
-    # 找區間內最近的 66666 結尾 DAA
+    # 找區間內最近的 666666 結尾 DAA
     # 例如 start=380560000, end=380560700
-    # 要找 380566666（如果在區間內）
+    # 要找 3805666666（如果在區間內）
     
-    suffix = int(REWARD_TRIGGER_SUFFIX)  # 66666
+    suffix = int(REWARD_TRIGGER_SUFFIX)  # 666666
     suffix_len = len(REWARD_TRIGGER_SUFFIX)  # 5 位數
     divisor = 10 ** suffix_len  # 100000
     
-    # 計算 start_daa 之後最近的 66666 結尾 DAA
+    # 計算 start_daa 之後最近的 666666 結尾 DAA
     base = (start_daa // divisor) * divisor + suffix
     if base <= start_daa:
-        base += divisor  # 跳到下一個 66666
+        base += divisor  # 跳到下一個 666666
     
     # 檢查是否在區間內
     if base <= end_daa:

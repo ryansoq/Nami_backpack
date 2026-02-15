@@ -247,7 +247,7 @@ def generate_monster(floor: int, block_hash: str):
 ```
 總積分 = PvP殺數×2 + 怪殺數×1
 
-DAA 66666 開獎：按總積分比例分配！
+DAA 666666 開獎：按總積分比例分配！
 ```
 
 ### 銘文格式
