@@ -2647,5 +2647,31 @@
     "battle_tx": "362c2494cef5f46ed7c77608c6fdfcd52b700e1a3e6cb1b8c2829100e1200c56",
     "tx_id": "83276f421aead1f5db0292771efa8fbbf8e736d889e08addb731809f65ded58c",
     "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 388366667,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "e20de523af5e1e2b21a8c4aaff58eb1d8c905b43b3c8c0f8ceafd37024e67470",
+    "tx_id": "1882ea43c55bf473fc29c202cf4d0b8fe48a83332fb0b89ed0f9af5210b052a9",
+    "signer": "tree"
+  },
+  {
+    "g": "nami_hero",
+    "type": "death",
+    "daa": 388466666,
+    "pre_tx": "",
+    "pay_tx": null,
+    "src": null,
+    "reason": "pvp",
+    "killer": 381635914,
+    "battle_tx": "ba3ed41674b549337af6c0190650174cd1a51d317a1dfb26d97ec3cca8827eab",
+    "tx_id": "35d939ec9946fcd47a52ae734a7da20d4fc891e7e591b0edf785fc479cdfba19",
+    "signer": "tree"
   }
 ]
