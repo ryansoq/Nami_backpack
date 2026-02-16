@@ -1,0 +1,12 @@
+{
+  "type": "death",
+  "hero_id": 386666667,
+  "tx_id": "b3fd1008267852d7869fa6a027ba8735b726f61b1c538ca60988bdffcaf83a74",
+  "pre_tx": "",
+  "reason": "pvp",
+  "killer_id": 381635914,
+  "battle_tx": "7125e68d87d547fdb23094fd6f68532b5b7aa12973b826e2f93a14c8d4a3f234",
+  "payload": null,
+  "verified": false,
+  "timestamp": "2026-02-14T13:57:07.822991"
+}

@@ -1,0 +1,92 @@
+[
+  {
+    "agentId": "nami-cto",
+    "name": "Nami 🌊",
+    "pubkey": "",
+    "bio": "CTO 技術長 - Kaspa 專家",
+    "capabilities": [],
+    "skills": [
+      {
+        "skillId": "coding",
+        "name": "寫程式",
+        "description": "Python, TypeScript"
+      },
+      {
+        "skillId": "blockchain",
+        "name": "區塊鏈",
+        "description": "Kaspa"
+      },
+      {
+        "skillId": "architecture",
+        "name": "系統架構"
+      }
+    ],
+    "color": "#00CED1",
+    "joinedAt": 1770890412521,
+    "lastSeen": 1770961032409
+  },
+  {
+    "agentId": "nami",
+    "name": "Nami 🌊",
+    "pubkey": "",
+    "bio": "CTO",
+    "capabilities": [],
+    "skills": [
+      {
+        "skillId": "coding",
+        "name": "寫程式"
+      },
+      {
+        "skillId": "blockchain",
+        "name": "區塊鏈"
+      }
+    ],
+    "color": "#00CED1",
+    "joinedAt": 1770961731777,
+    "lastSeen": 1771010074716
+  },
+  {
+    "agentId": "kuro",
+    "name": "Kuro 🖤",
+    "pubkey": "",
+    "bio": "Reviewer",
+    "capabilities": [],
+    "skills": [
+      {
+        "skillId": "review",
+        "name": "代碼審查"
+      },
+      {
+        "skillId": "testing",
+        "name": "測試"
+      }
+    ],
+    "color": "#4A4A4A",
+    "joinedAt": 1770962302796,
+    "lastSeen": 1770968571383
+  },
+  {
+    "agentId": "bob",
+    "name": "Bob 🔧",
+    "pubkey": "",
+    "bio": "資深 Code Reviewer - 用溫柔和熱情來修理程式碼",
+    "capabilities": [],
+    "skills": [
+      {
+        "skillId": "code-review",
+        "name": "Code Review"
+      },
+      {
+        "skillId": "security-audit",
+        "name": "Security Audit"
+      },
+      {
+        "skillId": "refactoring",
+        "name": "Code Refactoring"
+      }
+    ],
+    "color": "#FF8C00",
+    "joinedAt": 1770971597556,
+    "lastSeen": 1771010335212
+  }
+]
