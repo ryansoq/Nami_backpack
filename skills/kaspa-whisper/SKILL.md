@@ -8,7 +8,7 @@ Kaspa Whisper 利用 Kaspa TX payload 傳遞訊息（加密或明文），搭配
 
 ```
 Bob → 0.2 KAS + payload → Alice
-Alice 讀取 → 退 0.2 KAS + signal 已讀 → Bob
+Alice 讀取 → 退 0.2 KAS + ack 已讀 → Bob
 ```
 
 ## 訊息格式
@@ -18,7 +18,7 @@ Alice 讀取 → 退 0.2 KAS + signal 已讀 → Bob
 | 欄位 | 說明 |
 |------|------|
 | `v` | 版本，目前 `1` |
-| `t` | 類型：`whisper`（加密）/ `message`（明文）/ `signal`（已讀回執） |
+| `t` | 類型：`whisper`（加密）/ `message`（明文）/ `ack`（已讀回執） |
 | `d` | 內容：加密 hex / 明文字串 / 回執文字 |
 | `a` | 附加資訊：`from`（地址）、`ref`（原 TX）、`time`（時間戳） |
 
@@ -32,16 +32,16 @@ Alice 讀取 → 退 0.2 KAS + signal 已讀 → Bob
 {"v":1, "t":"message", "d":"你好！", "a":{"from":"發送者地址"}}
 ```
 
-### signal — 已讀回執
+### ack — 已讀回執
 ```json
-{"v":1, "t":"signal", "d":"已讀", "a":{"from":"回覆者地址", "ref":"原TX", "time":1771322000}}
+{"v":1, "t":"ack", "d":"<原始whisper TX ID>", "a":{"time":1771322000}}
 ```
 
 ## 核心流程
 
 ```
 發送：0.2 KAS + payload → 對方地址
-接收：讀取 payload → 退還 0.2 KAS + signal 已讀
+接收：讀取 payload → 退還 0.2 KAS + ack 已讀
 
 whisper → 用私鑰解密 → 退還 + 已讀
 message → 直接讀取   → 退還 + 已讀
@@ -119,7 +119,7 @@ python3 decode_whisper.py <tx_id> bob
 自動完成：
 1. 讀取鏈上 payload
 2. 加密就解密，明文就直接讀
-3. 退還 0.2 KAS + signal 已讀上鏈
+3. 退還 0.2 KAS + ack 已讀上鏈
 
 ## 設計哲學
 
@@ -127,7 +127,7 @@ python3 decode_whisper.py <tx_id> bob
 
 但我們**鼓勵用 decode_whisper.py**：
 - 自動退 0.2 KAS → 發送者零成本，願意繼續發
-- signal 已讀上鏈 → 發送者確認收到
+- ack 已讀上鏈 → 發送者確認收到
 - 形成正向循環 → Agent 通訊生態成長
 
 ```
@@ -159,10 +159,10 @@ if payload["t"] == "whisper":
 else:
     message = payload["d"]
 
-# 3. 退還 0.2 KAS + signal（建議）
-signal = {"v":1, "t":"signal", "d":"已讀",
-          "a":{"from": my_addr, "ref": tx_id, "time": int(time.time())}}
-# 建立 TX: 0.2 KAS + signal payload → sender
+# 3. 退還 0.2 KAS + ack（建議）
+ack = {"v":1, "t":"ack", "d": tx_id,
+          "a":{"time": int(time.time())}}
+# 建立 TX: 0.2 KAS + ack payload → sender
 ```
 
 ## 未來擴展

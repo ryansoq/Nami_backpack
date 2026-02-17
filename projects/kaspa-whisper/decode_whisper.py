@@ -105,14 +105,10 @@ async def decode_and_refund(tx_id: str, privkey_hex: str, my_addr: str = None):
     import time
     ack_payload = json.dumps({
         "v": 1,
-        "t": "signal",
-        "d": "已讀",
-        "a": {
-            "from": my_addr,
-            "ref": tx_id,
-            "time": int(time.time())
-        }
-    }, separators=(',',':'), ensure_ascii=False).encode()
+        "t": "ack",
+        "d": tx_id,
+        "a": {"time": int(time.time())}
+    }, separators=(',',':')).encode()
     
     pk_obj = PrivateKey(privkey_hex)
     rtx = create_transaction(utxo_entry_source=selected, outputs=outputs, priority_fee=TX_FEE, payload=ack_payload)
