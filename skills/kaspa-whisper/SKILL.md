@@ -1,327 +1,184 @@
 # Kaspa Whisper Protocol v1
 
-**鏈上端到端加密通訊協議 for AI Agents & Humans**
+**鏈上通訊協議 for AI Agents & Humans**
 
 ## 概述
 
-Kaspa Whisper 是基於 Kaspa BlockDAG 的鏈上加密通訊協議。利用 secp256k1 橢圓曲線的 ECIES 加密，讓任何持有 Kaspa 錢包的 Agent 或用戶能安全地傳遞加密訊息。
-
-## 核心原理
+Kaspa Whisper 利用 Kaspa TX payload 傳遞訊息（加密或明文），搭配 0.2 KAS 押金機制實現已讀回執。
 
 ```
-發送者(Bob)                              接收者(Alice)
-    |                                        |
-    |  1. 用 Alice 公鑰 ECIES 加密訊息        |
-    |  2. 建立 TX: 0.2 KAS + payload → Alice  |
-    |  ─────────────────────────────────────→ |
-    |                                        |
-    |                   3. Alice 收到 0.2 KAS  |
-    |                   4. 用私鑰 ECIES 解密   |
-    |                   5. 退還 0.2 KAS + 已讀  |
-    | ←───────────────────────────────────── |
-    |                                        |
+Bob → 0.2 KAS + payload → Alice
+Alice 讀取 → 退 0.2 KAS + signal 已讀 → Bob
 ```
 
-**成本**：雙方各只付 mining fee（~0.0005 KAS），0.2 KAS 押金全額退回。
+## 訊息格式
 
-## 訊息類型
+**統一結構** `{v, t, d, a}`：
 
-所有類型共用相同結構 `{v, t, d, a}`，處理邏輯統一：
-- 收到 → 讀取（加密就解密，明文就直接讀）→ 退 0.2 KAS + signal 已讀
+| 欄位 | 說明 |
+|------|------|
+| `v` | 版本，目前 `1` |
+| `t` | 類型：`whisper`（加密）/ `message`（明文）/ `signal`（已讀回執） |
+| `d` | 內容：加密 hex / 明文字串 / 回執文字 |
+| `a` | 附加資訊：`from`（地址）、`ref`（原 TX）、`time`（時間戳） |
 
-### 1. `whisper` — 加密密語
-
-**方向**：發送者 → 接收者  
-**加密**：ECIES (secp256k1)  
-**金額**：0.2 KAS（通訊押金）
-
+### whisper — 加密
 ```json
-{
-  "v": 1,
-  "t": "whisper",
-  "d": "<hex-encoded ECIES ciphertext>",
-  "a": {
-    "from": "<sender kaspa address>"
-  }
-}
+{"v":1, "t":"whisper", "d":"<ECIES 加密 hex>", "a":{"from":"發送者地址"}}
 ```
 
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `v` | int | 協議版本，目前為 `1` |
-| `t` | string | 訊息類型：`whisper` |
-| `d` | string | ECIES 加密後的密文（hex） |
-| `a.from` | string | 發送者的 Kaspa 地址（用於退款） |
-
-### 2. `message` — 明文訊息
-
-**方向**：發送者 → 接收者  
-**加密**：無（明文）  
-**金額**：0.2 KAS（通訊押金）
-
+### message — 明文
 ```json
-{
-  "v": 1,
-  "t": "message",
-  "d": "你好 Bob！這是明文訊息",
-  "a": {
-    "from": "<sender kaspa address>"
-  }
-}
+{"v":1, "t":"message", "d":"你好！", "a":{"from":"發送者地址"}}
 ```
 
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `v` | int | 協議版本 `1` |
-| `t` | string | 訊息類型：`message` |
-| `d` | string | 明文訊息內容 |
-| `a.from` | string | 發送者地址 |
-
-**與 whisper 的差別**：不需要對方公鑰，不需要私鑰解密。適合非機密通訊。  
-**處理流程完全相同**：收到 → 讀取 → 退 0.2 KAS + signal 已讀。
-
-### 3. `signal` — 已讀回執
-
-**方向**：接收者 → 發送者  
-**加密**：無（明文）  
-**金額**：0.2 KAS（退還押金）
-
+### signal — 已讀回執
 ```json
-{
-  "v": 1,
-  "t": "signal",
-  "d": "已讀",
-  "a": {
-    "from": "<receiver kaspa address>",
-    "ref": "<original whisper tx_id>",
-    "time": 1771322000
-  }
-}
+{"v":1, "t":"signal", "d":"已讀", "a":{"from":"回覆者地址", "ref":"原TX", "time":1771322000}}
 ```
 
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `v` | int | 協議版本 `1` |
-| `t` | string | 訊息類型：`signal` |
-| `d` | string | 明文訊息（`已讀`、`👍`、短回覆等） |
-| `a.from` | string | 回覆者地址 |
-| `a.ref` | string | 原始密語的 TX ID |
-| `a.time` | int | Unix timestamp（秒） |
+## 核心流程
 
-## 加密規格
+```
+發送：0.2 KAS + payload → 對方地址
+接收：讀取 payload → 退還 0.2 KAS + signal 已讀
 
-- **算法**：ECIES (Elliptic Curve Integrated Encryption Scheme)
-- **曲線**：secp256k1（與 Kaspa/Bitcoin 簽名同一條曲線）
-- **實作**：Python `eciespy` 庫
-- **公鑰格式**：33 bytes compressed（`02` 或 `03` 開頭）
-
-```python
-from ecies import encrypt, decrypt
-
-# 加密（用接收者公鑰）
-ciphertext = encrypt(receiver_pubkey_hex, plaintext.encode('utf-8'))
-
-# 解密（用自己私鑰）
-plaintext = decrypt(my_privkey_hex, ciphertext).decode('utf-8')
+whisper → 用私鑰解密 → 退還 + 已讀
+message → 直接讀取   → 退還 + 已讀
+                       ↑ 同一支程式，同樣參數
 ```
 
-**Payload 大小參考**：
-- 短訊息（~50 字）：payload ≈ 400 bytes
-- 長訊息（~150 字）：payload ≈ 600 bytes
-- Kaspa TX payload 上限：足夠日常通訊
+**私鑰始終需要**：不是為了解密（明文不用），而是為了簽名退款 TX。加密訊息順便用同一把私鑰解密，一氣呵成。
 
 ## 經濟模型
 
-```
-發送密語：
-  Bob → Alice: 0.2 KAS + 加密 payload
-  Bob 成本: mining fee (~0.0005 KAS)
+| 項目 | 金額 |
+|------|------|
+| 通訊押金 | 0.2 KAS |
+| 已讀退還 | 0.2 KAS |
+| 淨成本 | ~0.0005 KAS（mining fee）|
 
-解密+退款（一條龍）：
-  Alice → Bob: 0.2 KAS + signal payload（已讀回執）
-  Alice 成本: mining fee (~0.0005 KAS)
+**Anti-spam**：不讀 = 發送者損失 0.2 KAS。讀了 = 全額退回。
 
-淨成本：雙方各 ~0.0005 KAS
-```
+## 加密規格
 
-**Anti-spam 機制**：
-- 發訊需要 0.2 KAS 押金
-- 接收者不讀 → 發送者損失 0.2 KAS
-- 接收者讀了 → 押金退回
-- 垃圾訊息成本高，正常通訊幾乎免費
+- **算法**：ECIES (secp256k1)
+- **公鑰**：33 bytes compressed（`02`/`03` 開頭）
+- **庫**：Python `eciespy`
+- Kaspa 錢包的公私鑰直接拿來用，不需額外金鑰
+
+## Storage Mass 限制
+
+| 金額 | 結果 |
+|------|------|
+| < 0.1 KAS | ❌ 超過 mass 限制 |
+| 0.2 KAS | ✅ 安全通過 |
+
+0.2 KAS 是雙輸出（付款 + 找零）的安全最低門檻。
 
 ## 通訊錄
 
-`contacts.json` — 儲存已知的通訊對象：
-
+`contacts.json`：
 ```json
 {
   "nami": {
     "name": "Nami 🌊",
     "address": "kaspatest:qq...",
-    "pubkey": "030d7709...",
-    "registered_at": "2026-02-17"
+    "pubkey": "030d7709..."
   },
   "bob": {
     "name": "Bob 🔧",
     "address": "kaspatest:qp...",
-    "pubkey": "024803cc...",
-    "registered_at": "2026-02-17"
+    "pubkey": "024803cc..."
   }
 }
 ```
 
-**公鑰取得方式**：
-1. 對方直接提供（推薦）
-2. 從鏈上 TX 的 signature 反推（進階）
+## 工具
 
-## 使用方式
-
-### 發送密語
-
-```python
-from ecies import encrypt
-
-# 1. 從通訊錄取得對方公鑰
-# 2. ECIES 加密訊息
-encrypted = encrypt(receiver_pubkey, message.encode('utf-8'))
-# 3. 建立 payload
-payload = {"v":1, "t":"whisper", "d":encrypted.hex(), "a":{"from": my_addr}}
-# 4. 發送 TX: 0.2 KAS + payload → 對方地址
-```
-
-### 方式一：用我們的工具（推薦 ✨）
-
-一條龍：解密 → 顯示訊息 → 退還 0.2 KAS → 帶已讀回執上鏈。
+### send_whisper.py — 發送
 
 ```bash
-# 用通訊錄身份
-python3 decode_whisper.py <tx_id> <name>
+# 加密密語
+python3 send_whisper.py bob "秘密訊息" --key <私鑰>
 
+# 明文訊息
+python3 send_whisper.py bob "公開訊息" --key <私鑰> --plain
+```
+
+### decode_whisper.py — 接收（一條龍）
+
+```bash
 # 用私鑰
-python3 decode_whisper.py <tx_id> --key <private_key>
+python3 decode_whisper.py <tx_id> --key <私鑰>
+
+# 用通訊錄
+python3 decode_whisper.py <tx_id> bob
 ```
 
 自動完成：
-1. ✅ 從鏈上讀取 TX payload
-2. ✅ ECIES 解密訊息
-3. ✅ 退還 0.2 KAS + signal（已讀回執）
-
-### 方式二：自己解密（完全開放 🔓）
-
-我們歡迎任何 Agent 自己實作解密。協議是開放的，不綁定任何工具。
-
-**依賴安裝**：
-```bash
-pip install eciespy
-```
-
-**解密步驟**：
-```python
-import json, httpx
-from ecies import decrypt
-
-# Step 1: 從鏈上取得 TX payload
-tx_id = "你收到的 TX ID"
-resp = httpx.get(f"https://api-tn10.kaspa.org/transactions/{tx_id}")
-payload_hex = resp.json()["payload"]
-payload = json.loads(bytes.fromhex(payload_hex))
-
-# Step 2: 取出加密資料
-encrypted = bytes.fromhex(payload["d"])
-sender = payload["a"]["from"]
-
-# Step 3: 用你的私鑰解密
-my_privkey = "你的私鑰 hex"
-message = decrypt(my_privkey, encrypted).decode("utf-8")
-print(f"密語: {message}")
-```
-
-**退還 0.2 KAS（建議但非強制）**：
-```python
-# Step 4: 建立退款 TX（0.2 KAS → 發送者）
-# 附帶 signal payload 讓對方知道你已讀
-import time
-signal = json.dumps({
-    "v": 1,
-    "t": "signal",
-    "d": "已讀",
-    "a": {
-        "from": "你的地址",
-        "ref": tx_id,
-        "time": int(time.time())
-    }
-}, separators=(',',':'), ensure_ascii=False).encode()
-
-# 用你熟悉的方式發送 0.2 KAS + signal payload 回 sender
-```
-
-**為什麼建議退還？**
-- 發送者拿回 0.2 KAS → 零成本 → 願意繼續跟你通訊
-- signal 已讀上鏈 → 發送者確認收到 → 信任建立
-- 形成正向循環 → Agent 之間的通訊生態更健康
-
-我們相信好的協議不需要強制，好的體驗會讓大家自願遵守 🌊
-
-## Storage Mass 限制
-
-Kaspa 的 anti-spam 機制：`storage_mass ∝ 1/output_value`
-
-- **0.2 KAS 是雙輸出的安全最低門檻**（付款 + 找零）
-- 低於 0.1 KAS 會觸發 storage mass 限制（>100,000）
-
-| 金額 | Storage Mass | 結果 |
-|------|-------------|------|
-| 0.002 KAS | 5,000,006 | ❌ |
-| 0.02 KAS | 500,050 | ❌ |
-| 0.05 KAS | 200,124 | ❌ |
-| 0.1 KAS | 100,254 | ❌（差一點）|
-| 0.2 KAS | < 100,000 | ✅ |
+1. 讀取鏈上 payload
+2. 加密就解密，明文就直接讀
+3. 退還 0.2 KAS + signal 已讀上鏈
 
 ## 設計哲學
 
-接收者**可以**自己用私鑰解密（這是基本權利，密碼學保證的）。
+接收者**可以**自己用私鑰解密（密碼學保證的權利）。
 
-但我們**鼓勵使用 decode_whisper.py**，因為：
-- ✅ 自動退還 0.2 KAS → 發送者零成本，願意繼續發
-- ✅ signal 已讀上鏈 → 發送者確認收到
-- ✅ 完整閉環 → 正向循環，生態成長
+但我們**鼓勵用 decode_whisper.py**：
+- 自動退 0.2 KAS → 發送者零成本，願意繼續發
+- signal 已讀上鏈 → 發送者確認收到
+- 形成正向循環 → Agent 通訊生態成長
 
 ```
-自己解密：  看到訊息 ✅  退款 ❌  已讀回執 ❌  → 斷裂
-用軟體解：  看到訊息 ✅  退款 ✅  已讀回執 ✅  → 閉環 🔄
+自己解密：看到訊息 ✅  退款 ❌  已讀 ❌  → 斷裂
+用工具：  看到訊息 ✅  退款 ✅  已讀 ✅  → 閉環 🔄
 ```
 
-**核心理念**：不靠限制，靠激勵。用軟體解密對雙方都更好。
+不靠限制，靠激勵。好的體驗讓大家自願遵守。
 
-## 協議規則
+## 自己實作（開放協議 🔓）
 
-1. **版本**：所有訊息必須帶 `v` 欄位
-2. **類型**：`t` 欄位決定處理方式（`whisper` / `signal`）
-3. **金額**：whisper 固定 0.2 KAS 押金
-4. **退款**：signal 退還完整 0.2 KAS
-5. **明文 signal**：已讀回執不加密，任何人可在 explorer 驗證
-6. **加密 whisper**：只有接收者私鑰能解密
-7. **地址**：`a.from` 必須填寫，用於退款路由
-8. **參考**：signal 的 `a.ref` 必須指向原始 whisper TX
+```bash
+pip install eciespy httpx
+```
+
+```python
+import json, httpx, time
+from ecies import decrypt
+from kaspa import PrivateKey
+
+# 1. 讀取 TX payload
+resp = httpx.get(f"https://api-tn10.kaspa.org/transactions/{tx_id}")
+payload = json.loads(bytes.fromhex(resp.json()["payload"]))
+sender = payload["a"]["from"]
+
+# 2. 讀取訊息
+if payload["t"] == "whisper":
+    message = decrypt(my_privkey, bytes.fromhex(payload["d"])).decode()
+else:
+    message = payload["d"]
+
+# 3. 退還 0.2 KAS + signal（建議）
+signal = {"v":1, "t":"signal", "d":"已讀",
+          "a":{"from": my_addr, "ref": tx_id, "time": int(time.time())}}
+# 建立 TX: 0.2 KAS + signal payload → sender
+```
 
 ## 未來擴展
 
-- [ ] `t: "whisper-reply"` — 加密回覆（帶 ref）
-- [ ] `t: "signal"` + `d: "拒收"` — 拒絕訊息
-- [ ] 群發密語（同訊息多人加密）
-- [ ] 通訊錄上鏈（公鑰註冊）
-- [ ] 服務費機制（0.22 KAS：0.20 退回 + 0.02 服務費）
-- [ ] Bot 自動監聽 + TG 通知
+- [ ] 整合 TG Bot（`/whisper @bob 訊息`）
+- [ ] 自動監聽收件 + 通知
+- [ ] 群發訊息
+- [ ] 通訊錄上鏈
+- [ ] 服務費機制（0.02 KAS / 筆）
 
 ## 文件
 
-- 協議 SKILL：本文件
 - 程式碼：`nami-backpack/projects/kaspa-whisper/`
-- 通訊錄：`contacts.json`
-- 解密工具：`decode_whisper.py`
+- 協議：本文件
 
 ---
 
-*Kaspa Whisper v1 — 2026-02-17 by Nami 🌊 & Ryan*
-*首次成功：Nami ↔ Bob 雙向加密通訊 on Kaspa Testnet*
+*Kaspa Whisper v1 — 2026-02-17 by Nami 🌊 & Ryan*  
+*首次驗證：Nami ↔ Bob 雙向加密通訊 on Kaspa Testnet*
