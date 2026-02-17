@@ -1,8 +1,10 @@
 """
-Kaspa Whisper - 發送加密密語
+Kaspa Whisper - 發送訊息（加密或明文）
 Usage:
-  python3 send_whisper.py <to_name> "<message>" --key <private_key>
-  python3 send_whisper.py <to_name> "<message>" --from <name>
+  python3 send_whisper.py <to> "<message>" --key <privkey>              # 加密密語
+  python3 send_whisper.py <to> "<message>" --from <name>                # 加密密語
+  python3 send_whisper.py <to> "<message>" --key <privkey> --plain      # 明文訊息
+  python3 send_whisper.py <to> "<message>" --from <name> --plain        # 明文訊息
 """
 import asyncio, json, sys, os, time
 
@@ -20,7 +22,7 @@ def load_contacts():
     with open(CONTACTS_FILE) as f:
         return json.load(f)
 
-async def send_whisper(to_name: str, message: str, privkey_hex: str, from_addr: str):
+async def send_whisper(to_name: str, message: str, privkey_hex: str, from_addr: str, plain: bool = False):
     contacts = load_contacts()
 
     # Resolve receiver
@@ -28,24 +30,33 @@ async def send_whisper(to_name: str, message: str, privkey_hex: str, from_addr: 
     if not to:
         print(f"❌ 通訊錄找不到 '{to_name}'，可用: {', '.join(contacts.keys())}")
         return
-    if not to.get('pubkey'):
-        print(f"❌ {to['name']} 沒有公鑰，無法加密")
-        return
 
-    print(f"📤 發送密語給 {to['name']}")
-    print(f"📝 訊息: {message}")
+    if plain:
+        # 明文模式
+        print(f"📤 發送明文訊息給 {to['name']}")
+        print(f"📨 訊息: {message}")
+        payload = json.dumps({
+            "v": 1,
+            "t": "message",
+            "d": message,
+            "a": {"from": from_addr}
+        }, separators=(',', ':'), ensure_ascii=False).encode()
+    else:
+        # 加密模式
+        if not to.get('pubkey'):
+            print(f"❌ {to['name']} 沒有公鑰，無法加密")
+            return
+        print(f"📤 發送加密密語給 {to['name']}")
+        print(f"📝 訊息: {message}")
+        encrypted = encrypt(to['pubkey'], message.encode('utf-8'))
+        print(f"🔐 加密: {len(encrypted)} bytes")
+        payload = json.dumps({
+            "v": 1,
+            "t": "whisper",
+            "d": encrypted.hex(),
+            "a": {"from": from_addr}
+        }, separators=(',', ':'), ensure_ascii=False).encode()
 
-    # Encrypt
-    encrypted = encrypt(to['pubkey'], message.encode('utf-8'))
-    print(f"🔐 加密: {len(encrypted)} bytes")
-
-    # Build payload
-    payload = json.dumps({
-        "v": 1,
-        "t": "whisper",
-        "d": encrypted.hex(),
-        "a": {"from": from_addr}
-    }, separators=(',', ':'), ensure_ascii=False).encode()
     print(f"📦 Payload: {len(payload)} bytes")
 
     # Get UTXOs
@@ -104,18 +115,20 @@ if __name__ == "__main__":
 
     contacts = load_contacts()
 
-    if sys.argv[3] == '--key':
-        privkey = sys.argv[4]
-        # Derive address from privkey
+    plain = '--plain' in sys.argv
+    args = [a for a in sys.argv[3:] if a != '--plain']
+
+    if args[0] == '--key':
+        privkey = args[1]
         pk = PrivateKey(privkey)
         addr = pk.to_public_key().to_address('testnet').to_string()
-        asyncio.run(send_whisper(to_name, message, privkey, addr))
-    elif sys.argv[3] == '--from':
-        from_name = sys.argv[4].lower()
+        asyncio.run(send_whisper(to_name, message, privkey, addr, plain))
+    elif args[0] == '--from':
+        from_name = args[1].lower()
         c = contacts.get(from_name)
         if not c or 'privkey' not in c:
             print(f"❌ '{from_name}' 沒有私鑰")
             sys.exit(1)
-        asyncio.run(send_whisper(to_name, message, c['privkey'], c['address']))
+        asyncio.run(send_whisper(to_name, message, c['privkey'], c['address'], plain))
     else:
         print("❌ 請用 --key <privkey> 或 --from <name>")

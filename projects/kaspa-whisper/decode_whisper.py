@@ -35,8 +35,8 @@ async def decode_and_refund(tx_id: str, privkey_hex: str, my_addr: str = None):
     
     payload = json.loads(bytes.fromhex(payload_hex))
     msg_type = payload.get('type') or payload.get('t')
-    if msg_type != 'whisper':
-        print(f"❌ 不是密語 (type={msg_type})")
+    if msg_type not in ('whisper', 'message'):
+        print(f"❌ 不支援的類型 (type={msg_type})")
         return
     
     # Support both formats: {from, enc} and {a:{from}, d}
@@ -52,15 +52,25 @@ async def decode_and_refund(tx_id: str, privkey_hex: str, my_addr: str = None):
     
     print(f"📤 來自: {sender_name}")
     
-    # 2. 解密
-    enc_hex = payload.get('enc') or payload.get('d', '')
-    encrypted = bytes.fromhex(enc_hex)
-    try:
-        message = decrypt(privkey_hex, encrypted).decode('utf-8')
-        print(f"\n💌 密語: {message}\n")
-    except Exception as e:
-        print(f"❌ 解密失敗（不是給你的？）: {e}")
-        return
+    # 2. 讀取訊息
+    raw_d = payload.get('enc') or payload.get('d', '')
+    
+    if msg_type == 'whisper':
+        # 加密密語 → 用私鑰解密
+        if not privkey_hex:
+            print("❌ 加密訊息需要私鑰才能解密")
+            return
+        encrypted = bytes.fromhex(raw_d)
+        try:
+            message = decrypt(privkey_hex, encrypted).decode('utf-8')
+            print(f"\n🔐💌 密語: {message}\n")
+        except Exception as e:
+            print(f"❌ 解密失敗（不是給你的？）: {e}")
+            return
+    elif msg_type == 'message':
+        # 明文訊息 → 直接讀
+        message = raw_d
+        print(f"\n📨 訊息: {message}\n")
     
     # 3. 退還 0.2 tKAS
     if not sender:

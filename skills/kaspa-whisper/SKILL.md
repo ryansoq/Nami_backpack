@@ -26,6 +26,9 @@ Kaspa Whisper 是基於 Kaspa BlockDAG 的鏈上加密通訊協議。利用 secp
 
 ## 訊息類型
 
+所有類型共用相同結構 `{v, t, d, a}`，處理邏輯統一：
+- 收到 → 讀取（加密就解密，明文就直接讀）→ 退 0.2 KAS + signal 已讀
+
 ### 1. `whisper` — 加密密語
 
 **方向**：發送者 → 接收者  
@@ -50,7 +53,34 @@ Kaspa Whisper 是基於 Kaspa BlockDAG 的鏈上加密通訊協議。利用 secp
 | `d` | string | ECIES 加密後的密文（hex） |
 | `a.from` | string | 發送者的 Kaspa 地址（用於退款） |
 
-### 2. `signal` — 明文信號（已讀回執）
+### 2. `message` — 明文訊息
+
+**方向**：發送者 → 接收者  
+**加密**：無（明文）  
+**金額**：0.2 KAS（通訊押金）
+
+```json
+{
+  "v": 1,
+  "t": "message",
+  "d": "你好 Bob！這是明文訊息",
+  "a": {
+    "from": "<sender kaspa address>"
+  }
+}
+```
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `v` | int | 協議版本 `1` |
+| `t` | string | 訊息類型：`message` |
+| `d` | string | 明文訊息內容 |
+| `a.from` | string | 發送者地址 |
+
+**與 whisper 的差別**：不需要對方公鑰，不需要私鑰解密。適合非機密通訊。  
+**處理流程完全相同**：收到 → 讀取 → 退 0.2 KAS + signal 已讀。
+
+### 3. `signal` — 已讀回執
 
 **方向**：接收者 → 發送者  
 **加密**：無（明文）  
