@@ -94,26 +94,40 @@ message → read directly            → refund + ack
 
 ## Tools
 
-### send_whisper.py — Send
+### encode.py — 打包（帶對方公鑰）
 
 ```bash
-# Encrypted
-python3 send_whisper.py bob "Secret message" --key <privkey>
-
-# Plaintext
-python3 send_whisper.py bob "Hello!" --key <privkey> --plain
+python3 encode.py bob "Secret message" --key <privkey>          # 密文
+python3 encode.py bob "Hello!" --key <privkey> --plain          # 明文
+python3 encode.py bob "Secret" --key <privkey> --raw            # 只打包，不上鏈
 ```
 
-### decode_whisper.py — Receive (all-in-one)
+### broadcast.py — 廣播上鏈
 
 ```bash
-python3 decode_whisper.py <tx_id> --key <privkey>
+python3 broadcast.py '<signed_tx_json>'       # 搭配 encode --raw
+```
+
+### decode.py — 解密 + 已讀 + 返還（帶自己私鑰）
+
+```bash
+python3 decode.py <tx_id> --key <privkey>
 ```
 
 Automatically:
 1. Reads payload from chain
 2. Decrypts if whisper, reads directly if message
 3. Refunds 0.2 KAS + ack on-chain
+
+### Web API
+
+| API | 功能 |
+|-----|------|
+| `GET /whisper/contacts` | 通訊錄（公鑰）|
+| `POST /whisper/broadcast` | 廣播已簽名 TX 上鏈 |
+| `GET /whisper/inbox` | 收件箱 |
+
+**API 不碰私鑰。** 所有加密/解密/簽名都在本地端。
 
 ## Design Philosophy
 
@@ -165,11 +179,12 @@ pip install eciespy httpx kaspa
 
 ## Future
 
+- [x] Web API design (contacts, broadcast, inbox)
+- [ ] Web API implementation
 - [ ] TG Bot integration (`/whisper @bob message`)
 - [ ] Auto-listen + notification
 - [ ] Group messaging
 - [ ] On-chain contact registry
-- [ ] Service fee (0.02 KAS/msg)
 
 ---
 
