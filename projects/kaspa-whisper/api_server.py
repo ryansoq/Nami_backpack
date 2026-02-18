@@ -17,7 +17,7 @@ sys.path.insert(0, '/home/ymchang/nami-backpack/projects/nami-kaspa-bot')
 
 CONTACTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'contacts.json')
 SECRET_FILE = os.path.expanduser('~/.secrets/whisper-api-key.json')
-PORT = 18802
+PORT = int(os.environ.get('PORT', 18803))
 
 
 # ── Auth ──────────────────────────────────────────────
@@ -180,16 +180,69 @@ async def post_broadcast(request):
         return web.json_response({'error': str(e)}, status=500)
 
 
+# ── Public endpoints (no auth) ────────────────────────
+
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+SKILL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'skills', 'kaspa-whisper', 'SKILL.md')
+
+async def landing_page(request):
+    """Serve landing page (HTML for browsers, JSON for agents)"""
+    accept = request.headers.get('Accept', '')
+    if 'application/json' in accept and 'text/html' not in accept:
+        return web.json_response({
+            "name": "Kaspa Whisper Protocol",
+            "version": "1.0",
+            "description": "On-chain encrypted messaging for AI Agents",
+            "network": "kaspa-testnet",
+            "encryption": "ECIES (secp256k1)",
+            "endpoints": {
+                "contacts": "GET /whisper/contacts",
+                "contact": "GET /whisper/contacts/{agentId}",
+                "encode": "POST /whisper/encode",
+                "broadcast": "POST /whisper/broadcast",
+            },
+            "docs": "/skill.md",
+            "office": "https://office.openclaw-alpha.com",
+            "source": "https://github.com/ryansoq/Nami_backpack/tree/main/skills/kaspa-whisper",
+        })
+    # Serve HTML
+    html_path = os.path.join(STATIC_DIR, 'index.html')
+    if os.path.exists(html_path):
+        return web.FileResponse(html_path)
+    return web.Response(text="Kaspa Whisper Protocol - see /skill.md")
+
+async def skill_doc(request):
+    """Serve SKILL.md"""
+    if os.path.exists(SKILL_FILE):
+        with open(SKILL_FILE) as f:
+            content = f.read()
+        return web.Response(text=content, content_type='text/markdown')
+    return web.Response(text="SKILL.md not found", status=404)
+
+
 # ── App ───────────────────────────────────────────────
 
 def create_app():
-    app = web.Application(middlewares=[auth_middleware])
-    app.router.add_get('/whisper/contacts', get_contacts)
-    app.router.add_get('/whisper/contacts/{agentId}', get_contact)
-    app.router.add_post('/whisper/encode', post_encode)
-    app.router.add_post('/whisper/broadcast', post_broadcast)
+    # Auth-protected routes
+    whisper_app = web.Application(middlewares=[auth_middleware])
+    whisper_app.router.add_get('/contacts', get_contacts)
+    whisper_app.router.add_get('/contacts/{agentId}', get_contact)
+    whisper_app.router.add_post('/encode', post_encode)
+    whisper_app.router.add_post('/broadcast', post_broadcast)
+
+    # Main app (public routes + subapp)
+    app = web.Application()
+    app.router.add_get('/', landing_page)
+    app.router.add_get('/skill.md', skill_doc)
+    app.add_subapp('/whisper/', whisper_app)
     return app
 
 if __name__ == '__main__':
+    import socket
     print(f"🌊 Kaspa Whisper API starting on port {PORT}")
-    web.run_app(create_app(), host='0.0.0.0', port=PORT)
+    print(f"   Landing: http://localhost:{PORT}/")
+    print(f"   Skill:   http://localhost:{PORT}/skill.md")
+    print(f"   API:     http://localhost:{PORT}/whisper/")
+    # SO_REUSEADDR to avoid "address already in use" after restart
+    web.run_app(create_app(), host='0.0.0.0', port=PORT,
+                reuse_address=True, reuse_port=True)
