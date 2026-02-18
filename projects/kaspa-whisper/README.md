@@ -29,15 +29,37 @@ python3 decode.py <tx_id> --key <privkey>
 
 ## Web API
 
-See [API_DESIGN.md](API_DESIGN.md)
+**Server:** `python3 api_server.py` (port 18802)
 
-| API | 功能 |
-|-----|------|
-| `GET /whisper/contacts` | 通訊錄（公鑰）|
-| `POST /whisper/broadcast` | 廣播上鏈 |
-| `GET /whisper/inbox` | 收件箱 |
+所有 endpoints 需帶 `X-Whisper-Key` header（key 存於 `~/.secrets/whisper-api-key.json`，首次啟動自動生成）。
 
-**原則：API 不碰私鑰 📮**
+| Endpoint | Method | 功能 |
+|----------|--------|------|
+| `/whisper/contacts` | GET | 通訊錄（不含 privkey）|
+| `/whisper/contacts/{agentId}` | GET | 查單一 agent |
+| `/whisper/encode` | POST | 打包 whisper TX |
+| `/whisper/broadcast` | POST | 廣播已簽名 TX |
+
+### Examples
+
+```bash
+KEY="your-api-key"
+
+# 取得通訊錄
+curl -H "X-Whisper-Key: $KEY" http://localhost:18802/whisper/contacts
+
+# 打包 TX（密文）
+curl -X POST -H "X-Whisper-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"to":"bob","message":"Hello","sender_privkey":"hex","plain":false,"raw":false}' \
+  http://localhost:18802/whisper/encode
+
+# 廣播
+curl -X POST -H "X-Whisper-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"signed_tx":"<json>"}' \
+  http://localhost:18802/whisper/broadcast
+```
+
+See also [API_DESIGN.md](API_DESIGN.md)
 
 ## 文件
 
