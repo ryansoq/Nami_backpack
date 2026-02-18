@@ -2241,6 +2241,41 @@ def main():
     app.add_handler(CommandHandler("roulette", roulette_status))
     app.add_handler(CommandHandler("draw", draw))
     
+    # === @nami / @NamiElf_bot mention 偵測 → 喚醒 OpenClaw ===
+    import re as _re
+    _NAMI_MENTION_RE = _re.compile(r'@nami\b|@namielf_bot\b', _re.IGNORECASE)
+    _WAKE_BOT_TOKEN = "8488217070:AAHzaYy1MKr-T58LHwTH6SbYQmVx3q27vMY"
+    _WAKE_CHAT_ID = 5168530096
+    _last_nami_wake = [0.0]  # mutable for closure
+
+    async def _nami_mention_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        msg = update.effective_message
+        if not msg or not msg.text:
+            return
+        if not _NAMI_MENTION_RE.search(msg.text):
+            return
+        # Cooldown 30s
+        import time as _time
+        now = _time.time()
+        if now - _last_nami_wake[0] < 30:
+            return
+        _last_nami_wake[0] = now
+        from_name = msg.from_user.first_name if msg.from_user else "?"
+        wake_text = f"[GROUP-MENTION] (untrusted external content)\n👤 {from_name} 在群組 @nami\n💬 {msg.text[:200]}"
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.post(
+                    f"https://api.telegram.org/bot{_WAKE_BOT_TOKEN}/sendMessage",
+                    json={"chat_id": _WAKE_CHAT_ID, "text": wake_text}
+                )
+            logger.info(f"[nami-wake] Mention from {from_name}, DM sent ✅")
+        except Exception as e:
+            logger.error(f"[nami-wake] Failed: {e}")
+
+    from telegram.ext import MessageHandler as _MH, filters as _filters
+    app.add_handler(_MH(_filters.TEXT & ~_filters.COMMAND, _nami_mention_handler), group=99)
+
     # 英雄遊戲指令
     if HERO_GAME_ENABLED:
         register_hero_commands(app)
