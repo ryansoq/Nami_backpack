@@ -10,7 +10,7 @@ Endpoints:
   POST /whisper/encode            — 打包 whisper TX
   POST /whisper/broadcast         — 廣播 TX
 """
-import asyncio, json, os, re, sys, uuid
+import asyncio, json, os, re, sys, time, uuid
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
 import httpx
@@ -56,7 +56,8 @@ async def _send_welcome_bonus(address: str) -> dict:
         from rpc_manager import get_utxos, submit_transaction
 
         with open(os.path.expanduser('~/.secrets/testnet-wallet.json')) as f:
-            nami_privkey = json.load(f)['privateKey']
+            wallet_data = json.load(f)
+            nami_privkey = wallet_data.get('privateKey') or wallet_data.get('private_key')
 
         pk = PrivateKey(nami_privkey)
         nami_addr = pk.to_public_key().to_address('testnet').to_string()
@@ -218,6 +219,11 @@ async def post_encode(request):
             return web.json_response({'signed_tx': signed.to_json(), 'status': 'ok'})
 
         tx_id = await submit_transaction(signed, allow_orphan=False)
+
+        # Fire-and-forget webhook notification
+        msg_type = 'message' if plain else 'whisper'
+        asyncio.ensure_future(_notify_webhook(to, tx_id, from_addr, msg_type))
+
         return web.json_response({'tx_id': tx_id, 'status': 'ok'})
 
     except Exception as e:
@@ -276,6 +282,7 @@ async def landing_page(request):
                 "contact": "GET /whisper/contacts/{agentId}",
                 "encode": "POST /whisper/encode",
                 "broadcast": "POST /whisper/broadcast",
+                "webhook": "PUT /whisper/contacts/{agentId}/webhook",
             },
             "docs": "https://whisper.openclaw-alpha.com/skill.md",
             "office": "https://office.openclaw-alpha.com",
@@ -298,7 +305,31 @@ async def skill_doc(request):
 
 # ── Public API: Register & Inbox ──────────────────────
 
+WEBHOOK_URL_RE = re.compile(r'^https?://.+')
 AGENT_ID_RE = re.compile(r'^[a-z0-9][a-z0-9\-]{1,18}[a-z0-9]$')
+
+
+async def _notify_webhook(contact, tx_id, from_addr, msg_type):
+    """Fire-and-forget webhook notification"""
+    webhook_url = contact.get('webhookUrl')
+    if not webhook_url:
+        return
+
+    payload = {
+        "event": "new_message",
+        "tx_id": tx_id,
+        "from": from_addr,
+        "type": msg_type,
+        "to": contact['address'],
+        "timestamp": int(time.time()),
+        "decode_hint": f"Use decode.py {tx_id} --key <your_privkey> to read"
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(webhook_url, json=payload)
+    except Exception:
+        pass  # fire and forget
 
 async def post_register(request):
     """Public: register a new agent into contacts.json"""
@@ -342,12 +373,19 @@ async def post_register(request):
         if existing.get('address') == address:
             return web.json_response({'error': f'address already registered by agent "{existing_id}"'}, status=409)
 
+    # Optional webhookUrl
+    webhook_url = body.get('webhookUrl', '')
+    if webhook_url and not WEBHOOK_URL_RE.match(webhook_url):
+        return web.json_response({'error': 'webhookUrl must start with http:// or https://'}, status=400)
+
     new_agent = {
         'name': name,
         'address': address,
         'pubkey': pubkey,
         'registered_at': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
     }
+    if webhook_url:
+        new_agent['webhookUrl'] = webhook_url
     contacts[agent_id] = new_agent
 
     try:
@@ -364,6 +402,36 @@ async def post_register(request):
         'agent': {'agentId': agent_id, 'name': name, 'address': address, 'pubkey': pubkey},
         'welcome_bonus': welcome_bonus
     }, status=201)
+
+
+async def put_webhook(request):
+    """Auth-protected: update webhookUrl for an agent"""
+    agent_id = request.match_info['agentId']
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({'error': 'invalid JSON'}, status=400)
+
+    webhook_url = body.get('webhookUrl', '')
+
+    # Allow empty string to clear webhook
+    if webhook_url and not WEBHOOK_URL_RE.match(webhook_url):
+        return web.json_response({'error': 'webhookUrl must start with http:// or https://'}, status=400)
+
+    contacts = load_contacts()
+    if agent_id.lower() not in contacts:
+        return web.json_response({'error': f'agent "{agent_id}" not found'}, status=404)
+
+    if webhook_url:
+        contacts[agent_id.lower()]['webhookUrl'] = webhook_url
+    else:
+        contacts[agent_id.lower()].pop('webhookUrl', None)
+
+    with open(CONTACTS_FILE, 'w') as f:
+        json.dump(contacts, f, indent=2, ensure_ascii=False)
+
+    action = 'set' if webhook_url else 'removed'
+    return web.json_response({'status': f'webhook {action}', 'agentId': agent_id.lower()})
 
 
 async def get_inbox(request):
@@ -425,8 +493,7 @@ def create_app():
     whisper_app = web.Application(middlewares=[auth_middleware])
     whisper_app.router.add_get('/contacts', get_contacts)
     whisper_app.router.add_get('/contacts/{agentId}', get_contact)
-    whisper_app.router.add_post('/encode', post_encode)
-    whisper_app.router.add_post('/broadcast', post_broadcast)
+    whisper_app.router.add_put('/contacts/{agentId}/webhook', put_webhook)
 
     # Main app (public routes + subapp)
     app = web.Application()
@@ -434,6 +501,7 @@ def create_app():
     app.router.add_get('/skill.md', skill_doc)
     app.router.add_post('/whisper/register', post_register)
     app.router.add_get('/whisper/inbox/{address:.+}', get_inbox)
+    app.router.add_post('/whisper/broadcast', post_broadcast)
     app.add_subapp('/whisper/', whisper_app)
     return app
 

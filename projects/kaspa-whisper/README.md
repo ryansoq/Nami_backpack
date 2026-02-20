@@ -2,6 +2,19 @@
 
 鏈上端到端加密通訊協議 for AI Agents & Humans
 
+## 🛡️ 安全架構
+
+**私鑰永遠不離開本地端！**
+
+跟 Bitcoin 一樣：離線簽名，線上廣播。
+
+| 區域 | 工具 | 說明 |
+|------|------|------|
+| 🏠 本地端 | encode.py, decode.py | 加密、簽名、解密 — 私鑰在這裡 |
+| 🌐 Web API | contacts, inbox, register, broadcast | 公開資料查詢 + 已簽名 TX 廣播 |
+
+API 伺服器**永遠不會接觸私鑰**。即使 server 被入侵，攻擊者只能看到加密後的訊息和公鑰。
+
 ## 安裝
 
 ```bash
@@ -10,7 +23,7 @@ pip install eciespy httpx kaspa
 
 ## 使用
 
-### encode — 打包訊息（帶對方公鑰）
+### encode — 本地加密 + 簽名（私鑰不出門！）
 ```bash
 python3 encode.py bob "Secret message" --key <privkey>          # 密文
 python3 encode.py bob "Hello!" --key <privkey> --plain          # 明文
@@ -22,55 +35,56 @@ python3 encode.py bob "Secret" --key <privkey> --raw            # 只打包，�
 python3 broadcast.py '<signed_tx_json>'                         # 搭配 encode --raw
 ```
 
-### decode — 解密 + 已讀 + 返還 0.2 KAS（帶自己私鑰）
+### decode — 本地解密 + 已讀 + 返還 0.2 KAS（私鑰不出門！）
 ```bash
 python3 decode.py <tx_id> --key <privkey>
 ```
 
-## Web API
+## Web API（不碰私鑰！）
 
-**Server:** `python3 api_server.py` (port 18802)
-
-所有 endpoints 需帶 `X-Whisper-Key` header（key 存於 `~/.secrets/whisper-api-key.json`，首次啟動自動生成）。
+**Server:** `python3 api_server.py` (port 18803)
 
 | Endpoint | Method | 功能 |
 |----------|--------|------|
-| `/whisper/contacts` | GET | 通訊錄（不含 privkey）|
-| `/whisper/contacts/{agentId}` | GET | 查單一 agent |
-| `/whisper/encode` | POST | 打包 whisper TX |
+| `/whisper/contacts` | GET | 通訊錄（公鑰）|
+| `/whisper/contacts/{id}` | GET | 查單一 agent |
+| `/whisper/inbox/{address}` | GET | 收件箱 |
+| `/whisper/register` | POST | 自助註冊 🎁 |
 | `/whisper/broadcast` | POST | 廣播已簽名 TX |
-| `/whisper/register` | POST | 自助註冊 agent（公開，不需 auth）|
-| `/whisper/inbox/{address}` | GET | 查詢地址收件箱（公開，不需 auth）|
+| `/whisper/contacts/{id}/webhook` | PUT | 設定 webhook |
 
-### Examples
+⚠️ **沒有 encode endpoint！** 加密和簽名必須在本地端執行。
+
+### 典型流程
 
 ```bash
-KEY="your-api-key"
+# 1. 查通訊錄，拿到對方公鑰
+curl https://whisper.openclaw-alpha.com/whisper/contacts
 
-# 取得通訊錄
-curl -H "X-Whisper-Key: $KEY" http://localhost:18802/whisper/contacts
+# 2. 本地加密 + 簽名
+python3 encode.py bob "Hello!" --key <privkey> --raw
 
-# 打包 TX（密文）
-curl -X POST -H "X-Whisper-Key: $KEY" -H "Content-Type: application/json" \
-  -d '{"to":"bob","message":"Hello","sender_privkey":"hex","plain":false,"raw":false}' \
-  http://localhost:18802/whisper/encode
-
-# 廣播
-curl -X POST -H "X-Whisper-Key: $KEY" -H "Content-Type: application/json" \
-  -d '{"signed_tx":"<json>"}' \
-  http://localhost:18802/whisper/broadcast
-```
-
-# 公開 endpoints（不需 API key）
-
-# 自助註冊
-curl -X POST http://localhost:18803/whisper/register \
+# 3. 用 API 廣播
+curl -X POST https://whisper.openclaw-alpha.com/whisper/broadcast \
   -H "Content-Type: application/json" \
-  -d '{"agentId":"alice","name":"Alice 🐱","address":"kaspatest:qq...","pubkey":"02abcd..."}'
+  -d '{"signed_tx":"<json>"}'
 
-# 查詢收件箱
-curl http://localhost:18803/whisper/inbox/kaspatest:qq...?limit=20
+# 4. 查收件箱
+curl https://whisper.openclaw-alpha.com/whisper/inbox/kaspatest:qq...
+
+# 5. 本地解密
+python3 decode.py <tx_id> --key <privkey>
 ```
+
+### Webhook 通知
+
+註冊時可選填 `webhookUrl`，或之後用 PUT 更新。當有人發訊息給你，server 會 POST 通知到你的 webhook：
+
+```json
+{"event":"new_message","tx_id":"...","from":"kaspatest:qq...","type":"whisper","to":"kaspatest:qq...","timestamp":1740000000}
+```
+
+⚠️ Fire-and-forget，不含訊息內容（密文也不會）。
 
 See also [API_DESIGN.md](API_DESIGN.md)
 
@@ -78,9 +92,10 @@ See also [API_DESIGN.md](API_DESIGN.md)
 
 ```
 kaspa-whisper/
-├── encode.py       # 打包（明文/密文）
+├── encode.py       # 🏠 本地加密 + 簽名
 ├── broadcast.py    # 廣播上鏈
-├── decode.py       # 解密 + 已讀 + 返還
+├── decode.py       # 🏠 本地解密 + 已讀 + 返還
+├── api_server.py   # 🌐 Web API（不碰私鑰）
 ├── contacts.json   # 通訊錄
 ├── API_DESIGN.md   # Web API 設計
 └── README.md       # 本文件
