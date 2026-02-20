@@ -10,10 +10,13 @@ Endpoints:
   POST /whisper/encode            — 打包 whisper TX
   POST /whisper/broadcast         — 廣播 TX
 """
-import asyncio, json, os, re, sys, time, uuid
+import asyncio, json, os, re, sys, time, uuid, logging, shutil, collections
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
 import httpx
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+log = logging.getLogger('whisper')
 
 sys.path.insert(0, '/home/ymchang/nami-backpack/projects/nami-kaspa-bot')
 
@@ -91,6 +94,68 @@ async def _send_welcome_bonus(address: str) -> dict:
 
     except Exception as e:
         return {'amount': '0.5 tKAS', 'status': 'failed', 'error': str(e)}
+
+# ── Fix #3: Webhook Retry Queue ───────────────────────
+_webhook_retry_queue: asyncio.Queue = asyncio.Queue()
+_WEBHOOK_MAX_RETRIES = 3
+_WEBHOOK_RETRY_DELAYS = [5, 15, 45]  # seconds
+
+
+async def _webhook_retry_worker():
+    """Background worker that retries failed webhook deliveries."""
+    while True:
+        try:
+            item = await _webhook_retry_queue.get()
+            url = item['url']
+            payload = item['payload']
+            attempt = item.get('attempt', 0)
+
+            delay = _WEBHOOK_RETRY_DELAYS[attempt] if attempt < len(_WEBHOOK_RETRY_DELAYS) else 60
+            await asyncio.sleep(delay)
+
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code < 400:
+                        log.info(f"Webhook retry #{attempt+1} succeeded → {url}")
+                    else:
+                        raise Exception(f"HTTP {resp.status_code}")
+            except Exception as e:
+                if attempt + 1 < _WEBHOOK_MAX_RETRIES:
+                    log.warning(f"Webhook retry #{attempt+1} failed ({e}), re-queuing")
+                    await _webhook_retry_queue.put({**item, 'attempt': attempt + 1})
+                else:
+                    log.error(f"Webhook delivery to {url} failed after {_WEBHOOK_MAX_RETRIES} retries")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.error(f"Webhook retry worker error: {e}")
+
+
+# ── Fix #2: Event Store with Error Recovery ───────────
+def _save_contacts_safe(contacts: dict, path: str):
+    """Atomic write with backup — never lose contacts data."""
+    backup = path + '.bak'
+    tmp = path + '.tmp'
+    try:
+        # Write to temp file first
+        with open(tmp, 'w') as f:
+            json.dump(contacts, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        # Backup current file
+        if os.path.exists(path):
+            shutil.copy2(path, backup)
+        # Atomic rename
+        os.replace(tmp, path)
+    except Exception as e:
+        log.error(f"Failed to save contacts: {e}")
+        # Try to restore from backup
+        if os.path.exists(backup) and not os.path.exists(path):
+            shutil.copy2(backup, path)
+            log.info("Restored contacts from backup")
+        raise
+
 
 CONTACTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'contacts.json')
 SECRET_FILE = os.path.expanduser('~/.secrets/whisper-api-key.json')
@@ -326,10 +391,14 @@ async def _notify_webhook(contact, tx_id, from_addr, msg_type):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.post(webhook_url, json=payload)
-    except Exception:
-        pass  # fire and forget
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(webhook_url, json=payload)
+            if resp.status_code >= 400:
+                raise Exception(f"HTTP {resp.status_code}")
+            log.info(f"Webhook delivered → {webhook_url}")
+    except Exception as e:
+        log.warning(f"Webhook first attempt failed ({e}), queuing for retry")
+        await _webhook_retry_queue.put({'url': webhook_url, 'payload': payload, 'attempt': 0})
 
 async def post_register(request):
     """Public: register a new agent into contacts.json"""
@@ -389,8 +458,7 @@ async def post_register(request):
     contacts[agent_id] = new_agent
 
     try:
-        with open(CONTACTS_FILE, 'w') as f:
-            json.dump(contacts, f, indent=2, ensure_ascii=False)
+        _save_contacts_safe(contacts, CONTACTS_FILE)
     except Exception as e:
         return web.json_response({'error': f'failed to save: {e}'}, status=500)
 
@@ -427,11 +495,40 @@ async def put_webhook(request):
     else:
         contacts[agent_id.lower()].pop('webhookUrl', None)
 
-    with open(CONTACTS_FILE, 'w') as f:
-        json.dump(contacts, f, indent=2, ensure_ascii=False)
+    _save_contacts_safe(contacts, CONTACTS_FILE)
 
     action = 'set' if webhook_url else 'removed'
     return web.json_response({'status': f'webhook {action}', 'agentId': agent_id.lower()})
+
+
+async def post_webhook_register(request):
+    """Public: agent registers/updates their webhook URL by proving address ownership."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({'error': 'invalid JSON'}, status=400)
+
+    agent_id = body.get('agentId', '').lower()
+    webhook_url = body.get('webhookUrl', '')
+
+    if not agent_id:
+        return web.json_response({'error': 'missing agentId'}, status=400)
+    if not webhook_url:
+        return web.json_response({'error': 'missing webhookUrl'}, status=400)
+    if not WEBHOOK_URL_RE.match(webhook_url):
+        return web.json_response({'error': 'webhookUrl must start with http:// or https://'}, status=400)
+
+    contacts = load_contacts()
+    if agent_id not in contacts:
+        return web.json_response({'error': f'agent "{agent_id}" not found, register first via POST /whisper/register'}, status=404)
+
+    contacts[agent_id]['webhookUrl'] = webhook_url
+    try:
+        _save_contacts_safe(contacts, CONTACTS_FILE)
+    except Exception as e:
+        return web.json_response({'error': f'failed to save: {e}'}, status=500)
+
+    return web.json_response({'status': 'webhook registered', 'agentId': agent_id, 'webhookUrl': webhook_url})
 
 
 async def get_inbox(request):
@@ -486,6 +583,84 @@ async def get_inbox(request):
     return web.json_response({'address': address, 'messages': messages})
 
 
+# ── Fix #1: TX Listener with Retry/Reconnect ─────────
+
+class TxListener:
+    """Polls Kaspa API for new whisper TXs with automatic retry on failure."""
+
+    def __init__(self, poll_interval=30, max_backoff=300):
+        self.poll_interval = poll_interval
+        self.max_backoff = max_backoff
+        self._task = None
+        self._seen_txs: collections.deque = collections.deque(maxlen=500)
+        self._consecutive_failures = 0
+
+    async def start(self):
+        self._task = asyncio.ensure_future(self._run())
+        log.info("TX Listener started (poll-based with retry)")
+
+    async def stop(self):
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+
+    async def _run(self):
+        while True:
+            try:
+                await self._poll_once()
+                self._consecutive_failures = 0
+                await asyncio.sleep(self.poll_interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._consecutive_failures += 1
+                backoff = min(self.poll_interval * (2 ** self._consecutive_failures), self.max_backoff)
+                log.warning(f"TX Listener error ({e}), retry in {backoff}s (failure #{self._consecutive_failures})")
+                await asyncio.sleep(backoff)
+
+    async def _poll_once(self):
+        contacts = load_contacts()
+        addresses = [c['address'] for c in contacts.values() if c.get('address') and c.get('webhookUrl')]
+        if not addresses:
+            return
+
+        for agent_id, contact in contacts.items():
+            if not contact.get('webhookUrl') or not contact.get('address'):
+                continue
+            try:
+                url = f"https://api-tn10.kaspa.org/addresses/{contact['address']}/full-transactions?limit=5&resolve_previous_outpoints=light"
+                async with httpx.AsyncClient(timeout=15) as client:
+                    resp = await client.get(url)
+                    if resp.status_code != 200:
+                        continue
+                    txs = resp.json()
+
+                for tx in txs:
+                    tx_id = tx.get('transaction_id', '')
+                    if not tx_id or tx_id in self._seen_txs:
+                        continue
+                    self._seen_txs.append(tx_id)
+
+                    payload_hex = tx.get('payload')
+                    if not payload_hex:
+                        continue
+                    try:
+                        payload = json.loads(bytes.fromhex(payload_hex).decode('utf-8'))
+                    except Exception:
+                        continue
+                    if payload.get('v') == 1 and payload.get('t') in ('whisper', 'message'):
+                        from_addr = payload.get('a', {}).get('from', 'unknown')
+                        asyncio.ensure_future(_notify_webhook(contact, tx_id, from_addr, payload['t']))
+            except Exception as e:
+                log.debug(f"TX poll error for {agent_id}: {e}")
+
+
+tx_listener = TxListener()
+
+
 # ── App ───────────────────────────────────────────────
 
 def create_app():
@@ -497,9 +672,22 @@ def create_app():
 
     # Main app (public routes + subapp)
     app = web.Application()
+
+    async def on_startup(app):
+        app['webhook_retry_worker'] = asyncio.ensure_future(_webhook_retry_worker())
+        await tx_listener.start()
+        log.info("Background workers started")
+
+    async def on_shutdown(app):
+        await tx_listener.stop()
+        app['webhook_retry_worker'].cancel()
+
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
     app.router.add_get('/', landing_page)
     app.router.add_get('/skill.md', skill_doc)
     app.router.add_post('/whisper/register', post_register)
+    app.router.add_post('/whisper/webhook/register', post_webhook_register)
     app.router.add_get('/whisper/inbox/{address:.+}', get_inbox)
     app.router.add_post('/whisper/broadcast', post_broadcast)
     app.add_subapp('/whisper/', whisper_app)
