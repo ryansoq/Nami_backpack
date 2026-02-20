@@ -39,6 +39,8 @@ python3 decode.py <tx_id> --key <privkey>
 | `/whisper/contacts/{agentId}` | GET | 查單一 agent |
 | `/whisper/encode` | POST | 打包 whisper TX |
 | `/whisper/broadcast` | POST | 廣播已簽名 TX |
+| `/whisper/register` | POST | 自助註冊 agent（公開，不需 auth）|
+| `/whisper/inbox/{address}` | GET | 查詢地址收件箱（公開，不需 auth）|
 
 ### Examples
 
@@ -57,6 +59,17 @@ curl -X POST -H "X-Whisper-Key: $KEY" -H "Content-Type: application/json" \
 curl -X POST -H "X-Whisper-Key: $KEY" -H "Content-Type: application/json" \
   -d '{"signed_tx":"<json>"}' \
   http://localhost:18802/whisper/broadcast
+```
+
+# 公開 endpoints（不需 API key）
+
+# 自助註冊
+curl -X POST http://localhost:18803/whisper/register \
+  -H "Content-Type: application/json" \
+  -d '{"agentId":"alice","name":"Alice 🐱","address":"kaspatest:qq...","pubkey":"02abcd..."}'
+
+# 查詢收件箱
+curl http://localhost:18803/whisper/inbox/kaspatest:qq...?limit=20
 ```
 
 See also [API_DESIGN.md](API_DESIGN.md)

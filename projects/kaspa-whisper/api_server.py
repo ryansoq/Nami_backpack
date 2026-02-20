@@ -10,10 +10,86 @@ Endpoints:
   POST /whisper/encode            — 打包 whisper TX
   POST /whisper/broadcast         — 廣播 TX
 """
-import asyncio, json, os, sys, uuid
+import asyncio, json, os, re, sys, uuid
+from datetime import datetime, timezone, timedelta
 from aiohttp import web
+import httpx
 
 sys.path.insert(0, '/home/ymchang/nami-backpack/projects/nami-kaspa-bot')
+
+# ── Welcome Bonus Config ─────────────────────────────
+WELCOME_AMOUNT = 50000000   # 0.5 tKAS
+TX_FEE = 50000
+DAILY_BONUS_LIMIT = 20
+
+# In-memory daily counter (resets on restart)
+_bonus_count = 0
+_bonus_date = datetime.now(timezone.utc).date()
+
+
+def _check_bonus_limit() -> bool:
+    """Return True if we can still send welcome bonuses today."""
+    global _bonus_count, _bonus_date
+    today = datetime.now(timezone.utc).date()
+    if today != _bonus_date:
+        _bonus_count = 0
+        _bonus_date = today
+    return _bonus_count < DAILY_BONUS_LIMIT
+
+
+def _increment_bonus():
+    global _bonus_count, _bonus_date
+    today = datetime.now(timezone.utc).date()
+    if today != _bonus_date:
+        _bonus_count = 0
+        _bonus_date = today
+    _bonus_count += 1
+
+
+async def _send_welcome_bonus(address: str) -> dict:
+    """Send 0.5 tKAS welcome bonus. Returns dict with tx info or error."""
+    if not _check_bonus_limit():
+        return {'amount': '0.5 tKAS', 'status': 'failed', 'error': 'daily bonus limit reached'}
+
+    try:
+        from kaspa import PrivateKey, Address, PaymentOutput, create_transaction, sign_transaction
+        from rpc_manager import get_utxos, submit_transaction
+
+        with open(os.path.expanduser('~/.secrets/testnet-wallet.json')) as f:
+            nami_privkey = json.load(f)['privateKey']
+
+        pk = PrivateKey(nami_privkey)
+        nami_addr = pk.to_public_key().to_address('testnet').to_string()
+
+        entries = await get_utxos(nami_addr)
+        if not entries:
+            return {'amount': '0.5 tKAS', 'status': 'failed', 'error': 'no UTXOs in Nami wallet'}
+
+        entries.sort(key=lambda e: e["utxoEntry"]["amount"], reverse=True)
+        selected, total = [], 0
+        for e in entries:
+            selected.append(e)
+            total += e["utxoEntry"]["amount"]
+            if total >= WELCOME_AMOUNT + TX_FEE + 1000:
+                break
+
+        if total < WELCOME_AMOUNT + TX_FEE:
+            return {'amount': '0.5 tKAS', 'status': 'failed', 'error': f'insufficient balance: {total/1e8:.4f} KAS'}
+
+        change = total - WELCOME_AMOUNT - TX_FEE
+        outputs = [PaymentOutput(Address(address), WELCOME_AMOUNT)]
+        if change > 0:
+            outputs.append(PaymentOutput(Address(nami_addr), change))
+
+        tx = create_transaction(utxo_entry_source=selected, outputs=outputs, priority_fee=TX_FEE, payload=b'welcome bonus')
+        signed = sign_transaction(tx, [pk], False)
+        tx_id = await submit_transaction(signed, allow_orphan=False)
+
+        _increment_bonus()
+        return {'amount': '0.5 tKAS', 'tx_id': tx_id}
+
+    except Exception as e:
+        return {'amount': '0.5 tKAS', 'status': 'failed', 'error': str(e)}
 
 CONTACTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'contacts.json')
 SECRET_FILE = os.path.expanduser('~/.secrets/whisper-api-key.json')
@@ -201,9 +277,9 @@ async def landing_page(request):
                 "encode": "POST /whisper/encode",
                 "broadcast": "POST /whisper/broadcast",
             },
-            "docs": "/skill.md",
+            "docs": "https://whisper.openclaw-alpha.com/skill.md",
             "office": "https://office.openclaw-alpha.com",
-            "source": "https://github.com/ryansoq/Nami_backpack/tree/main/skills/kaspa-whisper",
+            "source": "https://github.com/ryansoq/openclaw-alpha/tree/main/skills/kaspa-whisper",
         })
     # Serve HTML
     html_path = os.path.join(STATIC_DIR, 'index.html')
@@ -220,6 +296,128 @@ async def skill_doc(request):
     return web.Response(text="SKILL.md not found", status=404)
 
 
+# ── Public API: Register & Inbox ──────────────────────
+
+AGENT_ID_RE = re.compile(r'^[a-z0-9][a-z0-9\-]{1,18}[a-z0-9]$')
+
+async def post_register(request):
+    """Public: register a new agent into contacts.json"""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({'error': 'invalid JSON'}, status=400)
+
+    agent_id = body.get('agentId', '')
+    name = body.get('name', '')
+    address = body.get('address', '')
+    pubkey = body.get('pubkey', '')
+
+    # Validate required fields
+    if not all([agent_id, name, address, pubkey]):
+        return web.json_response({'error': 'missing required fields: agentId, name, address, pubkey'}, status=400)
+
+    # Validate agentId format
+    if not AGENT_ID_RE.match(agent_id):
+        return web.json_response({'error': 'agentId must be 3-20 chars, lowercase alphanumeric + hyphens'}, status=400)
+
+    # Validate address format
+    if not address.startswith('kaspatest:') and not address.startswith('kaspa:'):
+        return web.json_response({'error': 'address must start with kaspatest: or kaspa:'}, status=400)
+
+    # Validate pubkey format (hex, starts with 02 or 03)
+    if not re.match(r'^0[23][0-9a-fA-F]{64}$', pubkey):
+        return web.json_response({'error': 'pubkey must be 66-char compressed hex (02/03 prefix)'}, status=400)
+
+    # Load, check, write
+    try:
+        contacts = load_contacts()
+    except Exception:
+        contacts = {}
+
+    if agent_id in contacts:
+        return web.json_response({'error': f'agentId "{agent_id}" already registered'}, status=409)
+
+    # Check address not already used by another agent
+    for existing_id, existing in contacts.items():
+        if existing.get('address') == address:
+            return web.json_response({'error': f'address already registered by agent "{existing_id}"'}, status=409)
+
+    new_agent = {
+        'name': name,
+        'address': address,
+        'pubkey': pubkey,
+        'registered_at': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+    }
+    contacts[agent_id] = new_agent
+
+    try:
+        with open(CONTACTS_FILE, 'w') as f:
+            json.dump(contacts, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return web.json_response({'error': f'failed to save: {e}'}, status=500)
+
+    # Send welcome bonus (non-blocking, failure doesn't affect registration)
+    welcome_bonus = await _send_welcome_bonus(address)
+
+    return web.json_response({
+        'status': 'registered',
+        'agent': {'agentId': agent_id, 'name': name, 'address': address, 'pubkey': pubkey},
+        'welcome_bonus': welcome_bonus
+    }, status=201)
+
+
+async def get_inbox(request):
+    """Public: query recent whisper/message TXs for an address"""
+    address = request.match_info['address']
+    limit = min(int(request.query.get('limit', '20')), 50)
+
+    api_url = f'https://api-tn10.kaspa.org/addresses/{address}/full-transactions?limit={limit}&resolve_previous_outpoints=light'
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(api_url)
+            if resp.status_code != 200:
+                return web.json_response({'error': f'Kaspa API returned {resp.status_code}'}, status=502)
+            txs = resp.json()
+    except Exception as e:
+        return web.json_response({'error': f'Kaspa API error: {e}'}, status=502)
+
+    messages = []
+    for tx in txs:
+        payload_hex = tx.get('payload')
+        if not payload_hex:
+            continue
+        try:
+            payload = json.loads(bytes.fromhex(payload_hex).decode('utf-8'))
+        except Exception:
+            continue
+        if payload.get('v') != 1:
+            continue
+        msg_type = payload.get('t')
+        if msg_type not in ('whisper', 'message'):
+            continue
+
+        # Extract sender from payload metadata
+        sender = payload.get('a', {}).get('from', 'unknown')
+
+        # Build timestamp from block_time (milliseconds) if available
+        block_time = tx.get('block_time')
+        timestamp = datetime.fromtimestamp(block_time / 1000, tz=timezone.utc).isoformat() if block_time else None
+
+        entry = {
+            'tx_id': tx.get('transaction_id', tx.get('subnetwork_id', '')),
+            'type': msg_type,
+            'from': sender,
+            'timestamp': timestamp,
+        }
+        if msg_type == 'message':
+            entry['content'] = payload.get('d', '')
+
+        messages.append(entry)
+
+    return web.json_response({'address': address, 'messages': messages})
+
+
 # ── App ───────────────────────────────────────────────
 
 def create_app():
@@ -234,6 +432,8 @@ def create_app():
     app = web.Application()
     app.router.add_get('/', landing_page)
     app.router.add_get('/skill.md', skill_doc)
+    app.router.add_post('/whisper/register', post_register)
+    app.router.add_get('/whisper/inbox/{address:.+}', get_inbox)
     app.add_subapp('/whisper/', whisper_app)
     return app
 
