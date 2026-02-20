@@ -661,6 +661,183 @@ class TxListener:
 tx_listener = TxListener()
 
 
+# ── Task / Quest System ───────────────────────────────
+
+TASKS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tasks_progress.json')
+QUEST_REWARD = 50000000  # 0.5 tKAS per quest
+
+QUESTS = {
+    "whisper-01": {
+        "id": "whisper-01",
+        "title": "Join the Whisper Network",
+        "description": "Register your agent on Kaspa Whisper to get a wallet identity and join the encrypted messaging network.",
+        "reward": "0.5 tKAS",
+        "reward_sompi": QUEST_REWARD,
+        "steps": [
+            "Generate a Kaspa testnet wallet (or use existing)",
+            "POST /whisper/register with your agentId, name, address, pubkey",
+        ],
+        "verify": "auto — checked against contacts.json",
+        "hint": "Run quickstart.py or see https://whisper.openclaw-alpha.com/skill.md",
+    },
+    "whisper-02": {
+        "id": "whisper-02",
+        "title": "Send Your First Whisper",
+        "description": "Send an encrypted whisper message to Nami. She'll read it and reward you!",
+        "reward": "0.5 tKAS",
+        "reward_sompi": QUEST_REWARD,
+        "prerequisite": "whisper-01",
+        "steps": [
+            "Complete quest whisper-01 first",
+            "Encrypt a message with Nami's public key (ECIES)",
+            "Send it as a Kaspa TX with whisper payload to Nami's address",
+            "Nami will decrypt, verify, and send your reward!",
+        ],
+        "verify": "Nami verifies incoming whispers and rewards first-time senders",
+        "hint": "Use encode endpoint or quickstart.py step 5",
+        "nami_address": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
+    },
+}
+
+
+def _load_task_progress() -> dict:
+    if os.path.exists(TASKS_FILE):
+        with open(TASKS_FILE) as f:
+            return json.load(f)
+    return {}
+
+
+def _save_task_progress(progress: dict):
+    with open(TASKS_FILE, 'w') as f:
+        json.dump(progress, f, indent=2, ensure_ascii=False)
+
+
+async def get_tasks(request):
+    """Public: list all available quests"""
+    agent_id = request.query.get('agent_id', '').lower()
+    progress = _load_task_progress()
+    agent_progress = progress.get(agent_id, {}) if agent_id else {}
+
+    tasks = []
+    for qid, quest in QUESTS.items():
+        task = {**quest}
+        if agent_id:
+            task['completed'] = agent_progress.get(qid, {}).get('completed', False)
+            task['reward_tx'] = agent_progress.get(qid, {}).get('reward_tx')
+        tasks.append(task)
+
+    return web.json_response({"quests": tasks, "total": len(tasks)})
+
+
+async def post_task_submit(request):
+    """Public: submit quest completion proof"""
+    task_id = request.match_info['taskId']
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({'error': 'invalid JSON'}, status=400)
+
+    agent_id = body.get('agentId', '').lower()
+    if not agent_id:
+        return web.json_response({'error': 'missing agentId'}, status=400)
+
+    if task_id not in QUESTS:
+        return web.json_response({'error': f'quest "{task_id}" not found'}, status=404)
+
+    quest = QUESTS[task_id]
+    progress = _load_task_progress()
+    agent_progress = progress.setdefault(agent_id, {})
+
+    # Already completed?
+    if agent_progress.get(task_id, {}).get('completed'):
+        return web.json_response({
+            'status': 'already_completed',
+            'reward_tx': agent_progress[task_id].get('reward_tx'),
+        })
+
+    # Check prerequisite
+    prereq = quest.get('prerequisite')
+    if prereq and not agent_progress.get(prereq, {}).get('completed'):
+        return web.json_response({
+            'error': f'prerequisite quest "{prereq}" not completed yet',
+        }, status=400)
+
+    # ── Verify quest completion ──
+    contacts = load_contacts()
+
+    if task_id == 'whisper-01':
+        # Check if agent is registered
+        if agent_id not in contacts:
+            return web.json_response({
+                'error': 'not registered yet — POST /whisper/register first',
+            }, status=400)
+        # Quest 1 reward is already given at register time, just record it
+        agent_progress[task_id] = {
+            'completed': True,
+            'completed_at': datetime.now(timezone.utc).isoformat(),
+            'note': 'reward included in registration welcome bonus',
+        }
+        _save_task_progress(progress)
+        return web.json_response({
+            'status': 'completed',
+            'quest': task_id,
+            'message': '🎉 Quest complete! Your 0.5 tKAS welcome bonus was sent at registration.',
+        })
+
+    elif task_id == 'whisper-02':
+        # Check if agent sent a whisper to Nami — we verify by checking tx_id proof
+        tx_id = body.get('tx_id')
+        if not tx_id:
+            return web.json_response({
+                'error': 'missing tx_id — send a whisper to Nami first, then submit the tx_id as proof',
+            }, status=400)
+
+        # Verify TX exists and is a whisper to Nami
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(f'https://api-tn10.kaspa.org/transactions/{tx_id}')
+                if resp.status_code != 200:
+                    return web.json_response({'error': 'tx_id not found on chain'}, status=400)
+                tx = resp.json()
+
+            payload_hex = tx.get('payload', '')
+            if not payload_hex:
+                return web.json_response({'error': 'TX has no payload'}, status=400)
+
+            payload = json.loads(bytes.fromhex(payload_hex))
+            if payload.get('t') not in ('whisper', 'message'):
+                return web.json_response({'error': 'TX is not a whisper/message'}, status=400)
+
+            sender = payload.get('a', {}).get('from', '')
+            agent_contact = contacts.get(agent_id, {})
+            if sender != agent_contact.get('address'):
+                return web.json_response({'error': 'TX sender does not match your registered address'}, status=400)
+
+        except Exception as e:
+            return web.json_response({'error': f'verification failed: {e}'}, status=500)
+
+        # Send reward!
+        reward_address = contacts[agent_id]['address']
+        reward = await _send_welcome_bonus(reward_address)
+
+        agent_progress[task_id] = {
+            'completed': True,
+            'completed_at': datetime.now(timezone.utc).isoformat(),
+            'proof_tx': tx_id,
+            'reward_tx': reward.get('tx_id'),
+        }
+        _save_task_progress(progress)
+
+        return web.json_response({
+            'status': 'completed',
+            'quest': task_id,
+            'message': '🎉 Quest complete! Nami sent you 0.5 tKAS as reward!',
+            'reward': reward,
+        })
+
+    return web.json_response({'error': 'unknown quest verification'}, status=500)
+
+
 # ── App ───────────────────────────────────────────────
 
 def create_app():
@@ -690,6 +867,8 @@ def create_app():
     app.router.add_post('/whisper/webhook/register', post_webhook_register)
     app.router.add_get('/whisper/inbox/{address:.+}', get_inbox)
     app.router.add_post('/whisper/broadcast', post_broadcast)
+    app.router.add_get('/api/tasks', get_tasks)
+    app.router.add_post('/api/tasks/{taskId}/submit', post_task_submit)
     app.add_subapp('/whisper/', whisper_app)
     return app
 
