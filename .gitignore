@@ -17,3 +17,5 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+projects/ai-daily-digest
+projects/openclaw-office
