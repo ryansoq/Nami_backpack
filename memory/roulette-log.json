@@ -1,0 +1,14 @@
+{
+  "description": "Kaspa Roulette 下注記錄",
+  "accounts": {
+    "telegram_bot": {
+      "name": "Nami Kaspa Bot (TG)",
+      "wallet": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
+      "totalBets": 0,
+      "totalWon": 0,
+      "totalLost": 0,
+      "netProfit": 0
+    }
+  },
+  "bets": []
+}

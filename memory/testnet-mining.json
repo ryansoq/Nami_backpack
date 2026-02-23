@@ -1,0 +1,10 @@
+{
+  "wallet": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
+  "nodeStatus": "running",
+  "minerStatus": "running_v4_2workers",
+  "lastCheck": 1738670400,
+  "blocksFound": 20,
+  "blocksAccepted": 20,
+  "hashrate": "~7.5 kH/s",
+  "note": "v4 with 2 workers, low priority (nice -n 15)"
+}

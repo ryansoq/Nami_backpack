@@ -1,0 +1,12 @@
+{
+  "network": "testnet-10",
+  "wallet_name": "nami-testnet10",
+  "account_name": "Nami Mining Account",
+  "address": "kaspatest:qr68hdz05szaykfg6c79nl5aqe44fqjge48j3kcrpzh0txjc8am97sjahr9cn",
+  "mnemonic": "slot blind vacant essay roof trial rebuild differ daring pig kidney mixture",
+  "password": "nami-testnet-2026",
+  "wallet_path": "/home/ymchang/.kaspa/nami-testnet10.wallet",
+  "grpc_port": 16210,
+  "created_at": "2026-02-01T17:26:00+08:00",
+  "purpose": "Kaspa testnet mining with Ryan's Python miner"
+}
