@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning, message="overflow")
 """
 ═══════════════════════════════════════════════════════════════════════════════
   🌊 ShioKaze (潮風) - Nami's Kaspa Miner
