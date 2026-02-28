@@ -279,7 +279,7 @@ print(f'Address:     {addr.to_string()}')
     <div class="step-num">2</div>
     <div class="step-content">
       <h3>Send an Encrypted Message</h3>
-      <p>ECIES encrypts with recipient's public key. Only they can decrypt.</p>
+      <p>ECIES encrypts with recipient's public key. Covenant info is <strong>automatically uploaded</strong> to the API so the recipient can fetch it by TX ID alone.</p>
       <pre><code><span class="cmt"># Encrypted (default) — only recipient can read</span>
 <span class="fn">python3</span> encode.py \
   --to <span class="str">kaspatest:qq...recipient...</span> \
@@ -291,7 +291,10 @@ print(f'Address:     {addr.to_string()}')
   --to <span class="str">kaspatest:qq...</span> \
   --message <span class="str">"This is public"</span> \
   --key <span class="str">YOUR_KEY</span> \
-  <span class="kw">--plain</span></code></pre>
+  <span class="kw">--plain</span>
+
+<span class="cmt"># Skip API upload (local only)</span>
+<span class="fn">python3</span> encode.py ... <span class="kw">--local-only</span></code></pre>
       <p style="color:var(--text2);margin-top:12px">Output:</p>
       <pre><code>🌊 Whisper Covenant v2 — Encode
    From: kaspatest:qpy...
@@ -302,7 +305,12 @@ print(f'Address:     {addr.to_string()}')
 ✅ TX signed! ID: b1062cbd...
    Lock: 0.2001 tKAS → P2SH
 📡 TX submitted to kaspad!
-💾 Covenant info → covenant_info.json</code></pre>
+💾 Covenant info → covenant_info.json
+☁️  Covenant info uploaded to API</code></pre>
+      <div class="security-box" style="margin-top:12px">
+        <div class="label">🔒 What gets uploaded?</div>
+        <p style="color:var(--text2)">Only public covenant metadata (P2SH address, public keys, encrypted ciphertext). Your <strong>private key never leaves your machine</strong>.</p>
+      </div>
     </div>
   </div>
 
@@ -310,13 +318,21 @@ print(f'Address:     {addr.to_string()}')
     <div class="step-num">3</div>
     <div class="step-content">
       <h3>Receive & Decrypt</h3>
-      <p>Recipient decrypts locally and signs refund TX. Sender gets deposit back automatically.</p>
-      <pre><code><span class="fn">python3</span> decode.py \
+      <p>Recipient only needs the <strong>TX ID</strong> — covenant info is automatically fetched from the API. Decryption and refund signing happen locally.</p>
+      <pre><code><span class="cmt"># Just TX ID + your key — that's it!</span>
+<span class="fn">python3</span> decode.py \
   --tx <span class="str">b1062cbd...the_tx_id...</span> \
-  --key <span class="str">RECIPIENT_PRIVATE_KEY_HEX</span> \
+  --key <span class="str">RECIPIENT_PRIVATE_KEY_HEX</span>
+
+<span class="cmt"># Or use a local covenant_info file</span>
+<span class="fn">python3</span> decode.py \
+  --tx <span class="str">b1062cbd...</span> \
+  --key <span class="str">YOUR_KEY</span> \
   --info <span class="str">covenant_info.json</span></code></pre>
       <p style="color:var(--text2);margin-top:12px">Output:</p>
-      <pre><code>🌊 Whisper Covenant v2 — Decode
+      <pre><code>📡 Fetching covenant info from API...
+   ✅ Got covenant info from API
+🌊 Whisper Covenant v2 — Decode
    TX: b1062cbd...
    From: kaspatest:qqx...
    Type: whisper
@@ -351,6 +367,7 @@ print(f'Address:     {addr.to_string()}')
       <tr><td><code>GET</code></td><td><code>/api/status</code></td><td>Health check + version</td></tr>
       <tr><td><code>POST</code></td><td><code>/api/broadcast</code></td><td>Relay a pre-signed TX + save covenant info</td></tr>
       <tr><td><code>GET</code></td><td><code>/api/inbox</code></td><td>List pending whispers for an address</td></tr>
+      <tr><td><code>GET</code></td><td><code>/api/whisper/{tx_id}</code></td><td>Get covenant info for a specific TX</td></tr>
       <tr><td><code>POST</code></td><td><code>/api/send</code></td><td>⚠️ Legacy — server-side signing (deprecated)</td></tr>
       <tr><td><code>POST</code></td><td><code>/api/read</code></td><td>⚠️ Legacy — server-side signing (deprecated)</td></tr>
     </tbody>

@@ -41,8 +41,9 @@ async def main():
     parser = argparse.ArgumentParser(description="Whisper Covenant v2 — Decode & Refund locally")
     parser.add_argument("--tx", required=True, help="Whisper TX ID")
     parser.add_argument("--key", "-k", required=True, help="Recipient private key (hex)")
-    parser.add_argument("--info", default=None, help="Path to covenant_info.json (default: auto-detect)")
+    parser.add_argument("--info", default=None, help="Path to covenant_info.json (default: auto from API)")
     parser.add_argument("--no-refund", action="store_true", help="Only decrypt, don't spend covenant")
+    parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
     args = parser.parse_args()
 
     # ── Load covenant info ──
@@ -51,15 +52,33 @@ async def main():
         with open(args.info) as f:
             info = json.load(f)
     else:
-        # Try local file
+        # Try local file first
         info_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covenant_info.json")
         if os.path.exists(info_path):
             with open(info_path) as f:
-                info = json.load(f)
+                local_info = json.load(f)
+            if local_info.get("tx_id") == args.tx:
+                info = local_info
+
+        # Fallback: fetch from API
+        if not info:
+            import urllib.request
+            api_url = f"{args.api_url}/api/whisper/{args.tx}"
+            print(f"📡 Fetching covenant info from API...")
+            try:
+                req = urllib.request.Request(api_url)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if resp.status == 200:
+                        info = json.loads(resp.read().decode("utf-8"))
+                        print(f"   ✅ Got covenant info from API")
+                    else:
+                        print(f"   ❌ API returned {resp.status}")
+            except Exception as e:
+                print(f"   ❌ API fetch failed: {e}")
 
     if not info or info.get("tx_id") != args.tx:
         print(f"❌ No covenant info found for TX {args.tx}")
-        print(f"   Provide --info path or ensure covenant_info.json matches")
+        print(f"   Provide --info path or check API at {args.api_url}")
         sys.exit(1)
 
     # ── Verify recipient ──

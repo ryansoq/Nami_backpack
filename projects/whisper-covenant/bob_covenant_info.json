@@ -1,0 +1,12 @@
+{
+  "tx_id": "46f166ebabf5fcb4e649491300ecd2e3f647ddd49d5588be1f6d1cf4be33b372",
+  "covenant_script_hex": "240000204803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078cac00c3876900c204002d3101a269200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
+  "p2sh_address": "kaspatest:pq3x6hd2xjfa2y6grzh55qzrwrtxhfucmrs5gstmwm2wnfadcdusq08p8adnu",
+  "p2sh_spk": "aa20226d5daa3493d5134818af4a004370d66ba798d8e144417b76d4e9a7adc3790087",
+  "a_address": "kaspatest:qpyq8nx8s8y68cqsvyptnap43m8c5we8p0pl9wwzctxnpjsht5rccyf63eexm",
+  "a_spk": "204803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078cac",
+  "b_pubkey": "0d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19",
+  "deposit_sompi": 20000000,
+  "type": "whisper",
+  "output_index": 0
+}

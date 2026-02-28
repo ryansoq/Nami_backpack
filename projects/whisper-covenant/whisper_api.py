@@ -9,6 +9,7 @@ Endpoints:
   POST /api/send      — send whisper message (lock deposit in covenant)
   POST /api/read      — read whisper message (spend covenant, refund sender)
   GET  /api/inbox     — list pending messages for an address
+  GET  /api/whisper/{tx_id} — get single covenant info
 """
 
 import asyncio
@@ -33,6 +34,8 @@ NATIVE_SUBNETWORK = "00" * 20
 
 WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
 STATIC_DIR = Path(__file__).parent
+WHISPERS_DIR = STATIC_DIR / "whispers"
+WHISPERS_DIR.mkdir(exist_ok=True)
 API_KEY = os.environ.get("WHISPER_API_KEY", "whisper-testnet-poc-key")
 
 # ─── Script helpers (from covenant_send.py) ───────────────────────
@@ -88,8 +91,10 @@ def load_default_wallet():
 
 @web.middleware
 async def auth_middleware(request, handler):
-    # Skip auth for static files and status
+    # Skip auth for static files, status, inbox, and whisper lookups
     if request.path == "/" or request.path == "/api/status" or not request.path.startswith("/api/"):
+        return await handler(request)
+    if request.method == "GET" and (request.path == "/api/inbox" or request.path.startswith("/api/whisper/")):
         return await handler(request)
     
     key = request.headers.get("X-Whisper-Key", "")
@@ -104,7 +109,7 @@ async def handle_status(request):
         "status": "ok",
         "network": NETWORK_ID,
         "version": "0.1",
-        "endpoints": ["/api/status", "/api/send", "/api/read", "/api/inbox"],
+        "endpoints": ["/api/status", "/api/send", "/api/read", "/api/inbox", "/api/broadcast", "/api/whisper/{tx_id}"],
     })
 
 async def handle_send(request):
@@ -387,10 +392,17 @@ async def handle_broadcast(request):
     # Save covenant info if provided
     covenant_info = body.get("covenant_info")
     if covenant_info:
+        # Save to whispers/{tx_id}.json
+        tx_id = covenant_info.get("tx_id", "unknown")
+        whisper_path = WHISPERS_DIR / f"{tx_id}.json"
+        with open(whisper_path, "w") as f:
+            json.dump(covenant_info, f, indent=2)
+        # Also save to legacy covenant_info.json for backward compat
         info_path = STATIC_DIR / "covenant_info.json"
         with open(info_path, "w") as f:
             json.dump(covenant_info, f, indent=2)
         result["covenant_info_saved"] = True
+        result["tx_id"] = tx_id
 
     # Broadcast signed TX if provided (hex-encoded serialized TX)
     signed_tx_hex = body.get("signed_tx")
@@ -414,6 +426,30 @@ async def handle_broadcast(request):
     return web.json_response(result)
 
 
+async def handle_whisper_get(request):
+    """Get single covenant info by TX ID."""
+    tx_id = request.match_info.get("tx_id", "")
+    if not tx_id:
+        return web.json_response({"error": "Missing tx_id"}, status=400)
+
+    # Try whispers/ dir first, then legacy file
+    whisper_path = WHISPERS_DIR / f"{tx_id}.json"
+    if whisper_path.exists():
+        with open(whisper_path) as f:
+            info = json.load(f)
+        return web.json_response(info)
+
+    # Fallback: legacy covenant_info.json
+    info_path = STATIC_DIR / "covenant_info.json"
+    if info_path.exists():
+        with open(info_path) as f:
+            info = json.load(f)
+        if info.get("tx_id") == tx_id:
+            return web.json_response(info)
+
+    return web.json_response({"error": f"No covenant info found for TX {tx_id}"}, status=404)
+
+
 async def handle_inbox(request):
     """List pending whisper messages for an address."""
     import kaspa
@@ -423,46 +459,59 @@ async def handle_inbox(request):
         return web.json_response({"error": "Missing 'address' query param"}, status=400)
 
     try:
-        # For PoC: check covenant_info.json to see if there's a pending message
-        # In production, this would scan the UTXO set or use an indexer
-        info_path = STATIC_DIR / "covenant_info.json"
+        # Extract pubkey from address
+        try:
+            addr_obj = kaspa.Address(address)
+            spk = kaspa.pay_to_address_script(addr_obj)
+            script_bytes = bytes.fromhex(spk.script)
+            if len(script_bytes) == 34:
+                addr_pubkey = script_bytes[1:33].hex()
+            else:
+                addr_pubkey = None
+        except Exception:
+            addr_pubkey = None
+
+        if not addr_pubkey:
+            return web.json_response({"error": "Cannot extract pubkey from address"}, status=400)
+
         messages = []
 
-        if info_path.exists():
-            with open(info_path) as f:
-                info = json.load(f)
-
-            # Check if this address is the receiver (B)
-            # Extract pubkey from address
+        # Scan whispers/ directory
+        whisper_files = list(WHISPERS_DIR.glob("*.json"))
+        
+        # Also check legacy file
+        legacy_path = STATIC_DIR / "covenant_info.json"
+        legacy_tx_ids = set()
+        
+        for wf in whisper_files:
             try:
-                addr_obj = kaspa.Address(address)
-                spk = kaspa.pay_to_address_script(addr_obj)
-                script_bytes = bytes.fromhex(spk.script)
-                if len(script_bytes) == 34:
-                    addr_pubkey = script_bytes[1:33].hex()
-                else:
-                    addr_pubkey = None
+                with open(wf) as f:
+                    info = json.load(f)
+                legacy_tx_ids.add(info.get("tx_id"))
+                if info.get("b_pubkey") == addr_pubkey:
+                    messages.append({
+                        "tx_id": info["tx_id"],
+                        "sender": info.get("a_address", ""),
+                        "deposit": info.get("deposit_sompi", 0),
+                        "covenant_address": info.get("p2sh_address", ""),
+                    })
             except Exception:
-                addr_pubkey = None
+                continue
 
-            if addr_pubkey and addr_pubkey == info.get("b_pubkey"):
-                # Check if UTXO still exists (not yet read)
-                try:
-                    client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
-                    await client.connect()
-                    result = await client.get_utxos_by_addresses({"addresses": [info["p2sh_address"]]})
-                    entries = result.get("entries", [])
-                    await client.disconnect()
-
-                    if entries:
-                        messages.append({
-                            "tx_id": info["tx_id"],
-                            "sender": info["a_address"],
-                            "deposit": info["deposit_sompi"],
-                            "covenant_address": info["p2sh_address"],
-                        })
-                except Exception:
-                    pass
+        # Check legacy file if not already covered
+        if legacy_path.exists():
+            try:
+                with open(legacy_path) as f:
+                    info = json.load(f)
+                if info.get("tx_id") not in legacy_tx_ids and info.get("b_pubkey") == addr_pubkey:
+                    messages.append({
+                        "tx_id": info["tx_id"],
+                        "sender": info.get("a_address", ""),
+                        "deposit": info.get("deposit_sompi", 0),
+                        "covenant_address": info.get("p2sh_address", ""),
+                    })
+            except Exception:
+                pass
 
         return web.json_response({"address": address, "messages": messages})
 
@@ -482,6 +531,7 @@ def create_app():
     app.router.add_post("/api/read", handle_read)
     app.router.add_post("/api/broadcast", handle_broadcast)
     app.router.add_get("/api/inbox", handle_inbox)
+    app.router.add_get("/api/whisper/{tx_id}", handle_whisper_get)
 
     # Static files (index.html at root)
     app.router.add_get("/", lambda r: web.FileResponse(STATIC_DIR / "index.html"))

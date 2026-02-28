@@ -78,8 +78,8 @@ async def main():
     parser.add_argument("--message", "-m", required=True, help="Message text")
     parser.add_argument("--key", "-k", required=True, help="Sender private key (hex)")
     parser.add_argument("--plain", action="store_true", help="Send plaintext (type=message)")
-    parser.add_argument("--broadcast", action="store_true", help="Auto-broadcast via API")
-    parser.add_argument("--api-url", default="http://localhost:18803", help="Whisper API URL")
+    parser.add_argument("--local-only", action="store_true", help="Skip uploading covenant_info to API")
+    parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
     args = parser.parse_args()
 
     # ── Derive sender info ──
@@ -195,49 +195,41 @@ async def main():
         "output_index": 0,
     }
 
-    # ── Output or broadcast ──
-    if args.broadcast:
-        import aiohttp
-        # Submit directly to kaspad
-        try:
-            r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
-            submitted_id = r.get("transactionId", tx_id)
-            print(f"📡 Broadcast OK! TX: {submitted_id}")
+    # ── Submit TX to kaspad ──
+    try:
+        r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
+        submitted_id = r.get("transactionId", tx_id)
+        print(f"📡 TX submitted to kaspad! ID: {submitted_id}")
+    except Exception as e:
+        print(f"❌ Submit failed: {e}")
+        await client.disconnect()
+        sys.exit(1)
 
-            # Also save covenant_info via API
+    # Save covenant_info locally
+    info_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covenant_info.json")
+    with open(info_path, "w") as f:
+        json.dump(covenant_info, f, indent=2)
+    print(f"💾 Covenant info → {info_path}")
+
+    # ── Upload covenant_info to API (default) ──
+    if not args.local_only:
+        import aiohttp
+        api_key = os.environ.get("WHISPER_API_KEY", "whisper-testnet-poc-key")
+        try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     f"{args.api_url}/api/broadcast",
                     json={"covenant_info": covenant_info},
-                    headers={"X-Whisper-Key": "whisper-testnet-poc-key"}
+                    headers={"X-Whisper-Key": api_key}
                 ) as resp:
                     if resp.status == 200:
-                        print(f"💾 Covenant info saved to API")
+                        print(f"☁️  Covenant info uploaded to API")
                     else:
-                        print(f"⚠️  API save failed: {await resp.text()}")
+                        print(f"⚠️  API upload failed: {await resp.text()}")
         except Exception as e:
-            print(f"❌ Broadcast failed: {e}")
+            print(f"⚠️  API upload failed (offline?): {e}")
     else:
-        # Output signed TX for manual broadcast
-        # Submit to kaspad directly (we have the connection)
-        try:
-            r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
-            submitted_id = r.get("transactionId", tx_id)
-            print(f"📡 TX submitted to kaspad! ID: {submitted_id}")
-        except Exception as e:
-            print(f"❌ Submit failed: {e}")
-            await client.disconnect()
-            sys.exit(1)
-
-        # Save covenant_info locally
-        info_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covenant_info.json")
-        with open(info_path, "w") as f:
-            json.dump(covenant_info, f, indent=2)
-        print(f"💾 Covenant info → {info_path}")
-
-        # Also print for API broadcast
-        print(f"\n📋 Covenant info (for decode.py):")
-        print(json.dumps(covenant_info, indent=2))
+        print(f"   (--local-only: skipped API upload)")
 
     await client.disconnect()
 
