@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""
+🌊 Whisper Covenant — Send (A locks deposit + message for B)
+
+Usage: python3 covenant_send.py [message]
+
+Flow:
+  1. Connect to TN12 kaspad
+  2. Build covenant script: B can spend only if output[0] >= deposit to A
+  3. Create P2SH of covenant script
+  4. Send 0.2 tKAS to P2SH address with message in payload
+  5. Print TX ID and covenant info for B to use
+"""
+
+import asyncio
+import json
+import os
+import sys
+
+import kaspa
+
+# ─── Config ───────────────────────────────────────────────────────
+WRPC_URL = "ws://localhost:17210"
+NETWORK_ID = "testnet-12"
+NETWORK_TYPE = "testnet"
+DEPOSIT_SOMPI = 20_000_000  # 0.2 tKAS
+FEE_SOMPI = 10_000          # 0.0001 tKAS fee
+NATIVE_SUBNETWORK = "00" * 20
+
+WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
+
+# ─── Helpers ──────────────────────────────────────────────────────
+
+def push_data(data: bytes) -> bytes:
+    n = len(data)
+    if n == 0:
+        return bytes([0x00])
+    if n <= 75:
+        return bytes([n]) + data
+    elif n <= 255:
+        return bytes([0x4c, n]) + data
+    else:
+        return bytes([0x4d]) + n.to_bytes(2, "little") + data
+
+
+def push_int(val: int) -> bytes:
+    if val == 0:
+        return bytes([0x00])
+    if 1 <= val <= 16:
+        return bytes([0x50 + val])
+    neg = val < 0
+    abs_val = abs(val)
+    result = []
+    while abs_val > 0:
+        result.append(abs_val & 0xFF)
+        abs_val >>= 8
+    if result[-1] & 0x80:
+        result.append(0x80 if neg else 0x00)
+    elif neg:
+        result[-1] |= 0x80
+    return push_data(bytes(result))
+
+
+def build_covenant_script(a_spk_bytes: bytes, b_pubkey: bytes, deposit: int) -> bytes:
+    """
+    Covenant locking script (TN12 introspection opcodes):
+      <a_spk> <0> OP_TX_OUTPUT_SPK OP_EQUAL OP_VERIFY
+      <deposit> <0> OP_TX_OUTPUT_AMOUNT OP_GREATERTHANOREQUAL OP_VERIFY
+      <b_pubkey> OP_CHECKSIG
+
+    When B spends this UTXO, the script verifies:
+    1. output[0].script_public_key == A's address (refund goes to A)
+    2. output[0].amount >= deposit (full refund)
+    3. B's signature is valid
+    """
+    OP_TX_OUTPUT_SPK = 0xC3
+    OP_TX_OUTPUT_AMOUNT = 0xC2
+    OP_EQUAL = 0x87
+    OP_VERIFY = 0x69
+    OP_GTE = 0xA2
+    OP_CHECKSIG = 0xAC
+
+    s = b""
+    s += push_data(a_spk_bytes)
+    s += push_int(0)
+    s += bytes([OP_TX_OUTPUT_SPK, OP_EQUAL, OP_VERIFY])
+    s += push_int(deposit)
+    s += push_int(0)
+    s += bytes([OP_TX_OUTPUT_AMOUNT, OP_GTE, OP_VERIFY])
+    s += push_data(b_pubkey)
+    s += bytes([OP_CHECKSIG])
+    return s
+
+
+async def main():
+    message = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "Hello from Whisper Covenant!"
+
+    # Load wallet
+    with open(WALLET_PATH) as f:
+        wallet = json.load(f)
+
+    a_privkey = kaspa.PrivateKey(wallet["private_key"])
+    a_pubkey = a_privkey.to_public_key()
+    a_xonly = a_pubkey.to_x_only_public_key()
+    a_addr = a_xonly.to_address(NETWORK_TYPE)
+    a_addr_str = a_addr.to_string()
+    a_spk = kaspa.pay_to_address_script(a_addr)
+    a_spk_bytes = bytes.fromhex(a_spk.script)
+
+    print(f"🌊 Whisper Covenant — Send")
+    print(f"   A address: {a_addr_str}")
+    print(f"   Message: {message}")
+    print(f"   Deposit: {DEPOSIT_SOMPI / 1e8:.2f} tKAS")
+    print()
+
+    # For PoC, B = A (send to ourselves)
+    b_pubkey_bytes = bytes.fromhex(a_xonly.to_string())
+
+    # Build covenant script
+    covenant_script = build_covenant_script(a_spk_bytes, b_pubkey_bytes, DEPOSIT_SOMPI)
+    print(f"📜 Covenant script ({len(covenant_script)} bytes): {covenant_script.hex()}")
+
+    # Create P2SH
+    p2sh_spk = kaspa.pay_to_script_hash_script(covenant_script)
+    p2sh_addr = kaspa.address_from_script_public_key(p2sh_spk, NETWORK_TYPE)
+    p2sh_addr_str = p2sh_addr.to_string()
+    print(f"📦 P2SH address: {p2sh_addr_str}")
+    print()
+
+    # Connect to kaspad
+    client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
+    await client.connect()
+    print("✅ Connected to kaspad")
+
+    # Get UTXOs
+    result = await client.get_utxos_by_addresses({"addresses": [a_addr_str]})
+    entries = result.get("entries", [])
+    print(f"   Found {len(entries)} UTXOs")
+
+    # Filter mature UTXOs
+    dag_info = await client.get_block_dag_info()
+    current_daa = dag_info["virtualDaaScore"]
+
+    mature = []
+    for e in entries:
+        utxo = e["utxoEntry"]
+        if utxo["isCoinbase"] and (current_daa - utxo["blockDaaScore"]) < 500:
+            continue
+        if utxo["amount"] >= DEPOSIT_SOMPI + FEE_SOMPI + 10000:
+            mature.append(e)
+
+    if not mature:
+        print("❌ No suitable UTXO found!")
+        await client.disconnect()
+        return
+
+    selected = mature[0]
+    input_amount = selected["utxoEntry"]["amount"]
+    print(f"   Selected UTXO: {selected['outpoint']['transactionId']}:{selected['outpoint']['index']}")
+    print(f"   Amount: {input_amount / 1e8:.4f} tKAS")
+
+    # Build TX using create_transaction (attaches UTXO entries for signing)
+    change = input_amount - DEPOSIT_SOMPI - FEE_SOMPI
+    payload = message.encode("utf-8")
+
+    tx = kaspa.create_transaction(
+        [selected],
+        [
+            kaspa.PaymentOutput(kaspa.Address(p2sh_addr_str), DEPOSIT_SOMPI),
+            kaspa.PaymentOutput(kaspa.Address(a_addr_str), change),
+        ],
+        0,  # fee already accounted for
+        payload,
+    )
+
+    # Sign
+    kaspa.sign_transaction(tx, [a_privkey], False)
+
+    print(f"\n📝 TX ID: {tx.id}")
+    print(f"   Outputs: deposit={DEPOSIT_SOMPI/1e8:.2f} tKAS → P2SH, change={change/1e8:.4f} tKAS → A")
+    print(f"   Payload: {message}")
+
+    # Submit
+    try:
+        r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
+        tx_id = r.get("transactionId", tx.id)
+        print(f"\n✅ TX submitted! ID: {tx_id}")
+    except Exception as e:
+        print(f"\n❌ Submit failed: {e}")
+        await client.disconnect()
+        return
+
+    # Save covenant info for B
+    covenant_info = {
+        "tx_id": tx_id,
+        "covenant_script_hex": covenant_script.hex(),
+        "p2sh_address": p2sh_addr_str,
+        "p2sh_spk": p2sh_spk.script,
+        "a_address": a_addr_str,
+        "a_spk": a_spk.script,
+        "b_pubkey": a_xonly.to_string(),  # PoC: B = A
+        "deposit_sompi": DEPOSIT_SOMPI,
+        "message": message,
+        "output_index": 0,
+    }
+
+    info_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covenant_info.json")
+    with open(info_path, "w") as f:
+        json.dump(covenant_info, f, indent=2)
+    print(f"💾 Covenant info saved to {info_path}")
+
+    await client.disconnect()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

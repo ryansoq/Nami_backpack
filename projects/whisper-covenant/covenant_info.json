@@ -1,0 +1,12 @@
+{
+  "tx_id": "97a4555359f752c40233c0dcfc5caa7b41af96b01c325c2b1c6ff839401c5fe1",
+  "covenant_script_hex": "22200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876904002d310100c2a269200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
+  "p2sh_address": "kaspatest:prusar39s7pwg6xcyv73wcp3tkmg980m0eh4cqhp02fkdnluhvq8snwdvvjcv",
+  "p2sh_spk": "aa20f90e8e258782e468d8233d1760315db6829dfb7e6f5c02e17a9366cffcbb007887",
+  "a_address": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
+  "a_spk": "200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
+  "b_pubkey": "0d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19",
+  "deposit_sompi": 20000000,
+  "message": "Hello Whisper Covenant PoC!",
+  "output_index": 0
+}
