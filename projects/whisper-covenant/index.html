@@ -239,16 +239,24 @@ footer .nami{color:var(--accent);font-weight:700}
     <div class="step-num">0</div>
     <div class="step-content">
       <h3>Prerequisites</h3>
-      <p>Install Python dependencies and connect to a TN12 node.</p>
+      <p>Install Python dependencies, download the tools, and connect to a TN12 node.</p>
       <pre><code><span class="cmt"># Kaspa SDK + ECIES encryption</span>
 <span class="fn">pip install</span> kaspa eciespy
 
-<span class="cmt"># Clone the project</span>
-<span class="fn">git clone</span> https://github.com/ryansoq/Nami_backpack.git
-<span class="fn">cd</span> Nami_backpack/projects/whisper-covenant
+<span class="cmt"># Download encode/decode tools (or git clone the repo)</span>
+<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/encode.py
+<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/decode.py
 
 <span class="cmt"># Need a TN12 kaspad with wRPC:</span>
 <span class="cmt"># kaspad --testnet --netsuffix=12 --rpclisten-borsh=0.0.0.0:17210</span></code></pre>
+
+      <div style="margin-top:12px">
+        <strong>📥 Direct Downloads:</strong>
+        <a href="/static/encode.py" style="margin-left:12px">encode.py</a> ·
+        <a href="/static/decode.py">decode.py</a> ·
+        <a href="/static/QUICKSTART.md">QUICKSTART.md</a> ·
+        <a href="/static/README.md">README.md</a>
+      </div>
     </div>
   </div>
 
