@@ -37,18 +37,77 @@ def push_data(data: bytes) -> bytes:
         return bytes([0x4d]) + n.to_bytes(2, "little") + data
 
 
+def covenant_info_from_payload(payload_json, tx_id):
+    """Reconstruct covenant_info from on-chain payload's `a` field."""
+    a = payload_json["a"]
+    script_hex = a["script"]
+    script_bytes = bytes.fromhex(script_hex)
+
+    # Extract b_pubkey from covenant script (last 33 bytes before OP_CHECKSIG 0xac)
+    # Script ends with: push_data(b_pubkey_32) + 0xac
+    # So script[-1] == 0xac, script[-33:-1] == pubkey, script[-34] == 0x20 (push 32 bytes)
+    b_pubkey_hex = ""
+    if len(script_bytes) > 34 and script_bytes[-1] == 0xac and script_bytes[-34] == 0x20:
+        b_pubkey_hex = script_bytes[-33:-1].hex()
+
+    # Reconstruct p2sh_address from script
+    p2sh_address = ""
+    try:
+        covenant_script = script_bytes
+        p2sh_spk = kaspa.pay_to_script_hash_script(covenant_script)
+        p2sh_addr = kaspa.address_from_script_public_key(p2sh_spk, NETWORK_TYPE)
+        p2sh_address = p2sh_addr.to_string()
+    except Exception:
+        pass
+
+    # Reconstruct a_spk from a_address
+    a_spk = ""
+    try:
+        a_addr_obj = kaspa.Address(a["from"])
+        a_spk = kaspa.pay_to_address_script(a_addr_obj).script
+    except Exception:
+        # Fallback: use spk from payload if available
+        a_spk = a.get("spk", "")
+
+    return {
+        "tx_id": tx_id,
+        "covenant_script_hex": script_hex,
+        "p2sh_address": p2sh_address,
+        "p2sh_spk": p2sh_spk.script if p2sh_address else "",
+        "a_address": a["from"],
+        "a_spk": a_spk,
+        "b_pubkey": b_pubkey_hex,
+        "deposit_sompi": a["deposit"],
+        "d": payload_json["d"],
+        "type": payload_json["t"],
+        "output_index": 0,
+    }
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Whisper Covenant v2 — Decode & Refund locally")
     parser.add_argument("--tx", required=True, help="Whisper TX ID")
     parser.add_argument("--key", "-k", required=True, help="Recipient private key (hex)")
     parser.add_argument("--info", default=None, help="Path to covenant_info.json (default: auto from API)")
+    parser.add_argument("--payload", default=None, help="Raw TX payload JSON (offline decode, no API needed)")
     parser.add_argument("--no-refund", action="store_true", help="Only decrypt, don't spend covenant")
     parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
     args = parser.parse_args()
 
     # ── Load covenant info ──
+    # Priority: --payload > --info > local file > API > block explorer
     info = None
-    if args.info:
+
+    if args.payload:
+        # Reconstruct from on-chain payload JSON
+        try:
+            payload_json = json.loads(args.payload)
+            info = covenant_info_from_payload(payload_json, args.tx)
+            print(f"📦 Reconstructed covenant info from payload `a` field")
+        except Exception as e:
+            print(f"❌ Failed to parse --payload: {e}")
+            sys.exit(1)
+    elif args.info:
         with open(args.info) as f:
             info = json.load(f)
     else:
@@ -76,9 +135,35 @@ async def main():
             except Exception as e:
                 print(f"   ❌ API fetch failed: {e}")
 
+        # Fallback: try block explorer
+        if not info:
+            import urllib.request
+            explorer_url = f"https://api-tn12.kaspa.org/transactions/{args.tx}"
+            print(f"🔍 Trying block explorer...")
+            try:
+                req = urllib.request.Request(explorer_url)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if resp.status == 200:
+                        tx_data = json.loads(resp.read().decode("utf-8"))
+                        # Extract payload from TX data
+                        payload_hex = tx_data.get("payload", "")
+                        if payload_hex:
+                            payload_bytes = bytes.fromhex(payload_hex)
+                            payload_json = json.loads(payload_bytes.decode("utf-8"))
+                            if payload_json.get("a", {}).get("script"):
+                                info = covenant_info_from_payload(payload_json, args.tx)
+                                print(f"   ✅ Reconstructed from block explorer payload")
+                            else:
+                                print(f"   ⚠️ Payload found but no `a` field (old format?)")
+            except Exception as e:
+                print(f"   ❌ Block explorer failed: {e}")
+
     if not info or info.get("tx_id") != args.tx:
         print(f"❌ No covenant info found for TX {args.tx}")
-        print(f"   Provide --info path or check API at {args.api_url}")
+        print(f"   Options:")
+        print(f"     --payload '<JSON>'  (from on-chain TX payload)")
+        print(f"     --info <file>       (covenant_info.json)")
+        print(f"     API: {args.api_url}")
         sys.exit(1)
 
     # ── Verify recipient ──

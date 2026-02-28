@@ -195,7 +195,12 @@ async def handle_send(request):
                 "v": 1,
                 "t": "message",
                 "d": message,
-                "a": {"from": a_addr_str}
+                "a": {
+                    "from": a_addr_str,
+                    "script": covenant_script.hex(),
+                    "spk": a_spk.script,
+                    "deposit": DEPOSIT_SOMPI,
+                }
             }, ensure_ascii=False).encode("utf-8")
 
             tx = kaspa.create_transaction(

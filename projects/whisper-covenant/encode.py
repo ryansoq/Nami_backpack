@@ -112,17 +112,22 @@ async def main():
         ciphertext = ecies_encrypt(compressed_hex, args.message.encode("utf-8"))
         data_str = ciphertext.hex()
 
-    # ── Build payload ──
+    # ── Build covenant ──
+    covenant_script = build_covenant_script(a_spk_bytes, b_pubkey_bytes, DEPOSIT_SOMPI)
+
+    # ── Build payload (includes covenant metadata in `a` for on-chain self-containment) ──
     payload_obj = {
         "v": 1,
         "t": msg_type,
         "d": data_str,
-        "a": {"from": a_addr_str}
+        "a": {
+            "from": a_addr_str,
+            "script": covenant_script.hex(),
+            "spk": a_spk.script,
+            "deposit": DEPOSIT_SOMPI,
+        }
     }
     payload = json.dumps(payload_obj, ensure_ascii=False).encode("utf-8")
-
-    # ── Build covenant ──
-    covenant_script = build_covenant_script(a_spk_bytes, b_pubkey_bytes, DEPOSIT_SOMPI)
     p2sh_spk = kaspa.pay_to_script_hash_script(covenant_script)
     p2sh_addr = kaspa.address_from_script_public_key(p2sh_spk, NETWORK_TYPE)
     p2sh_addr_str = p2sh_addr.to_string()

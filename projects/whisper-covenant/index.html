@@ -123,6 +123,7 @@ footer .nami{color:var(--accent);font-weight:700}
   <a href="#architecture">Architecture</a>
   <a href="#security">Security</a>
   <a href="#quickstart">Quick Start</a>
+  <a href="#offline">Offline</a>
   <a href="#api">API</a>
   <a href="#covenant">Covenant Script</a>
   <a href="#format">Message Format</a>
@@ -354,6 +355,44 @@ print(f'Address:     {addr.to_string()}')
 </div>
 </section>
 
+<!-- Offline Decode -->
+<section id="offline">
+<div class="container">
+  <h2><span class="icon">🔌</span>Offline Decode (No API Needed)</h2>
+
+  <div class="principle">
+    <h3>🛡️ Fully Self-Contained</h3>
+    <p>If the API is down, you can still decrypt and refund using the TX payload alone. All covenant metadata lives in the <code>a</code> field on-chain.</p>
+  </div>
+
+  <h3>Option 1: Pass payload directly</h3>
+  <pre><code><span class="cmt"># Get the TX payload from a block explorer or kaspad, then:</span>
+<span class="fn">python3</span> decode.py \
+  --tx <span class="str">b1062cbd...</span> \
+  --key <span class="str">YOUR_PRIVATE_KEY</span> \
+  --payload <span class="str">'{"v":1,"t":"whisper","d":"04ab...","a":{"from":"kaspatest:qq...","script":"...","spk":"...","deposit":20000000}}'</span></code></pre>
+
+  <h3>Option 2: Auto-fetch from block explorer</h3>
+  <pre><code><span class="cmt"># decode.py automatically tries these sources in order:</span>
+<span class="cmt"># 1. --payload (manual)              ← fastest, fully offline</span>
+<span class="cmt"># 2. --info covenant_info.json       ← local file</span>
+<span class="cmt"># 3. API /api/whisper/{tx_id}        ← cache server</span>
+<span class="cmt"># 4. Block explorer (api-tn12)       ← on-chain fallback</span>
+
+<span class="fn">python3</span> decode.py --tx <span class="str">b1062cbd...</span> --key <span class="str">YOUR_KEY</span>
+<span class="cmt"># It just works™ — tries all sources automatically</span></code></pre>
+
+  <h3>How it reconstructs covenant_info from payload</h3>
+  <pre><code><span class="cmt"># The `a` field contains everything:</span>
+<span class="cmt"># - script → covenant redeem script (for signing)</span>
+<span class="cmt"># - from   → sender address (refund destination)</span>
+<span class="cmt"># - spk    → sender SPK (for verification)</span>
+<span class="cmt"># - deposit → minimum refund amount</span>
+<span class="cmt"># b_pubkey is extracted from the covenant script itself</span>
+<span class="cmt"># p2sh_address is recomputed from the script</span></code></pre>
+</div>
+</section>
+
 <!-- API Reference -->
 <section id="api">
 <div class="container">
@@ -401,12 +440,22 @@ print(f'Address:     {addr.to_string()}')
   <h2><span class="icon">📨</span>Message Format</h2>
   <p>All messages use a unified JSON structure in the TX payload:</p>
 
+  <div class="principle">
+    <h3>💡 All Info Is On-Chain!</h3>
+    <p>Since v2, the <code>a</code> field contains everything needed to decrypt and refund — no API required. The API is just a convenient cache.</p>
+  </div>
+
   <pre><code><span class="cmt">// Payload JSON (encoded as UTF-8 bytes in TX payload)</span>
 {
   <span class="str">"v"</span>: <span class="num">1</span>,                          <span class="cmt">// Protocol version</span>
   <span class="str">"t"</span>: <span class="str">"whisper"</span>,                   <span class="cmt">// Type: "whisper" | "message" | "ack"</span>
   <span class="str">"d"</span>: <span class="str">"&lt;ECIES ciphertext hex&gt;"</span>,    <span class="cmt">// Data (encrypted or plaintext)</span>
-  <span class="str">"a"</span>: { <span class="str">"from"</span>: <span class="str">"kaspatest:qq..."</span> } <span class="cmt">// Attributes</span>
+  <span class="str">"a"</span>: {                             <span class="cmt">// Covenant metadata (on-chain!)</span>
+    <span class="str">"from"</span>: <span class="str">"kaspatest:qq..."</span>,       <span class="cmt">// Sender address</span>
+    <span class="str">"script"</span>: <span class="str">"&lt;covenant hex&gt;"</span>,     <span class="cmt">// Full covenant redeem script</span>
+    <span class="str">"spk"</span>: <span class="str">"&lt;sender spk hex&gt;"</span>,      <span class="cmt">// Sender's ScriptPublicKey</span>
+    <span class="str">"deposit"</span>: <span class="num">20000000</span>             <span class="cmt">// Deposit amount (sompi)</span>
+  }
 }</code></pre>
 
   <table>
