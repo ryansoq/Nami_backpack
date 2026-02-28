@@ -43,7 +43,24 @@ JSON payload in transaction: `{v, t, d, a}`
 | `v` | Version, currently `1` |
 | `t` | Type: `whisper` (encrypted) / `message` (plaintext) / `ack` (read receipt) |
 | `d` | Data: ECIES ciphertext hex / plaintext string / original TX ID |
-| `a` | Attributes: `from` (sender address), `time` (timestamp) |
+| `a` | Attributes: covenant metadata (see below) |
+
+### The `a` Field — On-Chain Self-Containment 🆕
+
+For `whisper`/`message` types, `a` contains **full covenant metadata**:
+
+```json
+{
+  "from": "kaspatest:qq...",     // sender address
+  "script": "0a0b0c...",         // covenant redeem script (hex)
+  "spk": "20abcd...ac",          // sender's ScriptPublicKey
+  "deposit": 20000000             // deposit in sompi
+}
+```
+
+This means **anyone with the recipient's private key can fully reconstruct the covenant and decrypt offline** — no server, no file exchange needed. The chain IS the database.
+
+For `ack` type: `{"time": <unix_timestamp>}`
 
 ### whisper — Encrypted Message
 
@@ -128,7 +145,11 @@ Outputs:
 ### decode.py — Local Decrypt + Refund
 
 ```bash
+# Auto-fetch covenant info (API → explorer → payload)
 python3 decode.py --tx <tx_id> --key <privkey>
+
+# Fully offline: pass TX payload directly
+python3 decode.py --tx <tx_id> --key <privkey> --payload '{"v":1,"t":"whisper","d":"...","a":{...}}'
 
 # Decrypt only, no refund
 python3 decode.py --tx <tx_id> --key <privkey> --no-refund
@@ -136,6 +157,8 @@ python3 decode.py --tx <tx_id> --key <privkey> --no-refund
 # Custom covenant_info path
 python3 decode.py --tx <tx_id> --key <privkey> --info /path/to/covenant_info.json
 ```
+
+**Fallback chain**: `--payload` → `--info` → local file → API → block explorer
 
 Automatically:
 1. Loads covenant info from `covenant_info.json`
@@ -167,9 +190,9 @@ Automatically:
 
 **Anti-spam**: Unread = sender loses 0.2 KAS. Read = full refund.
 
-## Test Results (TN12, 2026-02-28)
+## Test Results (TN12)
 
-### v2 ECIES End-to-End (Nami → Bob)
+### v2 ECIES End-to-End: Nami → Bob (2026-02-28)
 
 **Send** (encode.py — encrypted whisper):
 - **TX**: `b1062cbd7db2dce21cf307290e77c791e8f9d9b64ee4536bf32c6bc97cc97509`
@@ -183,7 +206,15 @@ Automatically:
 - Covenant enforced: refund 0.2 tKAS → Nami's address ✅
 - Signed locally with Bob's private key
 
-### v0.1 Plaintext Test (earlier)
+### Bob Offline Decrypt (2026-03-01) 🆕
+
+Bob decrypted a whisper using `--payload` flag — **no API server, no covenant_info file needed!**
+
+- **Refund TX**: `a265dd564d15608bda5bc8f1a040a0b0e0a044e3f874519d004cbc292b177feb`
+- Used `decode.py --payload '<JSON from on-chain TX>'` to reconstruct covenant info from the `a` field
+- Proves the protocol is fully self-contained on-chain ✅
+
+### v0.1 Plaintext Test (2026-02-28)
 
 - Send TX: `18e496038976ae8b0dcf8d68b8dc3c738b5febf68fe14b3c06af1ea1efa22942`
 - Read TX: `04c83afa2f82ff42587e1ae06363716362c5cece69b653aa74e3c57bc7936b28`

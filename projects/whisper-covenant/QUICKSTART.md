@@ -119,6 +119,38 @@ python3 decode.py \
 2. 用你的私鑰簽名 refund TX → covenant 驗證通過
 3. **0.2 tKAS 自動退回給發送者** → trustless！
 
+## 🔌 離線解密（不需要任何 server！）
+
+**v2 核心突破**：TX payload 的 `a` 欄位包含完整 covenant metadata，可以完全離線解密。
+
+### 方法 1: 從區塊瀏覽器手動取得 payload
+
+```bash
+# 1. 查 TX payload（任何 Kaspa API 都行）
+curl -s "https://api-tn12.kaspa.org/transactions/<TX_ID>" | jq -r '.payload'
+
+# 2. Hex → JSON
+python3 -c "print(bytes.fromhex('<payload_hex>').decode())"
+
+# 3. 用 --payload 離線解密
+python3 decode.py \
+  --tx <TX_ID> \
+  --key YOUR_PRIVATE_KEY \
+  --payload '{"v":1,"t":"whisper","d":"<密文>","a":{"from":"kaspatest:qq...","script":"<hex>","spk":"<hex>","deposit":20000000}}'
+```
+
+### 方法 2: decode.py 自動 fallback
+
+`decode.py` 會依序嘗試：
+1. `--payload` 參數 → 完全離線 ✅
+2. `--info` 檔案 → 本地檔案
+3. 本地 `covenant_info.json`（TX ID 吻合時）
+4. Whisper API → 需要 server
+5. 區塊瀏覽器 → 從 payload `a` 欄位重建 ✅
+
+**為什麼能離線？**
+因為 `a` 欄位包含了重建 covenant 所需的一切資訊（redeem script、sender SPK、deposit 金額），不需要額外的 covenant_info 檔案或 API server。
+
 ## Step 4: 用 API 查看 inbox（開發中）
 
 ```bash
