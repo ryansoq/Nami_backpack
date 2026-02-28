@@ -373,6 +373,47 @@ async def handle_read(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
+async def handle_broadcast(request):
+    """Broadcast a pre-signed TX and/or save covenant info."""
+    import kaspa
+
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    result = {}
+
+    # Save covenant info if provided
+    covenant_info = body.get("covenant_info")
+    if covenant_info:
+        info_path = STATIC_DIR / "covenant_info.json"
+        with open(info_path, "w") as f:
+            json.dump(covenant_info, f, indent=2)
+        result["covenant_info_saved"] = True
+
+    # Broadcast signed TX if provided (hex-encoded serialized TX)
+    signed_tx_hex = body.get("signed_tx")
+    if signed_tx_hex:
+        try:
+            client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
+            await client.connect()
+            try:
+                tx = kaspa.Transaction.deserialize(bytes.fromhex(signed_tx_hex))
+                r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
+                result["tx_id"] = r.get("transactionId", "")
+                result["status"] = "broadcast"
+            finally:
+                await client.disconnect()
+        except Exception as e:
+            return web.json_response({"error": f"Broadcast failed: {e}"}, status=500)
+
+    if not result:
+        return web.json_response({"error": "Provide 'signed_tx' and/or 'covenant_info'"}, status=400)
+
+    return web.json_response(result)
+
+
 async def handle_inbox(request):
     """List pending whisper messages for an address."""
     import kaspa
@@ -439,6 +480,7 @@ def create_app():
     app.router.add_get("/api/status", handle_status)
     app.router.add_post("/api/send", handle_send)
     app.router.add_post("/api/read", handle_read)
+    app.router.add_post("/api/broadcast", handle_broadcast)
     app.router.add_get("/api/inbox", handle_inbox)
 
     # Static files (index.html at root)
