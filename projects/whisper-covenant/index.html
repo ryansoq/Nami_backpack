@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌊 Whisper — Trustless Messages on Kaspa</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--accent:#00ced1;--accent2:#00b4d8;--text:#e0e0e0;--text2:#a0a0a0;--code-bg:#0d1117;--green:#00e676;--yellow:#ffd600;--pink:#ff6b9d}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.7;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.container{max-width:900px;margin:0 auto;padding:0 24px}
+
+/* Hero */
+.hero{text-align:center;padding:80px 24px 60px;background:linear-gradient(135deg,var(--bg) 0%,var(--bg2) 50%,var(--bg3) 100%);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 30% 50%,rgba(0,206,209,.07) 0%,transparent 50%);animation:pulse 8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+.hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;margin-bottom:16px;position:relative}
+.hero h1 .accent{color:var(--accent);text-shadow:0 0 30px rgba(0,206,209,.4)}
+.hero p{font-size:1.2rem;color:var(--text2);max-width:600px;margin:0 auto;position:relative}
+.badge{display:inline-block;background:var(--accent);color:var(--bg);font-size:.75rem;font-weight:700;padding:4px 12px;border-radius:20px;margin-bottom:16px;letter-spacing:1px}
+
+/* Sections */
+section{padding:60px 0}
+section:nth-child(even){background:var(--bg2)}
+h2{font-size:1.8rem;font-weight:700;margin-bottom:24px;color:#fff}
+h2 .icon{margin-right:8px}
+h3{font-size:1.2rem;color:var(--accent);margin:20px 0 10px}
+
+/* ASCII diagram */
+.diagram{background:var(--code-bg);border:1px solid #30363d;border-radius:12px;padding:24px;overflow-x:auto;font-family:'Cascadia Code','Fira Code',monospace;font-size:.85rem;line-height:1.6;white-space:pre;color:var(--accent)}
+
+/* Code blocks */
+pre{background:var(--code-bg);border:1px solid #30363d;border-radius:12px;padding:20px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Courier New',monospace}
+.kw{color:#ff7b72}.str{color:#a5d6ff}.num{color:#79c0ff}.cmt{color:#8b949e;font-style:italic}.fn{color:#d2a8ff}.op{color:#ff7b72}.type{color:var(--accent)}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin-top:20px}
+.card{background:var(--code-bg);border:1px solid #30363d;border-radius:12px;padding:24px;transition:border-color .2s}
+.card:hover{border-color:var(--accent)}
+.card .emoji{font-size:2rem;margin-bottom:12px}
+.card h3{color:#fff;margin:0 0 8px}
+.card p{color:var(--text2);font-size:.9rem;margin:0}
+
+/* Table */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.9rem}
+th{background:var(--bg3);color:var(--accent);text-align:left;padding:12px 16px;font-weight:600}
+td{padding:10px 16px;border-bottom:1px solid #30363d}
+td code{background:rgba(0,206,209,.1);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:.85rem}
+tr:hover td{background:rgba(0,206,209,.03)}
+
+/* Result box */
+.result{background:var(--code-bg);border:1px solid var(--green);border-radius:12px;padding:20px;margin:16px 0}
+.result .label{color:var(--green);font-weight:700;font-size:.85rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.result .tx{font-family:monospace;font-size:.8rem;word-break:break-all;color:var(--text2)}
+
+/* Script line */
+.script-line{display:flex;gap:16px;padding:8px 0;border-bottom:1px solid #1a1f2e;align-items:flex-start}
+.script-line:last-child{border:none}
+.script-code{flex:0 0 auto;font-family:monospace;color:var(--accent);min-width:220px;font-size:.9rem}
+.script-desc{color:var(--text2);font-size:.9rem}
+
+/* Footer */
+footer{text-align:center;padding:40px 24px;color:var(--text2);font-size:.9rem;border-top:1px solid #30363d}
+footer .nami{color:var(--accent);font-weight:700}
+
+/* Responsive */
+@media(max-width:600px){
+  .hero{padding:50px 16px 40px}
+  section{padding:40px 0}
+  .container{padding:0 16px}
+  pre,.diagram{font-size:.75rem;padding:14px}
+  .script-line{flex-direction:column;gap:4px}
+  .script-code{min-width:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="badge">KASPA TN12 • COVENANT INTROSPECTION</div>
+  <h1>🌊 <span class="accent">Whisper</span></h1>
+  <h1>Trustless Messages on Kaspa</h1>
+  <p>Send on-chain messages with automatic refunds. Zero cost for senders. Powered by covenant introspection opcodes.</p>
+</div>
+
+<!-- How it works -->
+<section>
+<div class="container">
+  <h2><span class="icon">📡</span>How It Works</h2>
+  <p>A sends a message to B by locking 0.2 KAS into a covenant script. When B reads the message (spends the UTXO), the covenant <strong>enforces</strong> that 0.2 KAS is refunded to A. Result: A only pays tx fees, B reads for free.</p>
+  <div class="diagram">
+ A (sender)              Covenant UTXO              B (receiver)
+     │                        │                          │
+     ├── lock 0.2 KAS ──────►│  P2SH script             │
+     │   + message payload    │  enforces refund → A     │
+     │                        │                          │
+     │                        │◄── B spends (reads) ─────┤
+     │◄── 0.2 KAS refund ────│    covenant verifies:     │
+     │   (enforced by script) │    ✓ output[0] → A       │
+     │                        │    ✓ amount ≥ 0.2 KAS    │
+     │                        │    ✓ signed by B          │
+  </div>
+
+  <h3>Message Format (in TX payload)</h3>
+  <pre><code><span class="cmt">// 4 bytes magic + 1 byte version + 32 bytes pubkey + 2 bytes msg_len + message</span>
+<span class="str">WHSP</span> <span class="num">0x01</span> <span class="op">&lt;sender_pubkey 32B&gt;</span> <span class="op">&lt;msg_len 2B LE&gt;</span> <span class="str">&lt;UTF-8 message&gt;</span></code></pre>
+</div>
+</section>
+
+<!-- Why Covenant -->
+<section>
+<div class="container">
+  <h2><span class="icon">🔐</span>Why Covenant?</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="emoji">💸</div>
+      <h3>Near-Zero Cost</h3>
+      <p>Sender locks a deposit that gets refunded automatically. Only mining fees are spent (~0.0001 KAS).</p>
+    </div>
+    <div class="card">
+      <div class="emoji">🤝</div>
+      <h3>Trustless</h3>
+      <p>The covenant script is the law. B cannot spend without refunding A. No intermediary needed.</p>
+    </div>
+    <div class="card">
+      <div class="emoji">🔍</div>
+      <h3>On-Chain Verifiable</h3>
+      <p>Every message and refund is a real transaction. Anyone can verify the complete flow on the explorer.</p>
+    </div>
+    <div class="card">
+      <div class="emoji">🛡️</div>
+      <h3>Secure by Design</h3>
+      <p>SPK pinning ensures refund goes to the exact address. Only B's signature can unlock the covenant.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Quick Start -->
+<section>
+<div class="container">
+  <h2><span class="icon">🚀</span>Quick Start</h2>
+  <p>Install the Kaspa Python SDK, then send your first whisper:</p>
+  <pre><code><span class="cmt"># Install</span>
+<span class="fn">pip install</span> kaspa
+
+<span class="cmt"># Requires a TN12 node running:</span>
+<span class="cmt"># kaspad --testnet --netsuffix=12 --rpclisten-borsh=0.0.0.0:17210</span></code></pre>
+
+  <h3>Send a Message (Lock Deposit)</h3>
+  <pre><code><span class="kw">from</span> whisper_covenant_v01 <span class="kw">import</span> *
+
+<span class="cmt"># Build covenant script</span>
+a_spk = encode_spk_bytes(a_pubkey_bytes)
+script = create_covenant_script(a_spk, b_pubkey_bytes, <span class="num">20_000_000</span>)
+
+<span class="cmt"># Send message — locks 0.2 KAS into P2SH covenant</span>
+result = <span class="kw">await</span> send_message(
+    sender_privkey_hex,
+    receiver_pubkey_hex,
+    <span class="str">"Hello from Whisper! 🌊"</span>
+)
+<span class="fn">print</span>(result[<span class="str">"tx_id"</span>])  <span class="cmt"># → TX on TN12</span></code></pre>
+
+  <h3>Read a Message (Spend & Refund)</h3>
+  <pre><code><span class="cmt"># B reads the message — covenant auto-refunds 0.2 KAS to A</span>
+result = <span class="kw">await</span> read_message(
+    receiver_privkey_hex,
+    covenant_utxo
+)
+<span class="fn">print</span>(result[<span class="str">"message"</span>])   <span class="cmt"># → "Hello from Whisper! 🌊"</span>
+<span class="fn">print</span>(result[<span class="str">"refund_tx"</span>]) <span class="cmt"># → Refund TX confirmed ✅</span></code></pre>
+</div>
+</section>
+
+<!-- Covenant Script Breakdown -->
+<section>
+<div class="container">
+  <h2><span class="icon">📜</span>Covenant Script Breakdown</h2>
+  <p>The redeem script lives inside P2SH. When B spends, the script engine verifies all three conditions:</p>
+
+  <div style="margin-top:20px">
+    <h3>Part 1 — Verify Refund Address</h3>
+    <div class="script-line"><span class="script-code">&lt;A_spk_bytes&gt;</span><span class="script-desc">Push A's ScriptPublicKey bytes (version 2B + script)</span></div>
+    <div class="script-line"><span class="script-code">OP_FALSE</span><span class="script-desc">Push output index 0</span></div>
+    <div class="script-line"><span class="script-code">OP_TX_OUTPUT_SPK</span><span class="script-desc">Introspect spending TX → get output[0]'s SPK</span></div>
+    <div class="script-line"><span class="script-code">OP_EQUAL</span><span class="script-desc">Compare: output[0] SPK == A's SPK?</span></div>
+    <div class="script-line"><span class="script-code">OP_VERIFY</span><span class="script-desc">✅ Abort if output[0] doesn't pay to A</span></div>
+
+    <h3>Part 2 — Verify Refund Amount</h3>
+    <div class="script-line"><span class="script-code">&lt;20000000&gt;</span><span class="script-desc">Push 0.2 KAS (in sompi)</span></div>
+    <div class="script-line"><span class="script-code">OP_FALSE</span><span class="script-desc">Push output index 0</span></div>
+    <div class="script-line"><span class="script-code">OP_TX_OUTPUT_AMOUNT</span><span class="script-desc">Introspect spending TX → get output[0]'s amount</span></div>
+    <div class="script-line"><span class="script-code">OP_GREATERTHANOREQUAL</span><span class="script-desc">Check: output amount ≥ 0.2 KAS?</span></div>
+    <div class="script-line"><span class="script-code">OP_VERIFY</span><span class="script-desc">✅ Abort if refund too small</span></div>
+
+    <h3>Part 3 — Verify Receiver Signature</h3>
+    <div class="script-line"><span class="script-code">&lt;B_pubkey&gt;</span><span class="script-desc">Push B's 32-byte Schnorr pubkey</span></div>
+    <div class="script-line"><span class="script-code">OP_CHECKSIG</span><span class="script-desc">✅ Only B can spend this UTXO</span></div>
+  </div>
+</div>
+</section>
+
+<!-- Opcode Reference -->
+<section>
+<div class="container">
+  <h2><span class="icon">⚙️</span>TN12 Covenant Opcodes</h2>
+  <p>These introspection opcodes let scripts inspect the spending transaction itself:</p>
+  <table>
+    <thead>
+      <tr><th>Opcode</th><th>Hex</th><th>Stack Effect</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>OP_TX_OUTPUT_SPK</code></td><td><code>0xc3</code></td><td><code>&lt;idx&gt; → &lt;spk_bytes&gt;</code></td><td>Get output's ScriptPublicKey</td></tr>
+      <tr><td><code>OP_TX_OUTPUT_AMOUNT</code></td><td><code>0xc2</code></td><td><code>&lt;idx&gt; → &lt;amount_i64&gt;</code></td><td>Get output's amount in sompi</td></tr>
+      <tr><td><code>OP_TX_INPUT_COUNT</code></td><td><code>0xb3</code></td><td><code>→ &lt;count&gt;</code></td><td>Number of inputs</td></tr>
+      <tr><td><code>OP_TX_OUTPUT_COUNT</code></td><td><code>0xb4</code></td><td><code>→ &lt;count&gt;</code></td><td>Number of outputs</td></tr>
+      <tr><td><code>OP_TX_INPUT_AMOUNT</code></td><td><code>0xbe</code></td><td><code>&lt;idx&gt; → &lt;amount_i64&gt;</code></td><td>Get input's amount in sompi</td></tr>
+    </tbody>
+  </table>
+
+  <h3>SPK Bytes Format</h3>
+  <p><code>OP_TX_OUTPUT_SPK</code> pushes <code>version(2 bytes BE) + script_bytes</code>:</p>
+  <pre><code><span class="cmt">// P2PK SPK bytes (36 bytes total):</span>
+<span class="num">0x0000</span>                          <span class="cmt">// version (2 bytes, big-endian)</span>
+<span class="num">0x20</span> <span class="op">&lt;32-byte-pubkey&gt;</span> <span class="num">0xac</span>    <span class="cmt">// OP_DATA_32 + pubkey + OP_CHECKSIG</span></code></pre>
+</div>
+</section>
+
+<!-- Test Results -->
+<section>
+<div class="container">
+  <h2><span class="icon">✅</span>Test Results (TN12, 2026-02-28)</h2>
+  <p>End-to-end test completed successfully on Kaspa Testnet 12:</p>
+
+  <div class="result">
+    <div class="label">📤 Send TX — A locks deposit + message</div>
+    <div class="tx"><a href="https://explorer-tn12.kaspa.org/txs/18e496038976ae8b0dcf8d68b8dc3c738b5febf68fe14b3c06af1ea1efa22942" target="_blank">18e496038976ae8b0dcf8d68b8dc3c738b5febf68fe14b3c06af1ea1efa22942</a></div>
+    <p style="margin-top:8px;color:var(--text2);font-size:.9rem">Locked 0.2001 tKAS to P2SH covenant address. Message: <em>"Whisper Covenant PoC - B reads and refunds A"</em></p>
+  </div>
+
+  <div class="result">
+    <div class="label">📥 Read TX — B spends → A gets refund</div>
+    <div class="tx"><a href="https://explorer-tn12.kaspa.org/txs/04c83afa2f82ff42587e1ae06363716362c5cece69b653aa74e3c57bc7936b28" target="_blank">04c83afa2f82ff42587e1ae06363716362c5cece69b653aa74e3c57bc7936b28</a></div>
+    <p style="margin-top:8px;color:var(--text2);font-size:.9rem">B signed and spent covenant UTXO. Covenant enforced: output[0] = 0.2 tKAS → A's address ✅</p>
+  </div>
+
+  <h3>Key Insights</h3>
+  <ul style="color:var(--text2);padding-left:20px">
+    <li><code>kaspa.create_input_signature()</code> + <code>kaspa.pay_to_script_hash_signature_script()</code> handle P2SH signing</li>
+    <li>sig_op_count = 1 (one OP_CHECKSIG in redeem script)</li>
+    <li>Fee buffer in covenant UTXO allows B to pay mining fee from the locked amount</li>
+    <li>Single output avoids storage mass issues</li>
+  </ul>
+</div>
+</section>
+
+<!-- Limitations -->
+<section>
+<div class="container">
+  <h2><span class="icon">🔮</span>Roadmap & Limitations</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="emoji">✅</div>
+      <h3>Done (v0.1)</h3>
+      <p>Covenant script • SPK encoding • Message encode/decode • P2SH send & spend • RPC integration • E2E test on TN12</p>
+    </div>
+    <div class="card">
+      <div class="emoji">🔜</div>
+      <h3>Next Up</h3>
+      <p>Message encryption • Expiry mechanism (A can reclaim) • Message scanning / indexer • Multi-recipient</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<footer>
+  <p>Built by <span class="nami">Nami 🌊</span> on Kaspa TN12</p>
+  <p style="margin-top:8px;font-size:.8rem;color:#555">Covenant introspection opcodes • Trustless by design • 2026</p>
+</footer>
+
+</body>
+</html>

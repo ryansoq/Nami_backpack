@@ -1,5 +1,5 @@
 {
-  "tx_id": "18e496038976ae8b0dcf8d68b8dc3c738b5febf68fe14b3c06af1ea1efa22942",
+  "tx_id": "9a300edd922054efbaa5ff4df904d9f36547606830d03cd6ccffdbe599c45e07",
   "covenant_script_hex": "240000200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876900c204002d3101a269200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
   "p2sh_address": "kaspatest:pqk9eym4uh7spf427xa9sq3denhw7uwccsjst0fs9dgfa4g6j4c4k5042s52c",
   "p2sh_spk": "aa202c5c9375e5fd00a6aaf1ba58022dcceeef71d8c42505bd302b509ed51a95715b87",
@@ -7,6 +7,6 @@
   "a_spk": "200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
   "b_pubkey": "0d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19",
   "deposit_sompi": 20000000,
-  "message": "Whisper Covenant PoC - B reads and refunds A",
+  "message": "Hey Bob! This is the first Whisper message sent via API. Trustless, on-chain, covenant-enforced. \ud83c\udf0a",
   "output_index": 0
 }
