@@ -1,5 +1,5 @@
 {
-  "tx_id": "56b00228a2454b9b2c9cced667e42caca2742cda8e335e25a5a915e688e345fd",
+  "tx_id": "b1062cbd7db2dce21cf307290e77c791e8f9d9b64ee4536bf32c6bc97cc97509",
   "covenant_script_hex": "240000200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876900c204002d3101a269204803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078cac",
   "p2sh_address": "kaspatest:pqn849ppg67zpfkkhmxk7phqet569jt7vchcarscz4gjx42z9v6gwkjsh3rdx",
   "p2sh_spk": "aa20267a942146bc20a6d6becd6f06e0cae9a2c97e662f8e8e1815512355422b348787",
@@ -7,6 +7,8 @@
   "a_spk": "200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
   "b_pubkey": "4803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078c",
   "deposit_sompi": 20000000,
-  "message": "Hello Bob! This is a JSON-format Whisper \ud83c\udf0a v:1, t:message",
+  "message": "Hello Bob! Whisper v2 ECIES test \ud83c\udf0a",
+  "d": "048e0ee8a57ce666ae35469194b5c5bcd4906a4f733d3172ff539e55a69d648d8bccaaeab763e71e2d8bcbccc87a3ef84d666d0b0b58eead685dbddeb39915127adba7c3adc4de5a4cdaf954264347b93a817300f8fcadbe5433e3f26de2e77737f71ac68511a6a3a2f669905214a295d2e318dc4f3f046964fb0b36f4b0d4016bb345bf5b15",
+  "type": "whisper",
   "output_index": 0
 }

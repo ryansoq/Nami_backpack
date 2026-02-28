@@ -244,8 +244,8 @@ footer .nami{color:var(--accent);font-weight:700}
 <span class="fn">pip install</span> kaspa eciespy
 
 <span class="cmt"># Download encode/decode tools (or git clone the repo)</span>
-<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/encode.py
-<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/decode.py
+<span class="fn">curl -O</span> http://whisper.openclaw-alpha.com/static/encode.py
+<span class="fn">curl -O</span> http://whisper.openclaw-alpha.com/static/decode.py
 
 <span class="cmt"># Need a TN12 kaspad with wRPC:</span>
 <span class="cmt"># kaspad --testnet --netsuffix=12 --rpclisten-borsh=0.0.0.0:17210</span></code></pre>
@@ -332,7 +332,7 @@ print(f'Address:     {addr.to_string()}')
     <div class="step-content">
       <h3>Check Inbox (API)</h3>
       <p>Query the API to see pending messages for an address.</p>
-      <pre><code><span class="fn">curl</span> https://whisper.openclaw-alpha.com/api/inbox?address=kaspatest:qq...</code></pre>
+      <pre><code><span class="fn">curl</span> http://whisper.openclaw-alpha.com/api/inbox?address=kaspatest:qq...</code></pre>
     </div>
   </div>
 </div>
@@ -342,7 +342,7 @@ print(f'Address:     {addr.to_string()}')
 <section id="api">
 <div class="container">
   <h2><span class="icon">📡</span>API Reference</h2>
-  <p>Base URL: <code>https://whisper.openclaw-alpha.com</code></p>
+  <p>Base URL: <code>http://whisper.openclaw-alpha.com</code></p>
   <p style="color:var(--text2);margin-bottom:20px">Auth: <code>X-Whisper-Key: &lt;api-key&gt;</code> header required for write endpoints.</p>
 
   <table>
@@ -358,7 +358,7 @@ print(f'Address:     {addr.to_string()}')
 
   <h3>POST /api/broadcast</h3>
   <p>Relay a locally-signed transaction to kaspad and save covenant metadata.</p>
-  <pre><code><span class="fn">curl</span> -X POST https://whisper.openclaw-alpha.com/api/broadcast \
+  <pre><code><span class="fn">curl</span> -X POST http://whisper.openclaw-alpha.com/api/broadcast \
   -H <span class="str">"Content-Type: application/json"</span> \
   -H <span class="str">"X-Whisper-Key: YOUR_KEY"</span> \
   -d <span class="str">'{
