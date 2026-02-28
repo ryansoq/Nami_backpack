@@ -166,7 +166,12 @@ async def main():
     # Build TX using create_transaction (attaches UTXO entries for signing)
     lock_amount = DEPOSIT_SOMPI + FEE_BUFFER_SOMPI  # deposit + fee buffer for B's spend
     change = input_amount - lock_amount - FEE_SOMPI
-    payload = message.encode("utf-8")
+    payload = json.dumps({
+        "v": 1,
+        "t": "message",
+        "d": message,
+        "a": {"from": a_addr_str}
+    }, ensure_ascii=False).encode("utf-8")
 
     tx = kaspa.create_transaction(
         [selected],

@@ -15,7 +15,6 @@ Flow:
 import asyncio
 import json
 import os
-import struct
 
 import kaspa
 
@@ -23,9 +22,19 @@ import kaspa
 WRPC_URL = "ws://localhost:17210"
 NETWORK_ID = "testnet-12"
 NETWORK_TYPE = "testnet"
-NATIVE_SUBNETWORK = "00" * 20
 
 WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
+
+
+def push_data(data: bytes) -> bytes:
+    """Script push opcode for arbitrary data."""
+    n = len(data)
+    if n <= 75:
+        return bytes([n]) + data
+    elif n <= 255:
+        return bytes([0x4c, n]) + data
+    else:
+        return bytes([0x4d]) + n.to_bytes(2, "little") + data
 
 
 async def main():
@@ -88,7 +97,6 @@ async def main():
     print()
 
     # Build spend TX
-    # The covenant forces output[0] >= deposit to A's SPK
     a_addr_str = info["a_address"]
     fee = 3000  # 0.00003 tKAS
     refund_amount = utxo_amount - fee
@@ -106,71 +114,48 @@ async def main():
         b"",
     )
 
-    print(f"📝 Spend TX (before signing)")
+    # Note: TN12 covpp branch supports covenant opcodes with version 0
+    # No need to change version or call finalize()
+
+    print(f"📝 Spend TX")
     print(f"   Refund to A: {refund_amount / 1e8:.4f} tKAS")
     print(f"   Fee: {fee / 1e8:.5f} tKAS")
+    print(f"   TX version: {tx.version}")
 
-    # For P2SH spending, we need:
-    # 1. Compute signature over the tx (sighash uses UTXO's P2SH SPK)
-    # 2. Build sig_script = <sig> <redeem_script>
+    # Compute signature (sighash computed on this exact tx object)
     sig = kaspa.create_input_signature(tx, 0, b_privkey, kaspa.SighashType.All)
     sig_bytes = bytes.fromhex(sig) if isinstance(sig, str) else sig
     print(f"   Signature: {sig_bytes.hex()[:40]}... ({len(sig_bytes)} bytes)")
 
-    # Build P2SH signature script
+    # Build P2SH signature script: <sig_serialized> <push redeem_script>
+    # create_input_signature already returns script-serialized sig (with push opcode)
     covenant_script = bytes.fromhex(info["covenant_script_hex"])
-    sig_script_hex = kaspa.pay_to_script_hash_signature_script(covenant_script, sig_bytes)
-    sig_script = bytes.fromhex(sig_script_hex) if isinstance(sig_script_hex, str) else sig_script_hex
+    sig_script = sig_bytes + push_data(covenant_script)
     print(f"   Sig script: {len(sig_script)} bytes")
 
-    # Now we need to submit the TX with the custom sig script.
-    # We'll rebuild the Transaction with the correct sig script.
-    # The key is that sig_op_count must match what was used in sighash computation.
-    
-    inp = kaspa.TransactionInput(
-        previous_outpoint=kaspa.TransactionOutpoint(
-            transaction_id=kaspa.Hash(utxo_outpoint["transactionId"]),
-            index=utxo_outpoint["index"],
-        ),
-        signature_script=sig_script,
-        sequence=0,
-        sig_op_count=1,  # 1 OP_CHECKSIG in redeem script
-    )
+    # Set signature script and sig_op_count directly on the SAME tx object
+    # This ensures the submitted TX matches the one used for sighash computation
+    tx.inputs[0].signature_script = sig_script
+    tx.inputs[0].sig_op_count = 1  # 1 OP_CHECKSIG in redeem script
 
-    out = kaspa.TransactionOutput(
-        value=refund_amount,
-        script_public_key=kaspa.ScriptPublicKey(0, info["a_spk"]),
-    )
-
-    tx_signed = kaspa.Transaction(
-        version=0,
-        inputs=[inp],
-        outputs=[out],
-        lock_time=0,
-        subnetwork_id=NATIVE_SUBNETWORK,
-        gas=0,
-        payload=b"",
-        mass=0,
-    )
-
-    print(f"   TX ID: {tx_signed.id}")
+    print(f"   TX ID: {tx.id}")
 
     # Submit
     try:
-        r = await client.submit_transaction({"transaction": tx_signed, "allow_orphan": False})
+        r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
         print(f"\n✅ Spend TX submitted! A gets refund automatically.")
         print(f"   Message was: {info['message']}")
         print(f"   Result: {r}")
     except Exception as e:
         print(f"\n❌ Submit failed: {e}")
-        
-        # Debug: compare TX IDs
+
+        # Debug
         print(f"\n   Debug info:")
-        print(f"   TX from create_transaction: {tx.id}")
-        print(f"   TX rebuilt:                 {tx_signed.id}")
-        if tx.id != tx_signed.id:
-            print(f"   ⚠️ TX IDs differ! The sighash was computed for a different TX.")
-            print(f"   This means the rebuilt TX doesn't match the signed one.")
+        print(f"   TX version: {tx.version}")
+        print(f"   TX ID: {tx.id}")
+        d = tx.serialize_to_dict()
+        print(f"   TX dict inputs[0] sig_script: {d['inputs'][0].get('signatureScript', 'N/A')[:80]}...")
+        print(f"   TX dict version: {d.get('version')}")
 
     await client.disconnect()
 

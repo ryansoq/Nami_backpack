@@ -214,29 +214,40 @@ def create_p2sh_spk(redeem_script: bytes) -> bytes:
 
 # ─── Message Encoding ───────────────────────────────────────────────────────
 
-def encode_message_in_payload(message_text: str, sender_pubkey: bytes) -> bytes:
-    """Encode message metadata into transaction payload.
+def encode_message_in_payload(message_text: str, sender_address: str, msg_type: str = "message") -> bytes:
+    """Encode message as JSON payload (TN10 format).
     
-    Format:
-      magic(4 bytes): "WHSP"
-      version(1 byte): 0x01
-      sender_pubkey(32 bytes)
-      message_len(2 bytes LE)
-      message(UTF-8)
+    Format: {"v":1, "t":"message"|"whisper", "d":"<data>", "a":{"from":"<sender address>"}}
     """
-    magic = b"WHSP"
-    version = b"\x01"
-    msg_bytes = message_text.encode('utf-8')
-    msg_len = struct.pack('<H', len(msg_bytes))
-    return magic + version + sender_pubkey + msg_len + msg_bytes
+    return json.dumps({
+        "v": 1,
+        "t": msg_type,
+        "d": message_text,
+        "a": {"from": sender_address}
+    }, ensure_ascii=False).encode('utf-8')
 
 
 def decode_message_from_payload(payload: bytes) -> dict:
     """Decode message from transaction payload.
     
-    Returns dict with: sender_pubkey, message, version
+    Supports both new JSON format and legacy WHSP binary format.
+    Returns dict with: message, sender_address, version, type
     """
-    if len(payload) < 39:  # 4 + 1 + 32 + 2
+    # Try JSON format first
+    try:
+        obj = json.loads(payload.decode('utf-8'))
+        if isinstance(obj, dict) and "v" in obj and "d" in obj:
+            return {
+                'version': obj.get('v', 1),
+                'type': obj.get('t', 'message'),
+                'message': obj['d'],
+                'sender_address': obj.get('a', {}).get('from', ''),
+            }
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        pass
+    
+    # Legacy binary format fallback
+    if len(payload) < 39:
         raise ValueError("Payload too short")
     
     magic = payload[0:4]
@@ -250,6 +261,7 @@ def decode_message_from_payload(payload: bytes) -> dict:
     
     return {
         'version': version,
+        'type': 'message',
         'sender_pubkey': sender_pubkey.hex(),
         'message': message,
     }
@@ -326,7 +338,7 @@ async def send_message(sender_privkey_hex: str, receiver_pubkey_hex: str,
     print()
     
     # Encode message in payload
-    payload = encode_message_in_payload(message_text, sender_pubkey_bytes)
+    payload = encode_message_in_payload(message_text, sender_pubkey.to_address(NETWORK_TYPE).to_string() if hasattr(sender_pubkey, 'to_address') else "")
     print(f"Payload:          {payload.hex()}")
     print(f"Payload decoded:  {decode_message_from_payload(payload)}")
     
@@ -476,7 +488,7 @@ def demo_script_generation():
     print()
     
     # Message encoding
-    payload = encode_message_in_payload("Hello from Whisper! 🌊", a_pubkey)
+    payload = encode_message_in_payload("Hello from Whisper! 🌊", "kaspatest:qqexample")
     decoded = decode_message_from_payload(payload)
     print(f"Message payload ({len(payload)} bytes): {payload.hex()}")
     print(f"  Decoded: {decoded}")

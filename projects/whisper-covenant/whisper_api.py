@@ -186,7 +186,12 @@ async def handle_send(request):
             selected = mature[0]
             input_amount = selected["utxoEntry"]["amount"]
             change = input_amount - lock_amount - FEE_SOMPI
-            payload = message.encode("utf-8")
+            payload = json.dumps({
+                "v": 1,
+                "t": "message",
+                "d": message,
+                "a": {"from": a_addr_str}
+            }, ensure_ascii=False).encode("utf-8")
 
             tx = kaspa.create_transaction(
                 [selected],
@@ -249,10 +254,8 @@ async def handle_read(request):
     if not tx_id:
         return web.json_response({"error": "Missing 'tx_id'"}, status=400)
 
-    # Use provided key or default
     if not reader_key_hex:
-        wallet = load_default_wallet()
-        reader_key_hex = wallet["private_key"]
+        return web.json_response({"error": "Missing 'reader_key' — only the designated receiver can read a Whisper"}, status=400)
 
     try:
         # Load covenant info
@@ -267,6 +270,20 @@ async def handle_read(request):
             return web.json_response({"error": f"TX ID mismatch. Expected: {info['tx_id']}"}, status=400)
 
         b_privkey = kaspa.PrivateKey(reader_key_hex)
+        b_pubkey_compressed = b_privkey.to_public_key().to_string()
+        # SDK gives 33-byte compressed pubkey (02/03 prefix), covenant stores 32-byte x-only
+        b_pubkey_xonly = b_pubkey_compressed[2:]  # strip prefix
+        expected_pubkey = info.get('b_pubkey', '')
+        print(f"[READ] reader pubkey (x-only): {b_pubkey_xonly}")
+        print(f"[READ] expected pubkey: {expected_pubkey}")
+        print(f"[READ] match: {b_pubkey_xonly == expected_pubkey}")
+        
+        if b_pubkey_xonly != expected_pubkey:
+            return web.json_response({
+                "error": f"Wrong reader_key — pubkey mismatch. This Whisper is for a different recipient.",
+                "your_pubkey": b_pubkey_xonly,
+                "expected_pubkey": expected_pubkey,
+            }, status=403)
 
         # Connect
         client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
@@ -299,7 +316,9 @@ async def handle_read(request):
             if refund_amount < deposit:
                 return web.json_response({"error": "UTXO too small for refund + fee"}, status=400)
 
-            # Build spend TX
+            # Build spend TX (use original UTXO entry - Kaspa P2SH sighash uses original SPK)
+            covenant_script = bytes.fromhex(info["covenant_script_hex"])
+            
             tx = kaspa.create_transaction(
                 [covenant_entry],
                 [kaspa.PaymentOutput(kaspa.Address(a_addr_str), refund_amount)],
@@ -308,8 +327,6 @@ async def handle_read(request):
 
             sig = kaspa.create_input_signature(tx, 0, b_privkey, kaspa.SighashType.All)
             sig_bytes = bytes.fromhex(sig) if isinstance(sig, str) else sig
-
-            covenant_script = bytes.fromhex(info["covenant_script_hex"])
             sig_script_hex = kaspa.pay_to_script_hash_signature_script(covenant_script, sig_bytes)
             sig_script = bytes.fromhex(sig_script_hex) if isinstance(sig_script_hex, str) else sig_script_hex
 
