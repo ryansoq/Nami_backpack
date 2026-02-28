@@ -25,6 +25,7 @@ NETWORK_ID = "testnet-12"
 NETWORK_TYPE = "testnet"
 DEPOSIT_SOMPI = 20_000_000  # 0.2 tKAS
 FEE_SOMPI = 10_000          # 0.0001 tKAS fee
+FEE_BUFFER_SOMPI = 5_000    # extra sompi in covenant UTXO for B's spend fee
 NATIVE_SUBNETWORK = "00" * 20
 
 WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
@@ -84,9 +85,10 @@ def build_covenant_script(a_spk_bytes: bytes, b_pubkey: bytes, deposit: int) -> 
     s += push_data(a_spk_bytes)
     s += push_int(0)
     s += bytes([OP_TX_OUTPUT_SPK, OP_EQUAL, OP_VERIFY])
-    s += push_int(deposit)
     s += push_int(0)
-    s += bytes([OP_TX_OUTPUT_AMOUNT, OP_GTE, OP_VERIFY])
+    s += bytes([OP_TX_OUTPUT_AMOUNT])
+    s += push_int(deposit)
+    s += bytes([OP_GTE, OP_VERIFY])
     s += push_data(b_pubkey)
     s += bytes([OP_CHECKSIG])
     return s
@@ -105,7 +107,9 @@ async def main():
     a_addr = a_xonly.to_address(NETWORK_TYPE)
     a_addr_str = a_addr.to_string()
     a_spk = kaspa.pay_to_address_script(a_addr)
-    a_spk_bytes = bytes.fromhex(a_spk.script)
+    # OP_TX_OUTPUT_SPK pushes: version(2 bytes BE) + script_bytes
+    # ScriptPublicKey version for P2PK = 0
+    a_spk_bytes = b'\x00\x00' + bytes.fromhex(a_spk.script)
 
     print(f"🌊 Whisper Covenant — Send")
     print(f"   A address: {a_addr_str}")
@@ -160,13 +164,14 @@ async def main():
     print(f"   Amount: {input_amount / 1e8:.4f} tKAS")
 
     # Build TX using create_transaction (attaches UTXO entries for signing)
-    change = input_amount - DEPOSIT_SOMPI - FEE_SOMPI
+    lock_amount = DEPOSIT_SOMPI + FEE_BUFFER_SOMPI  # deposit + fee buffer for B's spend
+    change = input_amount - lock_amount - FEE_SOMPI
     payload = message.encode("utf-8")
 
     tx = kaspa.create_transaction(
         [selected],
         [
-            kaspa.PaymentOutput(kaspa.Address(p2sh_addr_str), DEPOSIT_SOMPI),
+            kaspa.PaymentOutput(kaspa.Address(p2sh_addr_str), lock_amount),
             kaspa.PaymentOutput(kaspa.Address(a_addr_str), change),
         ],
         0,  # fee already accounted for
@@ -177,7 +182,7 @@ async def main():
     kaspa.sign_transaction(tx, [a_privkey], False)
 
     print(f"\n📝 TX ID: {tx.id}")
-    print(f"   Outputs: deposit={DEPOSIT_SOMPI/1e8:.2f} tKAS → P2SH, change={change/1e8:.4f} tKAS → A")
+    print(f"   Outputs: lock={lock_amount/1e8:.4f} tKAS → P2SH (deposit {DEPOSIT_SOMPI/1e8:.2f} + fee buffer), change={change/1e8:.4f} tKAS → A")
     print(f"   Payload: {message}")
 
     # Submit

@@ -189,10 +189,10 @@ def create_covenant_script(a_spk_bytes: bytes, b_pubkey: bytes, amount_sompi: in
     # Part 2: Verify output[0] amount >= lock amount
     # Stack: <amount> <0> → OP_TX_OUTPUT_AMOUNT → <actual_amount>
     # Then GREATERTHANOREQUAL VERIFY
-    script += push_i64(amount_sompi)        # push minimum amount
     script += push_i64(0)                    # push index 0
     script += bytes([OP_TX_OUTPUT_AMOUNT])   # push actual output[0] amount
-    script += bytes([OP_GREATERTHANOREQUAL])
+    script += push_i64(amount_sompi)         # push minimum amount
+    script += bytes([OP_GREATERTHANOREQUAL]) # actual >= minimum
     script += bytes([OP_VERIFY])
     
     # Part 3: Signature check (only B can spend)

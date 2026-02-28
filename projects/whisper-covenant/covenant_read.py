@@ -15,7 +15,7 @@ Flow:
 import asyncio
 import json
 import os
-import sys
+import struct
 
 import kaspa
 
@@ -89,14 +89,16 @@ async def main():
 
     # Build spend TX
     # The covenant forces output[0] >= deposit to A's SPK
-    # Remaining goes to fee
-
-    # Use create_transaction to get UTXO entry attached
-    # Output must go to A's address
     a_addr_str = info["a_address"]
-    refund_amount = deposit
-    fee = utxo_amount - refund_amount  # rest is fee
+    fee = 3000  # 0.00003 tKAS
+    refund_amount = utxo_amount - fee
 
+    if refund_amount < deposit:
+        print(f"❌ UTXO too small for refund + fee! Need {deposit + fee}, have {utxo_amount}")
+        await client.disconnect()
+        return
+
+    # Use create_transaction to get UTXO entry attached (needed for sighash)
     tx = kaspa.create_transaction(
         [covenant_entry],
         [kaspa.PaymentOutput(kaspa.Address(a_addr_str), refund_amount)],
@@ -104,54 +106,46 @@ async def main():
         b"",
     )
 
+    print(f"📝 Spend TX (before signing)")
+    print(f"   Refund to A: {refund_amount / 1e8:.4f} tKAS")
+    print(f"   Fee: {fee / 1e8:.5f} tKAS")
+
     # For P2SH spending, we need:
-    # 1. Compute signature over the tx
-    # 2. Build sig_script = <sig> <redeem_script> (P2SH format)
-    
-    # create_input_signature with the covenant's UTXO
+    # 1. Compute signature over the tx (sighash uses UTXO's P2SH SPK)
+    # 2. Build sig_script = <sig> <redeem_script>
     sig = kaspa.create_input_signature(tx, 0, b_privkey, kaspa.SighashType.All)
     sig_bytes = bytes.fromhex(sig) if isinstance(sig, str) else sig
+    print(f"   Signature: {sig_bytes.hex()[:40]}... ({len(sig_bytes)} bytes)")
 
     # Build P2SH signature script
     covenant_script = bytes.fromhex(info["covenant_script_hex"])
-    sig_script = kaspa.pay_to_script_hash_signature_script(covenant_script, sig_bytes)
-    sig_script_bytes = bytes.fromhex(sig_script) if isinstance(sig_script, str) else sig_script
+    sig_script_hex = kaspa.pay_to_script_hash_signature_script(covenant_script, sig_bytes)
+    sig_script = bytes.fromhex(sig_script_hex) if isinstance(sig_script_hex, str) else sig_script_hex
+    print(f"   Sig script: {len(sig_script)} bytes")
 
-    # We need to set the signature script on the input
-    # Since sign_transaction won't work for P2SH (it expects P2PK),
-    # we need to rebuild the TX with the custom sig_script
-    # But rebuilding loses UTXO entries...
+    # Now we need to submit the TX with the custom sig script.
+    # We'll rebuild the Transaction with the correct sig script.
+    # The key is that sig_op_count must match what was used in sighash computation.
     
-    # Workaround: modify the serialized dict and submit directly
-    td = tx.serialize_to_dict()
-    td["inputs"][0]["signatureScript"] = sig_script_bytes.hex() if isinstance(sig_script_bytes, bytes) else sig_script_bytes
-
-    print(f"📝 Spend TX")
-    print(f"   Refund to A: {refund_amount / 1e8:.4f} tKAS")
-    print(f"   Fee: {fee / 1e8:.4f} tKAS")
-    print(f"   Sig script len: {len(sig_script_bytes)} bytes")
-
-    # Rebuild TX object from dict for submission
-    # We need a Transaction object. Let's reconstruct:
-    inp_signed = kaspa.TransactionInput(
+    inp = kaspa.TransactionInput(
         previous_outpoint=kaspa.TransactionOutpoint(
             transaction_id=kaspa.Hash(utxo_outpoint["transactionId"]),
             index=utxo_outpoint["index"],
         ),
-        signature_script=sig_script_bytes,
+        signature_script=sig_script,
         sequence=0,
-        sig_op_count=len(covenant_script),  # sig_op_count for P2SH
+        sig_op_count=1,  # 1 OP_CHECKSIG in redeem script
     )
 
-    out_refund = kaspa.TransactionOutput(
+    out = kaspa.TransactionOutput(
         value=refund_amount,
         script_public_key=kaspa.ScriptPublicKey(0, info["a_spk"]),
     )
 
     tx_signed = kaspa.Transaction(
         version=0,
-        inputs=[inp_signed],
-        outputs=[out_refund],
+        inputs=[inp],
+        outputs=[out],
         lock_time=0,
         subnetwork_id=NATIVE_SUBNETWORK,
         gas=0,
@@ -165,13 +159,18 @@ async def main():
     try:
         r = await client.submit_transaction({"transaction": tx_signed, "allow_orphan": False})
         print(f"\n✅ Spend TX submitted! A gets refund automatically.")
+        print(f"   Message was: {info['message']}")
         print(f"   Result: {r}")
     except Exception as e:
         print(f"\n❌ Submit failed: {e}")
-        print(f"   This likely means the covenant opcodes aren't enabled on TN12,")
-        print(f"   or the sighash computation is wrong for P2SH scripts.")
-        print(f"\n   TX dict:")
-        print(json.dumps(tx_signed.serialize_to_dict(), indent=2))
+        
+        # Debug: compare TX IDs
+        print(f"\n   Debug info:")
+        print(f"   TX from create_transaction: {tx.id}")
+        print(f"   TX rebuilt:                 {tx_signed.id}")
+        if tx.id != tx_signed.id:
+            print(f"   ⚠️ TX IDs differ! The sighash was computed for a different TX.")
+            print(f"   This means the rebuilt TX doesn't match the signed one.")
 
     await client.disconnect()
 

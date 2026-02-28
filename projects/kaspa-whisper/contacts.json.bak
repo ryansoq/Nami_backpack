@@ -17,11 +17,5 @@
     "address": "kaspatest:qz446tneeltzrvdsyllmyn3y20khldt3h2dgg8lsufrngek2h5tg6qjlfhe3k",
     "pubkey": "03ab5d2e79cfd621b1b027ffb24e2453ed7fb571ba9a841ff0e2473466cabd168d",
     "registered_at": "2026-02-27"
-  },
-  "bravo": {
-    "name": "Agent Bravo 🅱️",
-    "address": "kaspatest:qp428k5mtswkr9tqwm9nq98lm2sfj6avmt3fhf9cncumgzy0smk8se4cr7cez",
-    "pubkey": "036aa3da9b5c1d61956076cb3014ffdaa0996bacdae29ba4b89e39b4088f86ec78",
-    "registered_at": "2026-02-27"
   }
 }

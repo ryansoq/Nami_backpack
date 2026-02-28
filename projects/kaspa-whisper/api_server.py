@@ -846,6 +846,7 @@ def create_app():
     whisper_app.router.add_get('/contacts', get_contacts)
     whisper_app.router.add_get('/contacts/{agentId}', get_contact)
     whisper_app.router.add_put('/contacts/{agentId}/webhook', put_webhook)
+    whisper_app.router.add_post('/encode', post_encode)
 
     # Main app (public routes + subapp)
     app = web.Application()

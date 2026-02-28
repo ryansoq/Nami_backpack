@@ -470,17 +470,25 @@ class ShioKazeMiner:
             self.stub = None
     
     def _handle_disconnect(self):
-        """處理斷線，嘗試重連"""
-        print("[Main] ⚠️ 連接中斷，嘗試重連...", flush=True)
-        self.disconnect()
-        time.sleep(2)
-        try:
-            if self.connect():
-                print("[Main] ✅ 重連成功！", flush=True)
-            else:
-                print("[Main] ❌ 重連失敗", flush=True)
-        except Exception as e:
-            print(f"[Main] ❌ 重連失敗: {e}", flush=True)
+        """處理斷線，指數退避重連（最多等 30 秒）"""
+        delay = 1
+        max_delay = 30
+        attempt = 0
+        while self.running.value:
+            attempt += 1
+            print(f"[Main] ⚠️ 連接中斷，第 {attempt} 次重連（等 {delay}s）...", flush=True)
+            self.disconnect()
+            time.sleep(delay)
+            try:
+                if self.connect():
+                    print(f"[Main] ✅ 重連成功！（第 {attempt} 次）", flush=True)
+                    return True
+                else:
+                    print(f"[Main] ❌ 重連失敗（節點未同步？）", flush=True)
+            except Exception as e:
+                print(f"[Main] ❌ 重連失敗: {e}", flush=True)
+            delay = min(delay * 2, max_delay)
+        return False
     
     def start_workers(self):
         """啟動 worker 進程"""
@@ -631,79 +639,98 @@ class ShioKazeMiner:
         
         try:
             consecutive_failures = 0
-            max_failures = 10
+            max_failures = 5
             
             while self.running.value:
-                # 定期取得新 template（每 0.5 秒）
-                now = time.time()
-                if now - last_template_time >= 0.5:
-                    new_template = self.get_block_template()
+                try:
+                    # 定期取得新 template（每 0.5 秒）
+                    now = time.time()
+                    if now - last_template_time >= 0.5:
+                        new_template = self.get_block_template()
+                        
+                        if new_template is None:
+                            consecutive_failures += 1
+                            if consecutive_failures >= max_failures:
+                                print(f"[Main] ⚠️ 連續 {max_failures} 次失敗，重連...", flush=True)
+                                if not self._handle_disconnect():
+                                    break  # running became False
+                                consecutive_failures = 0
+                                last_template_time = 0  # 立即重試
+                            continue
+                        
+                        consecutive_failures = 0  # 重置
+                        if new_template:
+                            # 檢查是否需要更新
+                            if (not current_template or 
+                                new_template['pre_pow_hash'] != current_template['pre_pow_hash']):
+                                
+                                current_template = new_template
+                                self.template_count += 1
+                                
+                                # 加入 template 緩存（解決時序競爭）
+                                tid = new_template['id']
+                                self.template_cache[tid] = new_template
+                                self.template_ids.append(tid)
+                                # 清理超出的舊 template
+                                while len(self.template_ids) > 100:
+                                    old_id = self.template_ids.popleft()
+                                    self.template_cache.pop(old_id, None)
+                                
+                                # 更新共享狀態
+                                self.shared_state['template'] = {
+                                    'pre_pow_hash': new_template['pre_pow_hash'],
+                                    'timestamp': new_template['timestamp'],
+                                    'target': new_template['target'],
+                                    'matrix': new_template['matrix'],
+                                    'id': new_template['id']
+                                }
+                                
+                                bits_hex = f"0x{new_template['bits']:08x}"
+                                print(f"[{datetime.now().strftime('%H:%M:%S')}] 🌊 "
+                                      f"Template #{self.template_count}: bits={bits_hex}", flush=True)
+                        
+                        last_template_time = now
                     
-                    if new_template is None:
-                        consecutive_failures += 1
-                        if consecutive_failures >= max_failures:
-                            print(f"[Main] ⚠️ 連續 {max_failures} 次失敗，重連...", flush=True)
-                            self._handle_disconnect()
-                            consecutive_failures = 0
-                        continue
+                    # 檢查結果
+                    while not self.result_queue.empty():
+                        try:
+                            result = self.result_queue.get_nowait()
+                            if result['type'] == 'found':
+                                self.blocks_found += 1
+                                print(f"[Main] ✨ 💎 Found nonce: {result['nonce']}", flush=True)
+                                
+                                # 提交 - 從緩存中查找對應的 template
+                                submit_template = self.template_cache.get(result['template_id'])
+                                if submit_template:
+                                    if self.submit_block(submit_template, result['nonce']):
+                                        self.blocks_accepted += 1
+                                else:
+                                    print(f"[Main] ⚠️ Template {result['template_id']} expired (too old)", flush=True)
+                        except:
+                            break
                     
-                    consecutive_failures = 0  # 重置
-                    if new_template:
-                        # 檢查是否需要更新
-                        if (not current_template or 
-                            new_template['pre_pow_hash'] != current_template['pre_pow_hash']):
-                            
-                            current_template = new_template
-                            self.template_count += 1
-                            
-                            # 加入 template 緩存（解決時序競爭）
-                            tid = new_template['id']
-                            self.template_cache[tid] = new_template
-                            self.template_ids.append(tid)
-                            # 清理超出的舊 template
-                            while len(self.template_ids) > 100:
-                                old_id = self.template_ids.popleft()
-                                self.template_cache.pop(old_id, None)
-                            
-                            # 更新共享狀態
-                            self.shared_state['template'] = {
-                                'pre_pow_hash': new_template['pre_pow_hash'],
-                                'timestamp': new_template['timestamp'],
-                                'target': new_template['target'],
-                                'matrix': new_template['matrix'],
-                                'id': new_template['id']
-                            }
-                            
-                            bits_hex = f"0x{new_template['bits']:08x}"
-                            print(f"[{datetime.now().strftime('%H:%M:%S')}] 🌊 "
-                                  f"Template #{self.template_count}: bits={bits_hex}", flush=True)
+                    # 定期輸出統計（每秒）
+                    if now - last_stats_time >= 1.0:
+                        self.print_stats()
+                        last_stats_time = now
                     
-                    last_template_time = now
+                    time.sleep(0.05)
                 
-                # 檢查結果
-                while not self.result_queue.empty():
-                    try:
-                        result = self.result_queue.get_nowait()
-                        if result['type'] == 'found':
-                            self.blocks_found += 1
-                            print(f"[Main] ✨ 💎 Found nonce: {result['nonce']}", flush=True)
-                            
-                            # 提交 - 從緩存中查找對應的 template
-                            submit_template = self.template_cache.get(result['template_id'])
-                            if submit_template:
-                                if self.submit_block(submit_template, result['nonce']):
-                                    self.blocks_accepted += 1
-                            else:
-                                print(f"[Main] ⚠️ Template {result['template_id']} expired (too old)", flush=True)
-                    except:
+                except grpc.RpcError as e:
+                    print(f"[Main] ⚠️ gRPC 錯誤: {e.code()} - {e.details()}", flush=True)
+                    if not self._handle_disconnect():
                         break
+                    consecutive_failures = 0
+                    last_template_time = 0
                 
-                # 定期輸出統計（每秒）
-                if now - last_stats_time >= 1.0:
-                    self.print_stats()
-                    last_stats_time = now
-                
-                time.sleep(0.05)
+                except Exception as e:
+                    if "KeyboardInterrupt" in str(type(e).__name__):
+                        raise
+                    print(f"[Main] ⚠️ 主循環異常: {e}", flush=True)
+                    if not self._handle_disconnect():
+                        break
+                    consecutive_failures = 0
+                    last_template_time = 0
         
         except KeyboardInterrupt:
             print("\n[Main] 🛑 收到停止信號...", flush=True)

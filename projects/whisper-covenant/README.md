@@ -90,11 +90,30 @@ result = await read_message(receiver_privkey_hex, covenant_utxo)
 - [x] Message encoding/decoding in TX payload
 - [x] ScriptBuilder SDK integration
 - [x] P2SH address derivation
-- [ ] Transaction building (send)
-- [ ] P2SH spending (sig script construction)
-- [ ] RPC integration (UTXO fetch, TX submit)
+- [x] Transaction building (send) — `covenant_send.py`
+- [x] P2SH spending (sig script construction) — `covenant_read.py`
+- [x] RPC integration (UTXO fetch, TX submit)
+- [x] **End-to-end test on TN12** ✅ 2026-02-28
 - [ ] Message scanning / indexer
-- [ ] End-to-end test on TN12
+
+## Test Results (TN12, 2026-02-28)
+
+### Send (A locks deposit)
+- **TX**: `18e496038976ae8b0dcf8d68b8dc3c738b5febf68fe14b3c06af1ea1efa22942`
+- Locked 0.2001 tKAS (0.2 deposit + fee buffer) to P2SH covenant address
+- Message: "Whisper Covenant PoC - B reads and refunds A"
+
+### Read (B spends → A gets refund)
+- **TX**: `04c83afa2f82ff42587e1ae06363716362c5cece69b653aa74e3c57bc7936b28`
+- B signed and spent covenant UTXO
+- Covenant enforced: output[0] = 0.2 tKAS → A's address ✅
+- A received refund confirmed on-chain ✅
+
+### Key Insights
+- `kaspa.create_input_signature()` + `kaspa.pay_to_script_hash_signature_script()` handle P2SH signing
+- sig_op_count = 1 (one OP_CHECKSIG in redeem script)
+- Fee buffer in covenant UTXO allows B to pay mining fee from the locked amount
+- Single output avoids storage mass issues
 
 ## Requirements
 
