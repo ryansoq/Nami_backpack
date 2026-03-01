@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 """
-🌊 Whisper Covenant v2 — Decode (Local Signing)
+🌊 Whisper Covenant v3 — Decode (讀取悄悄話 / Read a Whisper)
+
+解密訊息並花費 CLTV covenant UTXO，自動退款給發送人。
+Decrypts the message and spends the CLTV covenant UTXO, auto-refunding the sender.
 
 Usage:
-  python3 decode.py --tx <tx_id> --key <recipient_privkey> [--info covenant_info.json]
+  python3 decode.py --tx <tx_id> --key <recipient_privkey> [--info covenant_info.json] [--remote]
 
 Flow:
-  1. Load covenant info (from file or API)
+  1. Load covenant info (from file, API, or block explorer)
   2. Decrypt message (ECIES) or read plaintext
-  3. Spend covenant UTXO → refund to sender
+  3. Spend covenant UTXO → refund to sender (IF branch: OP_TRUE + Bob's sig)
   4. Sign locally with recipient's private key
 
 Private key NEVER leaves local!
+
+Sig script 結構 / Structure (IF branch — Bob reads):
+  <bob_signature> <OP_TRUE (0x51)> <push redeem_script>
+  OP_TRUE selects the IF branch where Bob can claim via OP_CHECKSIG.
+
+⚠️ Kaspa 的 OP_CHECKLOCKTIMEVERIFY (0xb0) 會 pop stack！不像 Bitcoin 需要 OP_DROP。
 """
 
 import argparse
@@ -27,8 +36,10 @@ WRPC_URL = "ws://localhost:17210"
 NETWORK_ID = "testnet-12"
 NETWORK_TYPE = "testnet"
 REST_API_URL = "https://api-tn12.kaspa.org"
+WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
 
 def push_data(data: bytes) -> bytes:
+    """Push arbitrary data onto the script stack with the correct opcode prefix."""
     n = len(data)
     if n <= 75:
         return bytes([n]) + data
@@ -39,20 +50,27 @@ def push_data(data: bytes) -> bytes:
 
 
 def covenant_info_from_payload(payload_json, tx_id):
-    """Reconstruct covenant_info from on-chain payload's `a` field."""
+    """
+    Reconstruct covenant_info from on-chain payload's `a` field.
+    從鏈上 payload 的 `a` 欄位重建 covenant_info。
+    """
     a = payload_json["a"]
     script_hex = a["script"]
     script_bytes = bytes.fromhex(script_hex)
 
-    # Extract b_pubkey from covenant script (last 33 bytes before OP_CHECKSIG 0xac)
-    # Script ends with: push_data(b_pubkey_32) + 0xac
-    # So script[-1] == 0xac, script[-33:-1] == pubkey, script[-34] == 0x20 (push 32 bytes)
+    # Extract b_pubkey from covenant script
+    # For v3 CLTV script, the IF branch ends with: push_data(b_pubkey_32) + 0xac + 0x67 (OP_ELSE)
+    # For v2 script, it ends with: push_data(b_pubkey_32) + 0xac
+    # We search for the pattern: 0x20 (push 32 bytes) + 32 bytes + 0xac
     b_pubkey_hex = ""
-    if len(script_bytes) > 34 and script_bytes[-1] == 0xac and script_bytes[-34] == 0x20:
-        b_pubkey_hex = script_bytes[-33:-1].hex()
+    for i in range(len(script_bytes) - 34):
+        if script_bytes[i] == 0x20 and script_bytes[i + 33] == 0xac:
+            b_pubkey_hex = script_bytes[i + 1:i + 33].hex()
+            break
 
     # Reconstruct p2sh_address from script
     p2sh_address = ""
+    p2sh_spk = None
     try:
         covenant_script = script_bytes
         p2sh_spk = kaspa.pay_to_script_hash_script(covenant_script)
@@ -67,18 +85,18 @@ def covenant_info_from_payload(payload_json, tx_id):
         a_addr_obj = kaspa.Address(a["from"])
         a_spk = kaspa.pay_to_address_script(a_addr_obj).script
     except Exception:
-        # Fallback: use spk from payload if available
         a_spk = a.get("spk", "")
 
     return {
         "tx_id": tx_id,
         "covenant_script_hex": script_hex,
         "p2sh_address": p2sh_address,
-        "p2sh_spk": p2sh_spk.script if p2sh_address else "",
+        "p2sh_spk": p2sh_spk.script if p2sh_spk else "",
         "a_address": a["from"],
         "a_spk": a_spk,
         "b_pubkey": b_pubkey_hex,
         "deposit_sompi": a["deposit"],
+        "timeout_daa": a.get("timeout_daa"),
         "d": payload_json["d"],
         "type": payload_json["t"],
         "output_index": 0,
@@ -86,9 +104,9 @@ def covenant_info_from_payload(payload_json, tx_id):
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Whisper Covenant v2 — Decode & Refund locally")
+    parser = argparse.ArgumentParser(description="Whisper Covenant v3 — Decode & Refund locally")
     parser.add_argument("--tx", required=True, help="Whisper TX ID")
-    parser.add_argument("--key", "-k", required=True, help="Recipient private key (hex)")
+    parser.add_argument("--key", "-k", default=None, help="Recipient private key (hex). Falls back to ~/.secrets/testnet-wallet.json")
     parser.add_argument("--info", default=None, help="Path to covenant_info.json (default: auto from API)")
     parser.add_argument("--payload", default=None, help="Raw TX payload JSON (offline decode, no API needed)")
     parser.add_argument("--no-refund", action="store_true", help="Only decrypt, don't spend covenant")
@@ -96,12 +114,19 @@ async def main():
     parser.add_argument("--remote", action="store_true", help="Use REST API instead of local kaspad (no node needed!)")
     args = parser.parse_args()
 
+    # ── Load private key ──
+    if args.key:
+        privkey_hex = args.key
+    else:
+        with open(WALLET_PATH) as f:
+            wallet = json.load(f)
+        privkey_hex = wallet["private_key"]
+
     # ── Load covenant info ──
     # Priority: --payload > --info > local file > API > block explorer
     info = None
 
     if args.payload:
-        # Reconstruct from on-chain payload JSON
         try:
             payload_json = json.loads(args.payload)
             info = covenant_info_from_payload(payload_json, args.tx)
@@ -140,14 +165,13 @@ async def main():
         # Fallback: try block explorer
         if not info:
             import urllib.request
-            explorer_url = f"https://api-tn12.kaspa.org/transactions/{args.tx}"
+            explorer_url = f"{REST_API_URL}/transactions/{args.tx}"
             print(f"🔍 Trying block explorer...")
             try:
                 req = urllib.request.Request(explorer_url, headers={"User-Agent": "whisper/1.0"})
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     if resp.status == 200:
                         tx_data = json.loads(resp.read().decode("utf-8"))
-                        # Extract payload from TX data
                         payload_hex = tx_data.get("payload", "")
                         if payload_hex:
                             payload_bytes = bytes.fromhex(payload_hex)
@@ -169,7 +193,7 @@ async def main():
         sys.exit(1)
 
     # ── Verify recipient ──
-    b_privkey = kaspa.PrivateKey(args.key)
+    b_privkey = kaspa.PrivateKey(privkey_hex)
     b_pubkey = b_privkey.to_public_key()
     b_xonly_hex = b_pubkey.to_x_only_public_key().to_string()
 
@@ -183,23 +207,19 @@ async def main():
     msg_type = info.get("type", info.get("t", "message"))
     raw_data = info.get("d", "")
 
-    # If we have the original payload JSON with encrypted data
     if msg_type == "whisper":
-        # data is hex-encoded ECIES ciphertext
         from ecies import decrypt as ecies_decrypt
         # Kaspa uses x-only pubkeys (no parity). Encoder uses 02 prefix,
         # but if our key's actual parity is 03, we must negate the secret key.
         # Try normal first, then negated.
         ciphertext = bytes.fromhex(raw_data)
-        privkey_bytes = bytes.fromhex(args.key)
+        privkey_bytes = bytes.fromhex(privkey_hex)
         try:
-            plaintext = ecies_decrypt(args.key, ciphertext)
+            plaintext = ecies_decrypt(privkey_hex, ciphertext)
         except Exception:
             # Negate the private key (mod curve order) to match opposite parity
             from coincurve import PrivateKey as _CPrivateKey
             _sk = _CPrivateKey(privkey_bytes)
-            _prefix = _sk.public_key.format(True)[0]
-            # Curve order n for secp256k1
             _n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
             _neg = (_n - int.from_bytes(privkey_bytes, 'big')).to_bytes(32, 'big')
             plaintext = ecies_decrypt(_neg.hex(), ciphertext)
@@ -207,10 +227,12 @@ async def main():
     else:
         message = raw_data
 
-    print(f"🌊 Whisper Covenant v2 — Decode")
+    print(f"🌊 Whisper Covenant v3 — Decode")
     print(f"   TX: {args.tx}")
     print(f"   From: {info['a_address']}")
     print(f"   Type: {msg_type}")
+    if info.get("timeout_daa"):
+        print(f"   Timeout DAA: {info['timeout_daa']}")
     print(f"   💬 Message: {message}")
     print()
 
@@ -218,7 +240,7 @@ async def main():
         print("   (--no-refund: skipping covenant spend)")
         return
 
-    # ── Spend covenant UTXO → refund to sender ──
+    # ── Spend covenant UTXO → refund to sender (IF branch) ──
     client = None
     use_remote = args.remote
 
@@ -270,7 +292,8 @@ async def main():
 
     if not entries:
         print("❌ No covenant UTXO found (already spent or not confirmed)")
-        await client.disconnect()
+        if client:
+            await client.disconnect()
         sys.exit(1)
 
     # Find specific UTXO
@@ -291,7 +314,8 @@ async def main():
 
     if refund_amount < deposit:
         print(f"❌ UTXO too small ({utxo_amount}) for refund ({deposit}) + fee ({fee})")
-        await client.disconnect()
+        if client:
+            await client.disconnect()
         sys.exit(1)
 
     # Build spend TX
@@ -301,12 +325,14 @@ async def main():
         0, b"",
     )
 
-    # Sign
+    # Sign with Bob's key
     sig = kaspa.create_input_signature(tx, 0, b_privkey, kaspa.SighashType.All)
     sig_bytes = bytes.fromhex(sig) if isinstance(sig, str) else sig
 
+    # Build P2SH sig script: <sig> <OP_TRUE (0x51)> <push redeem_script>
+    # OP_TRUE selects the IF branch (Bob reads / claims)
     covenant_script = bytes.fromhex(info["covenant_script_hex"])
-    sig_script = sig_bytes + push_data(covenant_script)
+    sig_script = sig_bytes + bytes([0x51]) + push_data(covenant_script)
 
     tx.inputs[0].signature_script = sig_script
     tx.inputs[0].sig_op_count = 1
@@ -325,7 +351,7 @@ async def main():
             print(f"\n❌ Refund failed: {e}")
         await client.disconnect()
     else:
-        # Submit via Whisper API (which connects to kaspad wRPC)
+        # Submit via Whisper API
         import urllib.request
         broadcast_url = f"{args.api_url}/api/broadcast"
         tx_dict = tx.serialize_to_dict()

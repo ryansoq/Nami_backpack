@@ -1,14 +1,14 @@
 {
-  "tx_id": "c718f5b47a320a732d3c1fc3b9a5a8fee05024b8c27df482160be82ed9f8eb53",
-  "covenant_script_hex": "63240000200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876900c204002d3101a269200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac67040f6d0701b0200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac68",
-  "p2sh_address": "kaspatest:ppf6wzvc3xru32v2n9thhlwn0x9f7kvgg4n0m65xq9y89zysuj9rqd9k90s3w",
-  "p2sh_spk": "aa2053a709988987c8a98a99577bfdd3798a9f59884566fdea860148728890e48a3087",
+  "tx_id": "f5830e7b48a10eb32be542bd3269c42e7165ba29471ba74db548e19f1bdccee7",
+  "covenant_script_hex": "63240000200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876900c204002d3101a269204803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078cac6704493b0801b0200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac68",
+  "p2sh_address": "kaspatest:ppyxfnt9f8r0e4ulmefphkwakr5gq08fqxf7zexvmc65cx5l6vtug83datfcp",
+  "p2sh_spk": "aa204864cd6549c6fcd79fde521bd9ddb0e8803ce90193e164ccde354c1a9fd317c487",
   "a_address": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
   "a_spk": "200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
   "a_pubkey": "0d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19",
-  "b_pubkey": "0d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19",
+  "b_pubkey": "4803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078c",
   "deposit_sompi": 20000000,
-  "timeout_daa": 17263887,
-  "message": "CLTV reclaim key param test",
+  "timeout_daa": 17316681,
+  "message": "CLTV test round 2! Bob, do NOT read this. Let it timeout so I can reclaim!",
   "output_index": 0
 }

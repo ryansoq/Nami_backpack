@@ -115,6 +115,8 @@ def build_covenant_script_with_timeout(
 async def main():
     parser = argparse.ArgumentParser(description="Whisper Covenant — Send")
     parser.add_argument("--key", "-k", default=None, help="Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json")
+    parser.add_argument("--to", default=None, help="Recipient address (default: send to self)")
+    parser.add_argument("--timeout-offset", type=int, default=1000, help="CLTV timeout offset from current DAA (default: 1000 ≈ 100s)")
     parser.add_argument("message", nargs="*", default=["Hello from Whisper Covenant!"], help="Message text")
     args = parser.parse_args()
 
@@ -144,9 +146,17 @@ async def main():
     print(f"   Deposit: {DEPOSIT_SOMPI / 1e8:.2f} tKAS")
     print()
 
-    # For PoC, B = A (send to ourselves)
-    b_pubkey_bytes = bytes.fromhex(a_xonly.to_string())
-    a_pubkey_bytes = b_pubkey_bytes  # PoC: same key
+    # Recipient
+    if args.to:
+        b_addr = kaspa.Address(args.to)
+        b_spk = kaspa.pay_to_address_script(b_addr)
+        # Extract x-only pubkey from P2PK script (skip version byte 0xac prefix etc)
+        b_script_hex = b_spk.script
+        # P2PK script: <32-byte-pubkey> OP_CHECKSIG → hex is 20{pubkey}ac
+        b_pubkey_bytes = bytes.fromhex(b_script_hex[2:66])  # skip length byte "20", take 32 bytes
+    else:
+        b_pubkey_bytes = bytes.fromhex(a_xonly.to_string())
+    a_pubkey_bytes = bytes.fromhex(a_xonly.to_string())
 
     # Connect to kaspad
     client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
@@ -156,7 +166,7 @@ async def main():
     # Get current DAA score for timeout
     dag_info_pre = await client.get_block_dag_info()
     current_daa = int(dag_info_pre["virtualDaaScore"])
-    timeout_daa = current_daa + 1000  # ~100 seconds
+    timeout_daa = current_daa + args.timeout_offset
     print(f"   Current DAA: {current_daa}")
     print(f"   Timeout DAA: {timeout_daa} (current + 1000)")
 
@@ -244,7 +254,7 @@ async def main():
         "a_address": a_addr_str,
         "a_spk": a_spk.script,
         "a_pubkey": a_xonly.to_string(),
-        "b_pubkey": a_xonly.to_string(),  # PoC: B = A
+        "b_pubkey": b_pubkey_bytes.hex(),
         "deposit_sompi": DEPOSIT_SOMPI,
         "timeout_daa": timeout_daa,
         "message": message,

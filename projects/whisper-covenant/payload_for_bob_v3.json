@@ -1,0 +1,14 @@
+{
+  "tx_id": "c610ffee8c687068a43a67db2cdc52a72fce84ba118a76cf44008ac9953a8a71",
+  "covenant_script_hex": "240000200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876900c204002d3101a269204803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078cac",
+  "p2sh_address": "kaspatest:pqn849ppg67zpfkkhmxk7phqet569jt7vchcarscz4gjx42z9v6gwkjsh3rdx",
+  "p2sh_spk": "aa20267a942146bc20a6d6becd6f06e0cae9a2c97e662f8e8e1815512355422b348787",
+  "a_address": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
+  "a_spk": "200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
+  "b_pubkey": "4803ccc781c9a3e0106102b9f4358ecf8a3b270bc3f2b9c2c2cd30ca175d078c",
+  "deposit_sompi": 20000000,
+  "message": "Hey Bob! Whisper v3 CLTV test \ud83c\udf0a Decrypt this and claim 0.2 tKAS!",
+  "d": "04bc2a12bd165719a6b5b182ca3c292d354a6196bff30a3642980bd9a4b758e74e183478a7a6b2e36b3bc76360643760cbc9b5770c62cc2bb8459bba5a98b1b958a88fb90dd6f4d7c0dde51d0e4ea580b366f32e30546dd54bd0bd1a5f9f94cae88f6e3942e93be4ce5196453f7e870c3434318b69898640180c53a45aa3de4f9f241153903dd8d4249cc07308f341047c262e5bdb5d491274b46bcdeb2978c71ce49173",
+  "type": "whisper",
+  "output_index": 0
+}

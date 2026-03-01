@@ -1,15 +1,34 @@
 #!/usr/bin/env python3
 """
-🌊 Whisper Covenant v2 — Encode (Local Signing)
+🌊 Whisper Covenant v3 — Encode (發送悄悄話 / Send a Whisper)
+
+將訊息加密後鎖入 Kaspa CLTV covenant，收件人讀取後自動退款，超時可回收。
+Encrypts a message into a Kaspa CLTV covenant. Recipient reads → auto-refund. Timeout → reclaim.
 
 Usage:
-  python3 encode.py --to <recipient_address> --message "Hello!" --key <sender_privkey> [--plain]
+  python3 encode.py --to <recipient_address> --message "Hello!" --key <sender_privkey> [--plain] [--remote]
 
-  --plain: plaintext (type=message), without it: ECIES encrypted (type=whisper)
+Options:
+  --to              Recipient Kaspa address (testnet)
+  --message, -m     Message text
+  --key, -k         Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json
+  --plain           Send plaintext (type=message); default is ECIES encrypted (type=whisper)
+  --remote          Use REST API instead of local kaspad (no node needed!)
+  --timeout-offset  CLTV timeout offset from current DAA score (default: 1000 ≈ 100s)
 
 Private key NEVER leaves local!
 
-Output: signed TX JSON ready for broadcast API
+CLTV Covenant Script 結構 / Structure:
+  OP_IF
+    <a_spk> <0> OP_TX_OUTPUT_SPK OP_EQUAL OP_VERIFY   // 強制輸出到 A 地址
+    <deposit> <0> OP_TX_OUTPUT_AMOUNT OP_GTE OP_VERIFY  // 強制輸出金額 >= deposit
+    <b_pubkey> OP_CHECKSIG                              // B (收件人) 簽名
+  OP_ELSE
+    <timeout_daa> OP_CHECKLOCKTIMEVERIFY                // 超時後...
+    <a_pubkey> OP_CHECKSIG                              // A (發送人) 可回收
+  OP_ENDIF
+
+⚠️ Kaspa 的 OP_CHECKLOCKTIMEVERIFY (0xb0) 會 pop stack！不像 Bitcoin 需要 OP_DROP。
 """
 
 import argparse
@@ -28,10 +47,12 @@ DEPOSIT_SOMPI = 20_000_000      # 0.2 tKAS
 FEE_SOMPI = 10_000
 FEE_BUFFER_SOMPI = 5_000
 REST_API_URL = "https://api-tn12.kaspa.org"
+WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
 
 # ─── Script helpers ───────────────────────────────────────────────
 
 def push_data(data: bytes) -> bytes:
+    """Push arbitrary data onto the script stack with the correct opcode prefix."""
     n = len(data)
     if n == 0:
         return bytes([0x00])
@@ -43,6 +64,7 @@ def push_data(data: bytes) -> bytes:
         return bytes([0x4d]) + n.to_bytes(2, "little") + data
 
 def push_int(val: int) -> bytes:
+    """Push an integer onto the script stack using minimal encoding."""
     if val == 0:
         return bytes([0x00])
     if 1 <= val <= 16:
@@ -59,39 +81,94 @@ def push_int(val: int) -> bytes:
         result[-1] |= 0x80
     return push_data(bytes(result))
 
-def build_covenant_script(a_spk_bytes: bytes, b_pubkey: bytes, deposit: int) -> bytes:
+
+def build_covenant_script_with_timeout(
+    a_spk_bytes: bytes, a_pubkey: bytes, b_pubkey: bytes, deposit: int, timeout_daa: int
+) -> bytes:
+    """
+    Build a CLTV covenant script with timeout.
+    建構帶有超時機制的 CLTV covenant 腳本。
+
+    IF branch (Bob reads):
+      - Covenant check: output[0] must pay >= deposit to Alice's address
+      - Bob signs with OP_CHECKSIG
+    ELSE branch (Alice reclaims after timeout):
+      - OP_CHECKLOCKTIMEVERIFY ensures DAA score >= timeout_daa
+      - Alice signs with OP_CHECKSIG
+
+    Args:
+        a_spk_bytes: Alice's scriptPublicKey with version prefix (2 bytes BE + script)
+        a_pubkey: Alice's x-only public key (32 bytes)
+        b_pubkey: Bob's x-only public key (32 bytes)
+        deposit: Minimum deposit amount in sompi
+        timeout_daa: DAA score after which Alice can reclaim
+
+    ⚠️ Kaspa's OP_CHECKLOCKTIMEVERIFY (0xb0) pops the stack value!
+       Unlike Bitcoin where CLTV is a NOP-style opcode, no OP_DROP needed.
+    """
+    OP_IF = 0x63
+    OP_ELSE = 0x67
+    OP_ENDIF = 0x68
+    OP_CLTV = 0xB0
+    OP_TX_OUTPUT_SPK = 0xC3
+    OP_TX_OUTPUT_AMOUNT = 0xC2
+    OP_EQUAL = 0x87
+    OP_VERIFY = 0x69
+    OP_GTE = 0xA2
+    OP_CHECKSIG = 0xAC
+
     s = b""
+    s += bytes([OP_IF])
+    # IF: B reads — covenant check + B signs
     s += push_data(a_spk_bytes)
     s += push_int(0)
-    s += bytes([0xC3, 0x87, 0x69])  # OP_TX_OUTPUT_SPK, OP_EQUAL, OP_VERIFY
+    s += bytes([OP_TX_OUTPUT_SPK, OP_EQUAL, OP_VERIFY])
     s += push_int(0)
-    s += bytes([0xC2])              # OP_TX_OUTPUT_AMOUNT
+    s += bytes([OP_TX_OUTPUT_AMOUNT])
     s += push_int(deposit)
-    s += bytes([0xA2, 0x69])        # OP_GTE, OP_VERIFY
+    s += bytes([OP_GTE, OP_VERIFY])
     s += push_data(b_pubkey)
-    s += bytes([0xAC])              # OP_CHECKSIG
+    s += bytes([OP_CHECKSIG])
+    # ELSE: A reclaims after timeout
+    s += bytes([OP_ELSE])
+    s += push_int(timeout_daa)
+    s += bytes([OP_CLTV])
+    s += push_data(a_pubkey)
+    s += bytes([OP_CHECKSIG])
+    s += bytes([OP_ENDIF])
     return s
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Whisper Covenant v2 — Encode & Sign locally")
+    parser = argparse.ArgumentParser(description="Whisper Covenant v3 — Encode & Sign locally")
     parser.add_argument("--to", required=True, help="Recipient address")
     parser.add_argument("--message", "-m", required=True, help="Message text")
-    parser.add_argument("--key", "-k", required=True, help="Sender private key (hex)")
+    parser.add_argument("--key", "-k", default=None, help="Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json")
     parser.add_argument("--plain", action="store_true", help="Send plaintext (type=message)")
+    parser.add_argument("--timeout-offset", type=int, default=1000, help="CLTV timeout offset from current DAA (default: 1000 ≈ 100s)")
     parser.add_argument("--local-only", action="store_true", help="Skip uploading covenant_info to API")
     parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
     parser.add_argument("--remote", action="store_true", help="Use REST API instead of local kaspad (no node needed!)")
     args = parser.parse_args()
 
+    # ── Load private key ──
+    if args.key:
+        privkey_hex = args.key
+    else:
+        with open(WALLET_PATH) as f:
+            wallet = json.load(f)
+        privkey_hex = wallet["private_key"]
+
     # ── Derive sender info ──
-    a_privkey = kaspa.PrivateKey(args.key)
+    a_privkey = kaspa.PrivateKey(privkey_hex)
     a_pubkey = a_privkey.to_public_key()
     a_xonly = a_pubkey.to_x_only_public_key()
     a_addr = a_xonly.to_address(NETWORK_TYPE)
     a_addr_str = a_addr.to_string()
     a_spk = kaspa.pay_to_address_script(a_addr)
+    # OP_TX_OUTPUT_SPK returns: version(2 bytes BE) + script_bytes
     a_spk_bytes = b'\x00\x00' + bytes.fromhex(a_spk.script)
+    a_pubkey_bytes = bytes.fromhex(a_xonly.to_string())
 
     # ── Derive recipient pubkey ──
     to_addr_obj = kaspa.Address(args.to)
@@ -115,34 +192,7 @@ async def main():
         ciphertext = ecies_encrypt(compressed_hex, args.message.encode("utf-8"))
         data_str = ciphertext.hex()
 
-    # ── Build covenant ──
-    covenant_script = build_covenant_script(a_spk_bytes, b_pubkey_bytes, DEPOSIT_SOMPI)
-
-    # ── Build payload (includes covenant metadata in `a` for on-chain self-containment) ──
-    payload_obj = {
-        "v": 1,
-        "t": msg_type,
-        "d": data_str,
-        "a": {
-            "from": a_addr_str,
-            "script": covenant_script.hex(),
-            "spk": a_spk.script,
-            "deposit": DEPOSIT_SOMPI,
-        }
-    }
-    payload = json.dumps(payload_obj, ensure_ascii=False).encode("utf-8")
-    p2sh_spk = kaspa.pay_to_script_hash_script(covenant_script)
-    p2sh_addr = kaspa.address_from_script_public_key(p2sh_spk, NETWORK_TYPE)
-    p2sh_addr_str = p2sh_addr.to_string()
-
-    print(f"🌊 Whisper Covenant v2 — Encode")
-    print(f"   From: {a_addr_str}")
-    print(f"   To:   {args.to}")
-    print(f"   Type: {msg_type}")
-    print(f"   P2SH: {p2sh_addr_str}")
-    print()
-
-    # ── Get UTXOs & DAA score ──
+    # ── Get current DAA score (needed for CLTV timeout) ──
     client = None
     use_remote = args.remote
 
@@ -153,7 +203,7 @@ async def main():
             result = await client.get_utxos_by_addresses({"addresses": [a_addr_str]})
             entries = result.get("entries", [])
             dag_info = await client.get_block_dag_info()
-            current_daa = dag_info["virtualDaaScore"]
+            current_daa = int(dag_info["virtualDaaScore"])
         except Exception as e:
             print(f"⚠️  Local kaspad not available ({e}), falling back to REST API...")
             use_remote = True
@@ -175,8 +225,6 @@ async def main():
         # Convert REST API format to kaspa SDK format
         entries = []
         for u in utxo_data:
-            # REST API returns scriptPublicKey as {"scriptPublicKey": "hex"}
-            # kaspa SDK expects flat hex string with version prefix "0000"
             spk = u["utxoEntry"]["scriptPublicKey"]
             if isinstance(spk, dict):
                 spk = "0000" + spk.get("scriptPublicKey", "")
@@ -202,6 +250,42 @@ async def main():
             daa_data = json.loads(resp.read().decode("utf-8"))
         current_daa = int(daa_data["blueScore"])
 
+    # ── Calculate CLTV timeout ──
+    timeout_daa = current_daa + args.timeout_offset
+
+    # ── Build covenant with CLTV timeout ──
+    covenant_script = build_covenant_script_with_timeout(
+        a_spk_bytes, a_pubkey_bytes, b_pubkey_bytes, DEPOSIT_SOMPI, timeout_daa
+    )
+
+    # ── Build payload (includes covenant metadata in `a` for on-chain self-containment) ──
+    payload_obj = {
+        "v": 3,
+        "t": msg_type,
+        "d": data_str,
+        "a": {
+            "from": a_addr_str,
+            "script": covenant_script.hex(),
+            "spk": a_spk.script,
+            "deposit": DEPOSIT_SOMPI,
+            "timeout_daa": timeout_daa,
+        }
+    }
+    payload = json.dumps(payload_obj, ensure_ascii=False).encode("utf-8")
+    p2sh_spk = kaspa.pay_to_script_hash_script(covenant_script)
+    p2sh_addr = kaspa.address_from_script_public_key(p2sh_spk, NETWORK_TYPE)
+    p2sh_addr_str = p2sh_addr.to_string()
+
+    print(f"🌊 Whisper Covenant v3 — Encode")
+    print(f"   From: {a_addr_str}")
+    print(f"   To:   {args.to}")
+    print(f"   Type: {msg_type}")
+    print(f"   P2SH: {p2sh_addr_str}")
+    print(f"   Current DAA: {current_daa}")
+    print(f"   Timeout DAA: {timeout_daa} (current + {args.timeout_offset})")
+    print()
+
+    # ── Select UTXO ──
     lock_amount = DEPOSIT_SOMPI + FEE_BUFFER_SOMPI
     needed = lock_amount + FEE_SOMPI + 10000
 
@@ -240,7 +324,7 @@ async def main():
     print(f"   Lock: {lock_amount/1e8:.4f} tKAS → P2SH")
     print(f"   Change: {change/1e8:.4f} tKAS")
 
-    # ── Build covenant_info for decode ──
+    # ── Build covenant_info for decode/reclaim ──
     covenant_info = {
         "tx_id": tx_id,
         "covenant_script_hex": covenant_script.hex(),
@@ -248,8 +332,10 @@ async def main():
         "p2sh_spk": p2sh_spk.script,
         "a_address": a_addr_str,
         "a_spk": a_spk.script,
+        "a_pubkey": a_pubkey_bytes.hex(),
         "b_pubkey": b_xonly_hex,
         "deposit_sompi": DEPOSIT_SOMPI,
+        "timeout_daa": timeout_daa,
         "message": args.message,
         "d": data_str,
         "type": msg_type,
@@ -284,7 +370,6 @@ async def main():
             with urllib.request.urlopen(req, timeout=30) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
                 print(f"📡 TX broadcast via Whisper API! ID: {result.get('tx_id', tx_id)}")
-                # covenant_info already uploaded via broadcast
                 if result.get("covenant_info_saved"):
                     print(f"☁️  Covenant info uploaded to API")
         except Exception as e:
