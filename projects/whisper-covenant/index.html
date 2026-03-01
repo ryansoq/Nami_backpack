@@ -139,8 +139,10 @@ footer .nami{color:var(--accent);font-weight:700}
   <h2><span class="icon">🏗️</span>Architecture</h2>
 
   <div class="principle">
-    <h3>🔑 Sign Local, Broadcast Remote</h3>
-    <p>Private keys <strong>never leave your machine</strong>. Encryption, decryption, and transaction signing all happen locally.<br>The API server only relays pre-signed transactions and stores public metadata.</p>
+    <h3>🔑 Sign Local, Broadcast Remote — No Node Needed!</h3>
+    <p>Private keys <strong>never leave your machine</strong>. Encryption, decryption, and transaction signing all happen locally.<br>
+    The tools use the <strong>public REST API</strong> (api-tn12.kaspa.org) for UTXO queries and TX broadcast.<br>
+    No kaspad node required! Just <code>pip install kaspa eciespy</code> and go.</p>
   </div>
 
   <div class="diagram">
@@ -248,15 +250,25 @@ footer .nami{color:var(--accent);font-weight:700}
     <div class="step-content">
       <h3>Prerequisites</h3>
       <p>Install Python dependencies, download the tools, and connect to a TN12 node.</p>
-      <pre><code><span class="cmt"># Kaspa SDK + ECIES encryption</span>
+      <pre><code><span class="cmt"># 1. Install dependencies</span>
 <span class="fn">pip install</span> kaspa eciespy
 
-<span class="cmt"># Download encode/decode tools (or git clone the repo)</span>
-<span class="fn">curl -O</span> http://whisper.openclaw-alpha.com/static/encode.py
-<span class="fn">curl -O</span> http://whisper.openclaw-alpha.com/static/decode.py
+<span class="cmt"># 2. Download all tools</span>
+<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/encode.py
+<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/decode.py
+<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/covenant_send.py
+<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/covenant_read.py
+<span class="fn">curl -O</span> https://whisper.openclaw-alpha.com/static/covenant_reclaim.py
 
-<span class="cmt"># Need a TN12 kaspad with wRPC:</span>
-<span class="cmt"># kaspad --testnet --netsuffix=12 --rpclisten-borsh=0.0.0.0:17210</span></code></pre>
+<span class="cmt"># ✅ That's it! No kaspad node needed!</span>
+<span class="cmt"># encode.py/decode.py auto-detect: use local kaspad if available,</span>
+<span class="cmt"># otherwise fall back to REST API (api-tn12.kaspa.org)</span>
+<span class="cmt"># Use --remote to force REST API mode</span></code></pre>
+
+      <div class="warning-box" style="margin-top:12px">
+        <div class="label">💧 Need tKAS?</div>
+        <p style="color:var(--text2)">Message <strong>@Nami_Kaspa_Bot</strong> on Telegram to get testnet tKAS from the faucet!</p>
+      </div>
 
       <div style="margin-top:12px">
         <strong>📥 Direct Downloads:</strong>
@@ -292,20 +304,22 @@ print(f'Address:     {addr.to_string()}')
       <h3>Send an Encrypted Message</h3>
       <p>ECIES encrypts with recipient's public key. Covenant info is <strong>automatically uploaded</strong> to the API so the recipient can fetch it by TX ID alone.</p>
       <pre><code><span class="cmt"># Encrypted (default) — only recipient can read</span>
+<span class="cmt"># --remote: no local kaspad needed, uses REST API</span>
 <span class="fn">python3</span> encode.py \
   --to <span class="str">kaspatest:qq...recipient...</span> \
   --message <span class="str">"Hello! This is encrypted 🔐"</span> \
-  --key <span class="str">YOUR_PRIVATE_KEY_HEX</span>
+  --key <span class="str">YOUR_PRIVATE_KEY_HEX</span> \
+  <span class="kw">--remote</span>
 
 <span class="cmt"># Plaintext — visible on-chain</span>
 <span class="fn">python3</span> encode.py \
   --to <span class="str">kaspatest:qq...</span> \
   --message <span class="str">"This is public"</span> \
   --key <span class="str">YOUR_KEY</span> \
-  <span class="kw">--plain</span>
+  <span class="kw">--plain</span> <span class="kw">--remote</span>
 
-<span class="cmt"># Skip API upload (local only)</span>
-<span class="fn">python3</span> encode.py ... <span class="kw">--local-only</span></code></pre>
+<span class="cmt"># With local kaspad (auto-detects, no --remote needed)</span>
+<span class="fn">python3</span> encode.py --to <span class="str">kaspatest:qq...</span> -m <span class="str">"msg"</span> -k <span class="str">KEY</span></code></pre>
       <p style="color:var(--text2);margin-top:12px">Output:</p>
       <pre><code>🌊 Whisper Covenant v2 — Encode
    From: kaspatest:qpy...
@@ -331,15 +345,18 @@ print(f'Address:     {addr.to_string()}')
       <h3>Receive & Decrypt</h3>
       <p>Recipient only needs the <strong>TX ID</strong> — covenant info is automatically fetched from the API. Decryption and refund signing happen locally.</p>
       <pre><code><span class="cmt"># Just TX ID + your key — that's it!</span>
+<span class="cmt"># --remote: no local kaspad needed</span>
 <span class="fn">python3</span> decode.py \
   --tx <span class="str">b1062cbd...the_tx_id...</span> \
-  --key <span class="str">RECIPIENT_PRIVATE_KEY_HEX</span>
+  --key <span class="str">RECIPIENT_PRIVATE_KEY_HEX</span> \
+  <span class="kw">--remote</span>
 
 <span class="cmt"># Or use a local covenant_info file</span>
 <span class="fn">python3</span> decode.py \
   --tx <span class="str">b1062cbd...</span> \
   --key <span class="str">YOUR_KEY</span> \
-  --info <span class="str">covenant_info.json</span></code></pre>
+  --info <span class="str">covenant_info.json</span> \
+  <span class="kw">--remote</span></code></pre>
       <p style="color:var(--text2);margin-top:12px">Output:</p>
       <pre><code>📡 Fetching covenant info from API...
    ✅ Got covenant info from API
@@ -525,14 +542,39 @@ plaintext = decrypt(privkey_bytes, ciphertext)</code></pre>
   </div>
 
   <h3>Usage</h3>
-  <pre><code><span class="cmt"># Send with CLTV timeout (auto-set to current_daa + 1000)</span>
+  <pre><code><span class="cmt"># 1. Alice sends with CLTV timeout (auto-set to current_daa + 1000)</span>
 <span class="fn">python3</span> covenant_send.py <span class="str">"Secret message with timeout!"</span>
+<span class="cmt"># → Saves covenant_info.json (keep this file!)</span>
 
-<span class="cmt"># Bob reads normally (IF branch)</span>
+<span class="cmt"># 2. Bob reads normally (IF branch) — refund goes to Alice</span>
 <span class="fn">python3</span> covenant_read.py
+<span class="cmt"># → Needs covenant_info.json from Alice</span>
 
-<span class="cmt"># Alice reclaims after timeout (ELSE branch)</span>
-<span class="fn">python3</span> covenant_reclaim.py</code></pre>
+<span class="cmt"># 3. If Bob doesn't read — Alice reclaims after timeout (ELSE branch)</span>
+<span class="fn">python3</span> covenant_reclaim.py
+<span class="cmt"># → Reads covenant_info.json, checks timeout, reclaims 0.2 tKAS</span></code></pre>
+
+  <h3>🔓 How to Reclaim (Step by Step)</h3>
+  <div class="step">
+    <div class="step-num">A</div>
+    <div class="step-content">
+      <h3>Check if timed out</h3>
+      <p>The <code>covenant_info.json</code> contains <code>timeout_daa</code>. Compare with current DAA score:</p>
+      <pre><code><span class="cmt"># Check current DAA score</span>
+<span class="fn">curl -s</span> https://api-tn12.kaspa.org/info/virtual-chain-blue-score
+<span class="cmt"># If blueScore > timeout_daa → you can reclaim!</span></code></pre>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">B</div>
+    <div class="step-content">
+      <h3>Run reclaim</h3>
+      <p>Make sure <code>covenant_info.json</code> is in the same directory, and your wallet key file is at <code>~/.secrets/testnet-wallet.json</code>:</p>
+      <pre><code><span class="cmt"># Reclaim — needs: covenant_info.json + sender's private key</span>
+<span class="fn">python3</span> covenant_reclaim.py
+<span class="cmt"># → Checks timeout, signs with Alice's key, reclaims 0.2 tKAS</span></code></pre>
+    </div>
+  </div>
 
   <div class="result">
     <div class="label">⏰ Before timeout</div>
@@ -541,6 +583,10 @@ plaintext = decrypt(privkey_bytes, ciphertext)</code></pre>
   <div class="result">
     <div class="label">✅ After timeout</div>
     <p style="color:var(--text2)">Alice's reclaim TX succeeds, 0.2 tKAS returned. Bob can no longer spend the UTXO.</p>
+  </div>
+  <div class="warning-box">
+    <div class="label">⚠️ Important</div>
+    <p style="color:var(--text2)"><strong>covenant_info.json</strong> is generated when you send. Keep it safe — you need it to reclaim! It contains the covenant script, timeout DAA, and P2SH address. The <strong>private key</strong> is read from <code>~/.secrets/testnet-wallet.json</code> (same key used to send).</p>
   </div>
 
   <h3>⚠️ Kaspa vs Bitcoin: CLTV Difference</h3>

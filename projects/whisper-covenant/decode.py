@@ -26,6 +26,7 @@ import kaspa
 WRPC_URL = "ws://localhost:17210"
 NETWORK_ID = "testnet-12"
 NETWORK_TYPE = "testnet"
+REST_API_URL = "https://api-tn12.kaspa.org"
 
 def push_data(data: bytes) -> bytes:
     n = len(data)
@@ -92,6 +93,7 @@ async def main():
     parser.add_argument("--payload", default=None, help="Raw TX payload JSON (offline decode, no API needed)")
     parser.add_argument("--no-refund", action="store_true", help="Only decrypt, don't spend covenant")
     parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
+    parser.add_argument("--remote", action="store_true", help="Use REST API instead of local kaspad (no node needed!)")
     args = parser.parse_args()
 
     # ── Load covenant info ──
@@ -205,12 +207,50 @@ async def main():
         return
 
     # ── Spend covenant UTXO → refund to sender ──
-    client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
-    await client.connect()
+    client = None
+    use_remote = args.remote
 
-    p2sh_addr = info["p2sh_address"]
-    result = await client.get_utxos_by_addresses({"addresses": [p2sh_addr]})
-    entries = result.get("entries", [])
+    if not use_remote:
+        try:
+            client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
+            await client.connect()
+            p2sh_addr = info["p2sh_address"]
+            result = await client.get_utxos_by_addresses({"addresses": [p2sh_addr]})
+            entries = result.get("entries", [])
+        except Exception as e:
+            print(f"⚠️  Local kaspad not available ({e}), falling back to REST API...")
+            use_remote = True
+            client = None
+
+    if use_remote:
+        import urllib.request
+        p2sh_addr = info["p2sh_address"]
+        utxo_url = f"{REST_API_URL}/addresses/{p2sh_addr}/utxos"
+        print(f"🌐 Fetching covenant UTXO from REST API...")
+        try:
+            with urllib.request.urlopen(utxo_url, timeout=15) as resp:
+                utxo_data = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            print(f"❌ REST API UTXO fetch failed: {e}")
+            sys.exit(1)
+        entries = []
+        for u in utxo_data:
+            entry = {
+                "outpoint": {
+                    "transactionId": u["outpoint"]["transactionId"],
+                    "index": u["outpoint"]["index"],
+                },
+                "address": p2sh_addr,
+                "utxoEntry": {
+                    "amount": int(u["utxoEntry"]["amount"]),
+                    "scriptPublicKey": u["utxoEntry"]["scriptPublicKey"],
+                    "blockDaaScore": int(u["utxoEntry"]["blockDaaScore"]),
+                    "isCoinbase": u["utxoEntry"]["isCoinbase"],
+                },
+            }
+            entries.append(entry)
+    else:
+        p2sh_addr = info["p2sh_address"]
 
     if not entries:
         print("❌ No covenant UTXO found (already spent or not confirmed)")
@@ -259,15 +299,35 @@ async def main():
     print(f"   Refund: {refund_amount/1e8:.4f} tKAS → {a_addr_str}")
     print(f"   Fee: {fee/1e8:.5f} tKAS")
 
-    try:
-        r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
-        refund_tx_id = r.get("transactionId", tx.id)
-        print(f"\n✅ Refund TX submitted! ID: {refund_tx_id}")
-        print(f"   Sender {a_addr_str} gets {refund_amount/1e8:.4f} tKAS back")
-    except Exception as e:
-        print(f"\n❌ Refund failed: {e}")
-
-    await client.disconnect()
+    if client and not use_remote:
+        try:
+            r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
+            refund_tx_id = r.get("transactionId", tx.id)
+            print(f"\n✅ Refund TX submitted! ID: {refund_tx_id}")
+            print(f"   Sender {a_addr_str} gets {refund_amount/1e8:.4f} tKAS back")
+        except Exception as e:
+            print(f"\n❌ Refund failed: {e}")
+        await client.disconnect()
+    else:
+        # Submit via REST API
+        import urllib.request
+        submit_url = f"{REST_API_URL}/transactions"
+        tx_json = tx.to_json()
+        print(f"📡 Broadcasting refund TX via REST API...")
+        try:
+            req = urllib.request.Request(
+                submit_url,
+                data=json.dumps(tx_json).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result_data = json.loads(resp.read().decode("utf-8"))
+                refund_tx_id = result_data.get("transactionId", tx.id)
+                print(f"\n✅ Refund TX broadcast via REST API! ID: {refund_tx_id}")
+                print(f"   Sender {a_addr_str} gets {refund_amount/1e8:.4f} tKAS back")
+        except Exception as e:
+            print(f"\n❌ REST API broadcast failed: {e}")
 
 
 if __name__ == "__main__":

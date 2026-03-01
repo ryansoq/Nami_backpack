@@ -27,6 +27,7 @@ NETWORK_TYPE = "testnet"
 DEPOSIT_SOMPI = 20_000_000      # 0.2 tKAS
 FEE_SOMPI = 10_000
 FEE_BUFFER_SOMPI = 5_000
+REST_API_URL = "https://api-tn12.kaspa.org"
 
 # ─── Script helpers ───────────────────────────────────────────────
 
@@ -80,6 +81,7 @@ async def main():
     parser.add_argument("--plain", action="store_true", help="Send plaintext (type=message)")
     parser.add_argument("--local-only", action="store_true", help="Skip uploading covenant_info to API")
     parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
+    parser.add_argument("--remote", action="store_true", help="Use REST API instead of local kaspad (no node needed!)")
     args = parser.parse_args()
 
     # ── Derive sender info ──
@@ -139,14 +141,58 @@ async def main():
     print(f"   P2SH: {p2sh_addr_str}")
     print()
 
-    # ── Connect & get UTXOs ──
-    client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
-    await client.connect()
+    # ── Get UTXOs & DAA score ──
+    client = None
+    use_remote = args.remote
 
-    result = await client.get_utxos_by_addresses({"addresses": [a_addr_str]})
-    entries = result.get("entries", [])
-    dag_info = await client.get_block_dag_info()
-    current_daa = dag_info["virtualDaaScore"]
+    if not use_remote:
+        try:
+            client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
+            await client.connect()
+            result = await client.get_utxos_by_addresses({"addresses": [a_addr_str]})
+            entries = result.get("entries", [])
+            dag_info = await client.get_block_dag_info()
+            current_daa = dag_info["virtualDaaScore"]
+        except Exception as e:
+            print(f"⚠️  Local kaspad not available ({e}), falling back to REST API...")
+            use_remote = True
+            client = None
+
+    if use_remote:
+        import urllib.request
+        # Fetch UTXOs from REST API
+        utxo_url = f"{REST_API_URL}/addresses/{a_addr_str}/utxos"
+        print(f"🌐 Fetching UTXOs from REST API...")
+        try:
+            with urllib.request.urlopen(utxo_url, timeout=15) as resp:
+                utxo_data = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            print(f"❌ REST API UTXO fetch failed: {e}")
+            sys.exit(1)
+
+        # Convert REST API format to kaspa SDK format
+        entries = []
+        for u in utxo_data:
+            entry = {
+                "outpoint": {
+                    "transactionId": u["outpoint"]["transactionId"],
+                    "index": u["outpoint"]["index"],
+                },
+                "address": a_addr_str,
+                "utxoEntry": {
+                    "amount": int(u["utxoEntry"]["amount"]),
+                    "scriptPublicKey": u["utxoEntry"]["scriptPublicKey"],
+                    "blockDaaScore": int(u["utxoEntry"]["blockDaaScore"]),
+                    "isCoinbase": u["utxoEntry"]["isCoinbase"],
+                },
+            }
+            entries.append(entry)
+
+        # Fetch DAA score
+        daa_url = f"{REST_API_URL}/info/virtual-chain-blue-score"
+        with urllib.request.urlopen(daa_url, timeout=10) as resp:
+            daa_data = json.loads(resp.read().decode("utf-8"))
+        current_daa = int(daa_data["blueScore"])
 
     lock_amount = DEPOSIT_SOMPI + FEE_BUFFER_SOMPI
     needed = lock_amount + FEE_SOMPI + 10000
@@ -160,8 +206,10 @@ async def main():
             mature.append(e)
 
     if not mature:
-        print(f"❌ No suitable UTXO (need {needed} sompi)")
-        await client.disconnect()
+        print(f"❌ No suitable UTXO (need {needed} sompi = {needed/1e8:.4f} tKAS)")
+        print(f"   💧 Need tKAS? Message @Nami_Kaspa_Bot on Telegram for testnet faucet!")
+        if client:
+            await client.disconnect()
         sys.exit(1)
 
     selected = mature[0]
@@ -180,7 +228,7 @@ async def main():
     kaspa.sign_transaction(tx, [a_privkey], False)
 
     tx_id = tx.id
-    print(f"✅ TX signed! ID: {tx_id}")
+    print(f"✅ TX signed locally! ID: {tx_id}")
     print(f"   Lock: {lock_amount/1e8:.4f} tKAS → P2SH")
     print(f"   Change: {change/1e8:.4f} tKAS")
 
@@ -200,15 +248,36 @@ async def main():
         "output_index": 0,
     }
 
-    # ── Submit TX to kaspad ──
-    try:
-        r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
-        submitted_id = r.get("transactionId", tx_id)
-        print(f"📡 TX submitted to kaspad! ID: {submitted_id}")
-    except Exception as e:
-        print(f"❌ Submit failed: {e}")
-        await client.disconnect()
-        sys.exit(1)
+    # ── Submit TX ──
+    if client and not use_remote:
+        try:
+            r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
+            submitted_id = r.get("transactionId", tx_id)
+            print(f"📡 TX submitted to kaspad! ID: {submitted_id}")
+        except Exception as e:
+            print(f"❌ Submit failed: {e}")
+            await client.disconnect()
+            sys.exit(1)
+    else:
+        # Submit via REST API
+        import urllib.request
+        submit_url = f"{REST_API_URL}/transactions"
+        # Serialize TX to JSON for REST API
+        tx_json = tx.to_json()
+        print(f"📡 Broadcasting TX via REST API...")
+        try:
+            req = urllib.request.Request(
+                submit_url,
+                data=json.dumps(tx_json).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                print(f"📡 TX broadcast via REST API! ID: {result.get('transactionId', tx_id)}")
+        except Exception as e:
+            print(f"❌ REST API broadcast failed: {e}")
+            sys.exit(1)
 
     # Save covenant_info locally
     info_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covenant_info.json")
@@ -236,7 +305,8 @@ async def main():
     else:
         print(f"   (--local-only: skipped API upload)")
 
-    await client.disconnect()
+    if client:
+        await client.disconnect()
 
 
 if __name__ == "__main__":
