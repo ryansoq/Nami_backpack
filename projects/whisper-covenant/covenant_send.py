@@ -12,6 +12,7 @@ Flow:
   5. Print TX ID and covenant info for B to use
 """
 
+import argparse
 import asyncio
 import json
 import os
@@ -112,13 +113,22 @@ def build_covenant_script_with_timeout(
 
 
 async def main():
-    message = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "Hello from Whisper Covenant!"
+    parser = argparse.ArgumentParser(description="Whisper Covenant — Send")
+    parser.add_argument("--key", "-k", default=None, help="Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json")
+    parser.add_argument("message", nargs="*", default=["Hello from Whisper Covenant!"], help="Message text")
+    args = parser.parse_args()
 
-    # Load wallet
-    with open(WALLET_PATH) as f:
-        wallet = json.load(f)
+    message = " ".join(args.message) if args.message else "Hello from Whisper Covenant!"
 
-    a_privkey = kaspa.PrivateKey(wallet["private_key"])
+    # Load private key
+    if args.key:
+        privkey_hex = args.key
+    else:
+        with open(WALLET_PATH) as f:
+            wallet = json.load(f)
+        privkey_hex = wallet["private_key"]
+
+    a_privkey = kaspa.PrivateKey(privkey_hex)
     a_pubkey = a_privkey.to_public_key()
     a_xonly = a_pubkey.to_x_only_public_key()
     a_addr = a_xonly.to_address(NETWORK_TYPE)

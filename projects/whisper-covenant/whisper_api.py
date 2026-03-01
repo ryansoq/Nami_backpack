@@ -409,14 +409,44 @@ async def handle_broadcast(request):
         result["covenant_info_saved"] = True
         result["tx_id"] = tx_id
 
-    # Broadcast signed TX if provided (hex-encoded serialized TX)
+    # Broadcast signed TX if provided
+    # Accepts either:
+    #   "signed_tx_dict": dict from tx.serialize_to_dict() (recommended)
+    #   "signed_tx": hex-encoded serialized TX (legacy)
+    signed_tx_dict = body.get("signed_tx_dict")
     signed_tx_hex = body.get("signed_tx")
-    if signed_tx_hex:
+    if signed_tx_dict or signed_tx_hex:
         try:
             client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
             await client.connect()
             try:
-                tx = kaspa.Transaction.deserialize(bytes.fromhex(signed_tx_hex))
+                if signed_tx_dict:
+                    # Reconstruct Transaction from dict
+                    d = signed_tx_dict
+                    inputs = []
+                    for inp in d["inputs"]:
+                        outpoint = kaspa.TransactionOutpoint(kaspa.Hash(inp["transactionId"]), inp["index"])
+                        ti = kaspa.TransactionInput(
+                            outpoint,
+                            bytes.fromhex(inp.get("signatureScript", "")),
+                            inp.get("sequence", 0),
+                            inp.get("sigOpCount", 1),
+                        )
+                        inputs.append(ti)
+                    outputs = []
+                    for out in d["outputs"]:
+                        spk_hex = out["scriptPublicKey"]
+                        version = int(spk_hex[:4], 16)
+                        script = spk_hex[4:]
+                        spk = kaspa.ScriptPublicKey(version, script)
+                        outputs.append(kaspa.TransactionOutput(out["value"], spk))
+                    tx = kaspa.Transaction(
+                        d.get("version", 0), inputs, outputs, d.get("lockTime", 0),
+                        d.get("subnetworkId", "0" * 40), d.get("gas", 0),
+                        bytes.fromhex(d.get("payload", "")), d.get("mass", 0),
+                    )
+                else:
+                    tx = kaspa.Transaction.deserialize(bytes.fromhex(signed_tx_hex))
                 r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
                 result["tx_id"] = r.get("transactionId", "")
                 result["status"] = "broadcast"

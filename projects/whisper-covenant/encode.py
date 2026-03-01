@@ -164,7 +164,8 @@ async def main():
         utxo_url = f"{REST_API_URL}/addresses/{a_addr_str}/utxos"
         print(f"🌐 Fetching UTXOs from REST API...")
         try:
-            with urllib.request.urlopen(utxo_url, timeout=15) as resp:
+            req = urllib.request.Request(utxo_url, headers={"User-Agent": "whisper/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
                 utxo_data = json.loads(resp.read().decode("utf-8"))
         except Exception as e:
             print(f"❌ REST API UTXO fetch failed: {e}")
@@ -173,6 +174,11 @@ async def main():
         # Convert REST API format to kaspa SDK format
         entries = []
         for u in utxo_data:
+            # REST API returns scriptPublicKey as {"scriptPublicKey": "hex"}
+            # kaspa SDK expects flat hex string with version prefix "0000"
+            spk = u["utxoEntry"]["scriptPublicKey"]
+            if isinstance(spk, dict):
+                spk = "0000" + spk.get("scriptPublicKey", "")
             entry = {
                 "outpoint": {
                     "transactionId": u["outpoint"]["transactionId"],
@@ -181,7 +187,7 @@ async def main():
                 "address": a_addr_str,
                 "utxoEntry": {
                     "amount": int(u["utxoEntry"]["amount"]),
-                    "scriptPublicKey": u["utxoEntry"]["scriptPublicKey"],
+                    "scriptPublicKey": spk,
                     "blockDaaScore": int(u["utxoEntry"]["blockDaaScore"]),
                     "isCoinbase": u["utxoEntry"]["isCoinbase"],
                 },
@@ -190,7 +196,8 @@ async def main():
 
         # Fetch DAA score
         daa_url = f"{REST_API_URL}/info/virtual-chain-blue-score"
-        with urllib.request.urlopen(daa_url, timeout=10) as resp:
+        req = urllib.request.Request(daa_url, headers={"User-Agent": "whisper/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
             daa_data = json.loads(resp.read().decode("utf-8"))
         current_daa = int(daa_data["blueScore"])
 
@@ -259,24 +266,33 @@ async def main():
             await client.disconnect()
             sys.exit(1)
     else:
-        # Submit via REST API
+        # Submit via Whisper API (which connects to kaspad wRPC)
         import urllib.request
-        submit_url = f"{REST_API_URL}/transactions"
-        # Serialize TX to JSON for REST API
-        tx_json = tx.to_json()
-        print(f"📡 Broadcasting TX via REST API...")
+        broadcast_url = f"{args.api_url}/api/broadcast"
+        tx_dict = tx.serialize_to_dict()
+        broadcast_body = {"signed_tx_dict": tx_dict, "covenant_info": covenant_info}
+        print(f"📡 Broadcasting TX via Whisper API ({args.api_url})...")
         try:
             req = urllib.request.Request(
-                submit_url,
-                data=json.dumps(tx_json).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
+                broadcast_url,
+                data=json.dumps(broadcast_body).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "whisper/1.0",
+                          "X-Whisper-Key": os.environ.get("WHISPER_API_KEY", "whisper-testnet-poc-key")},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
-                print(f"📡 TX broadcast via REST API! ID: {result.get('transactionId', tx_id)}")
+                print(f"📡 TX broadcast via Whisper API! ID: {result.get('tx_id', tx_id)}")
+                # covenant_info already uploaded via broadcast
+                if result.get("covenant_info_saved"):
+                    print(f"☁️  Covenant info uploaded to API")
         except Exception as e:
-            print(f"❌ REST API broadcast failed: {e}")
+            err_body = ""
+            if hasattr(e, 'read'):
+                err_body = e.read().decode("utf-8", errors="replace")
+            print(f"❌ Whisper API broadcast failed: {e}")
+            if err_body:
+                print(f"   Detail: {err_body}")
             sys.exit(1)
 
     # Save covenant_info locally
@@ -285,8 +301,8 @@ async def main():
         json.dump(covenant_info, f, indent=2)
     print(f"💾 Covenant info → {info_path}")
 
-    # ── Upload covenant_info to API (default) ──
-    if not args.local_only:
+    # ── Upload covenant_info to API (default, skip if already uploaded via remote broadcast) ──
+    if not args.local_only and not use_remote:
         import aiohttp
         api_key = os.environ.get("WHISPER_API_KEY", "whisper-testnet-poc-key")
         try:

@@ -1,5 +1,5 @@
 {
-  "tx_id": "7a92586ff5994f19f79c1f7a404039568a32aeb2b28889b855b3190732113c7d",
+  "tx_id": "7cc08be3b5eb6dc95eff468e4987213842711ae5a7587aa0963339cbe8a6e2a1",
   "covenant_script_hex": "240000200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876900c204002d3101a269200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
   "p2sh_address": "kaspatest:pqk9eym4uh7spf427xa9sq3denhw7uwccsjst0fs9dgfa4g6j4c4k5042s52c",
   "p2sh_spk": "aa202c5c9375e5fd00a6aaf1ba58022dcceeef71d8c42505bd302b509ed51a95715b87",
@@ -7,8 +7,8 @@
   "a_spk": "200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
   "b_pubkey": "0d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19",
   "deposit_sompi": 20000000,
-  "message": "Encrypted remote test!",
-  "d": "0471a073abdaeb81cf7b20e27af21bac47854c8d244e888f093316fa7dbc8a09594178adde5b26f4f8d592cd90854257ff195bf66f1e908b3759215828caf227b25ac1a52205d69886adab6ee8514747abbd4b1ad70003714887c44503d0efa7aac7bc6d141c5d03c3f4b91e471305ede8824655e78f7d",
-  "type": "whisper",
+  "message": "Local mode test!",
+  "d": "Local mode test!",
+  "type": "message",
   "output_index": 0
 }

@@ -143,7 +143,7 @@ async def main():
             explorer_url = f"https://api-tn12.kaspa.org/transactions/{args.tx}"
             print(f"🔍 Trying block explorer...")
             try:
-                req = urllib.request.Request(explorer_url)
+                req = urllib.request.Request(explorer_url, headers={"User-Agent": "whisper/1.0"})
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     if resp.status == 200:
                         tx_data = json.loads(resp.read().decode("utf-8"))
@@ -228,13 +228,17 @@ async def main():
         utxo_url = f"{REST_API_URL}/addresses/{p2sh_addr}/utxos"
         print(f"🌐 Fetching covenant UTXO from REST API...")
         try:
-            with urllib.request.urlopen(utxo_url, timeout=15) as resp:
+            req = urllib.request.Request(utxo_url, headers={"User-Agent": "whisper/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
                 utxo_data = json.loads(resp.read().decode("utf-8"))
         except Exception as e:
             print(f"❌ REST API UTXO fetch failed: {e}")
             sys.exit(1)
         entries = []
         for u in utxo_data:
+            spk = u["utxoEntry"]["scriptPublicKey"]
+            if isinstance(spk, dict):
+                spk = "0000" + spk.get("scriptPublicKey", "")
             entry = {
                 "outpoint": {
                     "transactionId": u["outpoint"]["transactionId"],
@@ -243,7 +247,7 @@ async def main():
                 "address": p2sh_addr,
                 "utxoEntry": {
                     "amount": int(u["utxoEntry"]["amount"]),
-                    "scriptPublicKey": u["utxoEntry"]["scriptPublicKey"],
+                    "scriptPublicKey": spk,
                     "blockDaaScore": int(u["utxoEntry"]["blockDaaScore"]),
                     "isCoinbase": u["utxoEntry"]["isCoinbase"],
                 },
@@ -309,25 +313,32 @@ async def main():
             print(f"\n❌ Refund failed: {e}")
         await client.disconnect()
     else:
-        # Submit via REST API
+        # Submit via Whisper API (which connects to kaspad wRPC)
         import urllib.request
-        submit_url = f"{REST_API_URL}/transactions"
-        tx_json = tx.to_json()
-        print(f"📡 Broadcasting refund TX via REST API...")
+        broadcast_url = f"{args.api_url}/api/broadcast"
+        tx_dict = tx.serialize_to_dict()
+        broadcast_body = {"signed_tx_dict": tx_dict}
+        print(f"📡 Broadcasting refund TX via Whisper API...")
         try:
             req = urllib.request.Request(
-                submit_url,
-                data=json.dumps(tx_json).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
+                broadcast_url,
+                data=json.dumps(broadcast_body).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "whisper/1.0",
+                          "X-Whisper-Key": os.environ.get("WHISPER_API_KEY", "whisper-testnet-poc-key")},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 result_data = json.loads(resp.read().decode("utf-8"))
-                refund_tx_id = result_data.get("transactionId", tx.id)
-                print(f"\n✅ Refund TX broadcast via REST API! ID: {refund_tx_id}")
+                refund_tx_id = result_data.get("tx_id", tx.id)
+                print(f"\n✅ Refund TX broadcast via Whisper API! ID: {refund_tx_id}")
                 print(f"   Sender {a_addr_str} gets {refund_amount/1e8:.4f} tKAS back")
         except Exception as e:
-            print(f"\n❌ REST API broadcast failed: {e}")
+            err_body = ""
+            if hasattr(e, 'read'):
+                err_body = e.read().decode("utf-8", errors="replace")
+            print(f"\n❌ Whisper API broadcast failed: {e}")
+            if err_body:
+                print(f"   Detail: {err_body}")
 
 
 if __name__ == "__main__":

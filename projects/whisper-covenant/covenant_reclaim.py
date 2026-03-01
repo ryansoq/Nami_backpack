@@ -12,6 +12,7 @@ Flow:
   5. A gets deposit back
 """
 
+import argparse
 import asyncio
 import json
 import os
@@ -37,6 +38,10 @@ def push_data(data: bytes) -> bytes:
 
 
 async def main():
+    parser = argparse.ArgumentParser(description="Whisper Covenant — Reclaim")
+    parser.add_argument("--key", "-k", default=None, help="Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json")
+    args = parser.parse_args()
+
     # Load covenant info
     info_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "covenant_info.json")
     if not os.path.exists(info_path):
@@ -57,11 +62,15 @@ async def main():
     print(f"   Timeout DAA: {timeout_daa}")
     print()
 
-    # Load A's wallet
-    with open(WALLET_PATH) as f:
-        wallet = json.load(f)
+    # Load private key
+    if args.key:
+        privkey_hex = args.key
+    else:
+        with open(WALLET_PATH) as f:
+            wallet = json.load(f)
+        privkey_hex = wallet["private_key"]
 
-    a_privkey = kaspa.PrivateKey(wallet["private_key"])
+    a_privkey = kaspa.PrivateKey(privkey_hex)
     a_pubkey = a_privkey.to_public_key()
     a_xonly = a_pubkey.to_x_only_public_key()
     a_addr = a_xonly.to_address(NETWORK_TYPE)
