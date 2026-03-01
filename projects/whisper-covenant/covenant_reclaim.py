@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-🌊 Whisper Covenant — Read (B spends covenant UTXO → A gets refund)
+🌊 Whisper Covenant — Reclaim (A reclaims deposit after timeout)
 
-Usage: python3 covenant_read.py
+Usage: python3 covenant_reclaim.py
 
 Flow:
   1. Load covenant info from covenant_info.json
-  2. Find the covenant UTXO on chain
-  3. Build spend TX: output[0] = deposit → A (forced by covenant)
-  4. Sign with B's key (P2SH signature script)
-  5. A automatically gets refund
+  2. Check that current DAA score > timeout_daa
+  3. Build spend TX with lock_time = timeout_daa
+  4. Sign with A's key, use OP_FALSE to select ELSE branch
+  5. A gets deposit back
 """
 
 import asyncio
@@ -27,7 +27,6 @@ WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
 
 
 def push_data(data: bytes) -> bytes:
-    """Script push opcode for arbitrary data."""
     n = len(data)
     if n <= 75:
         return bytes([n]) + data
@@ -47,37 +46,58 @@ async def main():
     with open(info_path) as f:
         info = json.load(f)
 
-    print(f"🌊 Whisper Covenant — Read")
+    timeout_daa = info.get("timeout_daa")
+    if not timeout_daa:
+        print("❌ No timeout_daa in covenant_info.json. Was this sent with timeout?")
+        return
+
+    print(f"🌊 Whisper Covenant — Reclaim (timeout)")
     print(f"   TX ID: {info['tx_id']}")
-    print(f"   Message: {info['message']}")
     print(f"   Deposit: {info['deposit_sompi'] / 1e8:.2f} tKAS")
-    print(f"   A address: {info['a_address']}")
+    print(f"   Timeout DAA: {timeout_daa}")
     print()
 
-    # Load B's wallet (PoC: B = A)
+    # Load A's wallet
     with open(WALLET_PATH) as f:
         wallet = json.load(f)
 
-    b_privkey = kaspa.PrivateKey(wallet["private_key"])
+    a_privkey = kaspa.PrivateKey(wallet["private_key"])
+    a_pubkey = a_privkey.to_public_key()
+    a_xonly = a_pubkey.to_x_only_public_key()
+    a_addr = a_xonly.to_address(NETWORK_TYPE)
+    a_addr_str = a_addr.to_string()
 
     # Connect
     client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
     await client.connect()
     print("✅ Connected to kaspad")
 
-    # Find the covenant UTXO at P2SH address
+    # Check current DAA
+    dag_info = await client.get_block_dag_info()
+    current_daa = int(dag_info["virtualDaaScore"])
+    print(f"   Current DAA: {current_daa}")
+    print(f"   Timeout DAA: {timeout_daa}")
+
+    if current_daa < timeout_daa:
+        remaining = timeout_daa - current_daa
+        print(f"   ⏳ Not yet! Need to wait ~{remaining} more DAA scores (~{remaining // 10}s)")
+        await client.disconnect()
+        return
+
+    print(f"   ✅ Timeout reached! (current {current_daa} >= timeout {timeout_daa})")
+    print()
+
+    # Find the covenant UTXO
     p2sh_addr = info["p2sh_address"]
     result = await client.get_utxos_by_addresses({"addresses": [p2sh_addr]})
     entries = result.get("entries", [])
 
-    print(f"   UTXOs at P2SH address: {len(entries)}")
-
     if not entries:
-        print("❌ No covenant UTXO found! TX may not be confirmed yet.")
+        print("❌ No covenant UTXO found! Already spent?")
         await client.disconnect()
         return
 
-    # Find the specific UTXO from our TX
+    # Find exact UTXO
     covenant_entry = None
     for e in entries:
         if e["outpoint"]["transactionId"] == info["tx_id"]:
@@ -88,75 +108,58 @@ async def main():
         covenant_entry = entries[0]
         print(f"   ⚠️ Exact UTXO not found, using first available")
 
-    utxo_outpoint = covenant_entry["outpoint"]
     utxo_amount = covenant_entry["utxoEntry"]["amount"]
-    deposit = info["deposit_sompi"]
-
-    print(f"   Found UTXO: {utxo_outpoint['transactionId']}:{utxo_outpoint['index']}")
+    print(f"   Found UTXO: {covenant_entry['outpoint']['transactionId']}:{covenant_entry['outpoint']['index']}")
     print(f"   Amount: {utxo_amount / 1e8:.4f} tKAS")
-    print()
 
-    # Build spend TX
-    a_addr_str = info["a_address"]
-    fee = 3000  # 0.00003 tKAS
-    refund_amount = utxo_amount - fee
+    # Build reclaim TX
+    fee = 3000
+    reclaim_amount = utxo_amount - fee
 
-    if refund_amount < deposit:
-        print(f"❌ UTXO too small for refund + fee! Need {deposit + fee}, have {utxo_amount}")
-        await client.disconnect()
-        return
-
-    # Use create_transaction to get UTXO entry attached (needed for sighash)
     tx = kaspa.create_transaction(
         [covenant_entry],
-        [kaspa.PaymentOutput(kaspa.Address(a_addr_str), refund_amount)],
+        [kaspa.PaymentOutput(kaspa.Address(a_addr_str), reclaim_amount)],
         0,
         b"",
     )
 
-    # Note: TN12 covpp branch supports covenant opcodes with version 0
-    # No need to change version or call finalize()
+    # Set lock_time to timeout_daa (required for CLTV)
+    tx.lock_time = timeout_daa
 
-    print(f"📝 Spend TX")
-    print(f"   Refund to A: {refund_amount / 1e8:.4f} tKAS")
+    print(f"📝 Reclaim TX")
+    print(f"   Reclaim to A: {reclaim_amount / 1e8:.4f} tKAS")
     print(f"   Fee: {fee / 1e8:.5f} tKAS")
-    print(f"   TX version: {tx.version}")
+    print(f"   Lock time: {tx.lock_time}")
 
-    # Compute signature (sighash computed on this exact tx object)
-    sig = kaspa.create_input_signature(tx, 0, b_privkey, kaspa.SighashType.All)
+    # Sign with A's key
+    sig = kaspa.create_input_signature(tx, 0, a_privkey, kaspa.SighashType.All)
     sig_bytes = bytes.fromhex(sig) if isinstance(sig, str) else sig
     print(f"   Signature: {sig_bytes.hex()[:40]}... ({len(sig_bytes)} bytes)")
 
-    # Build P2SH signature script: <sig_serialized> <OP_TRUE> <push redeem_script>
-    # create_input_signature already returns script-serialized sig (with push opcode)
-    # OP_TRUE (0x51) selects the IF branch (B reads)
+    # Build P2SH sig script: <sig_serialized> <OP_FALSE> <push redeem_script>
+    # OP_FALSE (0x00) selects the ELSE branch (A reclaims)
     covenant_script = bytes.fromhex(info["covenant_script_hex"])
-    sig_script = sig_bytes + bytes([0x51]) + push_data(covenant_script)
+    sig_script = sig_bytes + bytes([0x00]) + push_data(covenant_script)
     print(f"   Sig script: {len(sig_script)} bytes")
 
-    # Set signature script and sig_op_count directly on the SAME tx object
-    # This ensures the submitted TX matches the one used for sighash computation
     tx.inputs[0].signature_script = sig_script
-    tx.inputs[0].sig_op_count = 1  # 1 OP_CHECKSIG in redeem script
+    tx.inputs[0].sig_op_count = 1
 
     print(f"   TX ID: {tx.id}")
 
     # Submit
     try:
         r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
-        print(f"\n✅ Spend TX submitted! A gets refund automatically.")
-        print(f"   Message was: {info['message']}")
+        print(f"\n✅ Reclaim TX submitted! Deposit returned to A.")
         print(f"   Result: {r}")
     except Exception as e:
         print(f"\n❌ Submit failed: {e}")
-
-        # Debug
         print(f"\n   Debug info:")
         print(f"   TX version: {tx.version}")
+        print(f"   TX lock_time: {tx.lock_time}")
         print(f"   TX ID: {tx.id}")
         d = tx.serialize_to_dict()
         print(f"   TX dict inputs[0] sig_script: {d['inputs'][0].get('signatureScript', 'N/A')[:80]}...")
-        print(f"   TX dict version: {d.get('version')}")
 
     await client.disconnect()
 

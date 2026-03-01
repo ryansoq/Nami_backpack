@@ -62,18 +62,25 @@ def push_int(val: int) -> bytes:
     return push_data(bytes(result))
 
 
-def build_covenant_script(a_spk_bytes: bytes, b_pubkey: bytes, deposit: int) -> bytes:
+def build_covenant_script_with_timeout(
+    a_spk_bytes: bytes, a_pubkey: bytes, b_pubkey: bytes, deposit: int, timeout_daa: int
+) -> bytes:
     """
-    Covenant locking script (TN12 introspection opcodes):
-      <a_spk> <0> OP_TX_OUTPUT_SPK OP_EQUAL OP_VERIFY
-      <deposit> <0> OP_TX_OUTPUT_AMOUNT OP_GREATERTHANOREQUAL OP_VERIFY
-      <b_pubkey> OP_CHECKSIG
-
-    When B spends this UTXO, the script verifies:
-    1. output[0].script_public_key == A's address (refund goes to A)
-    2. output[0].amount >= deposit (full refund)
-    3. B's signature is valid
+    Covenant script with CLTV timeout:
+      OP_IF
+        <a_spk> <0> OP_TX_OUTPUT_SPK OP_EQUAL OP_VERIFY
+        <deposit> <0> OP_TX_OUTPUT_AMOUNT OP_GREATERTHANOREQUAL OP_VERIFY
+        <b_pubkey> OP_CHECKSIG
+      OP_ELSE
+        <timeout_daa> OP_CHECKLOCKTIMEVERIFY OP_DROP
+        <a_pubkey> OP_CHECKSIG
+      OP_ENDIF
     """
+    OP_IF = 0x63
+    OP_ELSE = 0x67
+    OP_ENDIF = 0x68
+    OP_CLTV = 0xB0
+    OP_DROP = 0x75
     OP_TX_OUTPUT_SPK = 0xC3
     OP_TX_OUTPUT_AMOUNT = 0xC2
     OP_EQUAL = 0x87
@@ -82,6 +89,8 @@ def build_covenant_script(a_spk_bytes: bytes, b_pubkey: bytes, deposit: int) -> 
     OP_CHECKSIG = 0xAC
 
     s = b""
+    s += bytes([OP_IF])
+    # IF: B reads — covenant check + B signs
     s += push_data(a_spk_bytes)
     s += push_int(0)
     s += bytes([OP_TX_OUTPUT_SPK, OP_EQUAL, OP_VERIFY])
@@ -91,6 +100,14 @@ def build_covenant_script(a_spk_bytes: bytes, b_pubkey: bytes, deposit: int) -> 
     s += bytes([OP_GTE, OP_VERIFY])
     s += push_data(b_pubkey)
     s += bytes([OP_CHECKSIG])
+    # ELSE: A reclaims after timeout
+    # Note: Kaspa's CLTV pops the value (unlike Bitcoin's NOP behavior), so no OP_DROP needed
+    s += bytes([OP_ELSE])
+    s += push_int(timeout_daa)
+    s += bytes([OP_CLTV])
+    s += push_data(a_pubkey)
+    s += bytes([OP_CHECKSIG])
+    s += bytes([OP_ENDIF])
     return s
 
 
@@ -119,9 +136,24 @@ async def main():
 
     # For PoC, B = A (send to ourselves)
     b_pubkey_bytes = bytes.fromhex(a_xonly.to_string())
+    a_pubkey_bytes = b_pubkey_bytes  # PoC: same key
 
-    # Build covenant script
-    covenant_script = build_covenant_script(a_spk_bytes, b_pubkey_bytes, DEPOSIT_SOMPI)
+    # Connect to kaspad
+    client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
+    await client.connect()
+    print("✅ Connected to kaspad")
+
+    # Get current DAA score for timeout
+    dag_info_pre = await client.get_block_dag_info()
+    current_daa = int(dag_info_pre["virtualDaaScore"])
+    timeout_daa = current_daa + 1000  # ~100 seconds
+    print(f"   Current DAA: {current_daa}")
+    print(f"   Timeout DAA: {timeout_daa} (current + 1000)")
+
+    # Build covenant script with timeout
+    covenant_script = build_covenant_script_with_timeout(
+        a_spk_bytes, a_pubkey_bytes, b_pubkey_bytes, DEPOSIT_SOMPI, timeout_daa
+    )
     print(f"📜 Covenant script ({len(covenant_script)} bytes): {covenant_script.hex()}")
 
     # Create P2SH
@@ -131,19 +163,12 @@ async def main():
     print(f"📦 P2SH address: {p2sh_addr_str}")
     print()
 
-    # Connect to kaspad
-    client = kaspa.RpcClient(url=WRPC_URL, encoding="borsh", network_id=NETWORK_ID)
-    await client.connect()
-    print("✅ Connected to kaspad")
-
     # Get UTXOs
     result = await client.get_utxos_by_addresses({"addresses": [a_addr_str]})
     entries = result.get("entries", [])
     print(f"   Found {len(entries)} UTXOs")
 
-    # Filter mature UTXOs
-    dag_info = await client.get_block_dag_info()
-    current_daa = dag_info["virtualDaaScore"]
+    # Filter mature UTXOs (current_daa already fetched above)
 
     mature = []
     for e in entries:
@@ -167,10 +192,10 @@ async def main():
     lock_amount = DEPOSIT_SOMPI + FEE_BUFFER_SOMPI  # deposit + fee buffer for B's spend
     change = input_amount - lock_amount - FEE_SOMPI
     payload = json.dumps({
-        "v": 1,
+        "v": 2,
         "t": "message",
         "d": message,
-        "a": {"from": a_addr_str}
+        "a": {"from": a_addr_str, "timeout_daa": timeout_daa}
     }, ensure_ascii=False).encode("utf-8")
 
     tx = kaspa.create_transaction(
@@ -208,8 +233,10 @@ async def main():
         "p2sh_spk": p2sh_spk.script,
         "a_address": a_addr_str,
         "a_spk": a_spk.script,
+        "a_pubkey": a_xonly.to_string(),
         "b_pubkey": a_xonly.to_string(),  # PoC: B = A
         "deposit_sompi": DEPOSIT_SOMPI,
+        "timeout_daa": timeout_daa,
         "message": message,
         "output_index": 0,
     }

@@ -111,10 +111,10 @@ footer .nami{color:var(--accent);font-weight:700}
 
 <!-- Hero -->
 <div class="hero">
-  <div class="badge">KASPA TN12 • COVENANT v2</div>
-  <h1>🌊 <span class="accent">Whisper</span> v2</h1>
+  <div class="badge">KASPA TN12 • COVENANT v3</div>
+  <h1>🌊 <span class="accent">Whisper</span> v3</h1>
   <h1>Trustless Encrypted Messages</h1>
-  <p>Send ECIES-encrypted messages on Kaspa with automatic deposit refunds. Private keys never leave your machine.</p>
+  <p>Send ECIES-encrypted messages on Kaspa with automatic deposit refunds and CLTV timeout reclaim. Private keys never leave your machine.</p>
 </div>
 
 <!-- Nav -->
@@ -122,6 +122,7 @@ footer .nami{color:var(--accent);font-weight:700}
 <div class="container">
   <a href="#architecture">Architecture</a>
   <a href="#security">Security</a>
+  <a href="#cltv">CLTV</a>
   <a href="#quickstart">Quick Start</a>
   <a href="#offline">Offline</a>
   <a href="#api">API</a>
@@ -163,19 +164,25 @@ footer .nami{color:var(--accent);font-weight:700}
 </div>
 
   <h3>How It Works</h3>
-  <p>Alice sends a message to Bob by locking <strong>0.2 tKAS</strong> into a covenant P2SH script. When Bob reads the message (spends the UTXO), the covenant <strong>enforces</strong> that 0.2 tKAS is refunded to Alice. Net cost: only mining fees (~0.0001 tKAS).</p>
+  <p>Alice sends a message to Bob by locking <strong>0.2 tKAS</strong> into a covenant P2SH script with a <strong>CLTV timeout</strong>. When Bob reads the message (spends the UTXO), the covenant <strong>enforces</strong> that 0.2 tKAS is refunded to Alice. If Bob doesn't read it, Alice can reclaim after the timeout. Net cost: only mining fees (~0.0001 tKAS).</p>
 
   <div class="diagram">
  Alice (sender)            Covenant UTXO              Bob (receiver)
      │                          │                          │
      ├── lock 0.2 KAS ────────►│  P2SH script             │
-     │   + encrypted payload    │  enforces refund → A     │
+     │   + encrypted payload    │  IF:  refund → A (Bob)   │
+     │   + CLTV timeout         │  ELSE: reclaim (Alice)   │
      │                          │                          │
-     │                          │◄── Bob spends (reads) ───┤
+     │      Path 1: Bob reads   │◄── Bob spends (reads) ───┤
      │◄── 0.2 KAS refund ──────│    covenant verifies:     │
      │   (enforced by script)   │    ✓ output[0] → Alice   │
      │                          │    ✓ amount ≥ 0.2 KAS    │
      │                          │    ✓ signed by Bob        │
+     │                          │                          │
+     │      Path 2: Timeout     │                          │
+     ├── reclaim 0.2 KAS ◄─────│    CLTV verifies:        │
+     │   (after timeout)        │    ✓ DAA ≥ timeout       │
+     │                          │    ✓ signed by Alice      │
 </div>
 </div>
 </section>
@@ -255,6 +262,9 @@ footer .nami{color:var(--accent);font-weight:700}
         <strong>📥 Direct Downloads:</strong>
         <a href="/static/encode.py" style="margin-left:12px">encode.py</a> ·
         <a href="/static/decode.py">decode.py</a> ·
+        <a href="/static/covenant_send.py">covenant_send.py</a> ·
+        <a href="/static/covenant_read.py">covenant_read.py</a> ·
+        <a href="/static/covenant_reclaim.py">covenant_reclaim.py</a> ·
         <a href="/static/QUICKSTART.md">QUICKSTART.md</a> ·
         <a href="/static/README.md">README.md</a>
       </div>
@@ -480,13 +490,76 @@ plaintext = decrypt(privkey_bytes, ciphertext)</code></pre>
 </div>
 </section>
 
+<!-- CLTV -->
+<section id="cltv">
+<div class="container">
+  <h2><span class="icon">⏰</span>CLTV Timeout Reclaim (v3)</h2>
+
+  <div class="principle">
+    <h3>🔓 No More Stuck Deposits!</h3>
+    <p>If the recipient doesn't read your message within the timeout, you can <strong>reclaim your 0.2 KAS deposit</strong> yourself. Fully trustless — no intermediary needed.</p>
+  </div>
+
+  <h3>How It Works</h3>
+  <p>The covenant script uses <code>OP_IF / OP_ELSE</code> with two spending paths:</p>
+
+  <div class="two-col">
+    <div class="security-box">
+      <div class="label">✅ IF Branch — Bob Reads</div>
+      <ul style="padding-left:20px;color:var(--text2)">
+        <li>Bob spends the UTXO</li>
+        <li>Covenant enforces refund → Alice</li>
+        <li>Available immediately</li>
+        <li>Sig script: <code>&lt;sig&gt; OP_TRUE &lt;redeem&gt;</code></li>
+      </ul>
+    </div>
+    <div class="warning-box">
+      <div class="label">⏰ ELSE Branch — Alice Reclaims</div>
+      <ul style="padding-left:20px;color:var(--text2)">
+        <li>Alice reclaims after timeout</li>
+        <li>CLTV checks DAA score ≥ timeout</li>
+        <li>TX lock_time must be set</li>
+        <li>Sig script: <code>&lt;sig&gt; OP_FALSE &lt;redeem&gt;</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Usage</h3>
+  <pre><code><span class="cmt"># Send with CLTV timeout (auto-set to current_daa + 1000)</span>
+<span class="fn">python3</span> covenant_send.py <span class="str">"Secret message with timeout!"</span>
+
+<span class="cmt"># Bob reads normally (IF branch)</span>
+<span class="fn">python3</span> covenant_read.py
+
+<span class="cmt"># Alice reclaims after timeout (ELSE branch)</span>
+<span class="fn">python3</span> covenant_reclaim.py</code></pre>
+
+  <div class="result">
+    <div class="label">⏰ Before timeout</div>
+    <p style="color:var(--text2)"><code>covenant_reclaim.py</code> will show how many DAA scores remain and refuse to submit.</p>
+  </div>
+  <div class="result">
+    <div class="label">✅ After timeout</div>
+    <p style="color:var(--text2)">Alice's reclaim TX succeeds, 0.2 tKAS returned. Bob can no longer spend the UTXO.</p>
+  </div>
+
+  <h3>⚠️ Kaspa vs Bitcoin: CLTV Difference</h3>
+  <div class="warning-box">
+    <div class="label">Important Discovery</div>
+    <p style="color:var(--text2)">Kaspa's <code>OP_CHECKLOCKTIMEVERIFY</code> (0xb0) <strong>pops the stack value</strong>, unlike Bitcoin where it's a NOP-style opcode. This means <code>OP_DROP</code> is <strong>not needed</strong> after CLTV in Kaspa scripts.</p>
+  </div>
+</div>
+</section>
+
 <!-- Covenant Script -->
 <section id="covenant">
 <div class="container">
   <h2><span class="icon">📜</span>Covenant Script Breakdown</h2>
-  <p>The redeem script inside P2SH. Three conditions must ALL pass for the spend to succeed:</p>
+  <p>The v3 redeem script uses <code>OP_IF / OP_ELSE</code> for dual spending paths:</p>
 
   <div style="margin-top:20px">
+    <h3>IF Branch — Bob Reads (Refund to Alice)</h3>
+    <div class="script-line"><span class="script-code">OP_IF (0x63)</span><span class="script-desc">Start IF branch</span></div>
     <h3>Part 1 — Verify Refund Goes to Sender</h3>
     <div class="script-line"><span class="script-code">&lt;A_spk_bytes&gt;</span><span class="script-desc">Push sender's ScriptPublicKey bytes (2B version + script)</span></div>
     <div class="script-line"><span class="script-code">OP_FALSE (0x00)</span><span class="script-desc">Push output index 0</span></div>
@@ -506,9 +579,19 @@ plaintext = decrypt(privkey_bytes, ciphertext)</code></pre>
     <div class="script-line"><span class="script-code">OP_CHECKSIG (0xac)</span><span class="script-desc">✅ Only recipient can unlock this UTXO</span></div>
   </div>
 
+    <h3>ELSE Branch — Alice Reclaims (After Timeout)</h3>
+    <div class="script-line"><span class="script-code">OP_ELSE (0x67)</span><span class="script-desc">Start ELSE branch</span></div>
+    <div class="script-line"><span class="script-code">&lt;timeout_daa&gt;</span><span class="script-desc">Push timeout DAA score (e.g. current + 1000)</span></div>
+    <div class="script-line"><span class="script-code">OP_CHECKLOCKTIMEVERIFY (0xb0)</span><span class="script-desc">Verify TX lock_time ≥ timeout (pops stack in Kaspa!)</span></div>
+    <div class="script-line"><span class="script-code">&lt;A_pubkey 32B&gt;</span><span class="script-desc">Push sender's Schnorr pubkey</span></div>
+    <div class="script-line"><span class="script-code">OP_CHECKSIG (0xac)</span><span class="script-desc">✅ Only sender can reclaim after timeout</span></div>
+    <div class="script-line"><span class="script-code">OP_ENDIF (0x68)</span><span class="script-desc">End conditional</span></div>
+
   <h3>Python Implementation</h3>
-  <pre><code><span class="kw">def</span> <span class="fn">build_covenant_script</span>(a_spk_bytes, b_pubkey, deposit):
-    s  = push_data(a_spk_bytes)           <span class="cmt"># Sender's SPK</span>
+  <pre><code><span class="kw">def</span> <span class="fn">build_covenant_script_with_timeout</span>(a_spk_bytes, a_pubkey, b_pubkey, deposit, timeout_daa):
+    s  = <span class="kw">bytes</span>([<span class="num">0x63</span>])                  <span class="cmt"># OP_IF</span>
+    <span class="cmt"># IF: Bob reads → refund to Alice</span>
+    s += push_data(a_spk_bytes)           <span class="cmt"># Sender's SPK</span>
     s += push_int(<span class="num">0</span>)                      <span class="cmt"># Output index 0</span>
     s += <span class="kw">bytes</span>([<span class="num">0xC3, 0x87, 0x69</span>])      <span class="cmt"># OP_TX_OUTPUT_SPK, OP_EQUAL, OP_VERIFY</span>
     s += push_int(<span class="num">0</span>)                      <span class="cmt"># Output index 0</span>
@@ -517,6 +600,13 @@ plaintext = decrypt(privkey_bytes, ciphertext)</code></pre>
     s += <span class="kw">bytes</span>([<span class="num">0xA2, 0x69</span>])            <span class="cmt"># OP_GTE, OP_VERIFY</span>
     s += push_data(b_pubkey)              <span class="cmt"># Recipient pubkey</span>
     s += <span class="kw">bytes</span>([<span class="num">0xAC</span>])                  <span class="cmt"># OP_CHECKSIG</span>
+    <span class="cmt"># ELSE: Alice reclaims after timeout</span>
+    s += <span class="kw">bytes</span>([<span class="num">0x67</span>])                  <span class="cmt"># OP_ELSE</span>
+    s += push_int(timeout_daa)            <span class="cmt"># Timeout DAA score</span>
+    s += <span class="kw">bytes</span>([<span class="num">0xB0</span>])                  <span class="cmt"># OP_CHECKLOCKTIMEVERIFY (pops in Kaspa!)</span>
+    s += push_data(a_pubkey)              <span class="cmt"># Sender pubkey</span>
+    s += <span class="kw">bytes</span>([<span class="num">0xAC</span>])                  <span class="cmt"># OP_CHECKSIG</span>
+    s += <span class="kw">bytes</span>([<span class="num">0x68</span>])                  <span class="cmt"># OP_ENDIF</span>
     <span class="kw">return</span> s</code></pre>
 </div>
 </section>
@@ -550,6 +640,27 @@ plaintext = decrypt(privkey_bytes, ciphertext)</code></pre>
 <div class="container">
   <h2><span class="icon">✅</span>Test Results (TN12)</h2>
   <p>End-to-end tests completed on Kaspa Testnet 12:</p>
+
+  <h3>v3 — CLTV Timeout Reclaim (2026-03-01)</h3>
+  <div class="result">
+    <div class="label">📤 Send — CLTV covenant created</div>
+    <div class="tx">575c21a3...</div>
+    <p style="margin-top:8px;color:var(--text2);font-size:.9rem">Locked 0.2 tKAS with OP_IF/OP_ELSE + CLTV timeout. Both paths available.</p>
+  </div>
+  <div class="result">
+    <div class="label">📥 Read — Bob reads via IF branch</div>
+    <div class="tx">a18dadf0...</div>
+    <p style="margin-top:8px;color:var(--text2);font-size:.9rem">Bob spends with OP_TRUE, covenant enforces refund to Alice ✅</p>
+  </div>
+  <div class="result">
+    <div class="label">⏰ Reclaim blocked — Before timeout</div>
+    <p style="margin-top:8px;color:var(--text2);font-size:.9rem">Correctly rejected: shows remaining DAA scores until timeout ✅</p>
+  </div>
+  <div class="result">
+    <div class="label">🔓 Reclaim — Alice reclaims via ELSE branch</div>
+    <div class="tx">073c0582...</div>
+    <p style="margin-top:8px;color:var(--text2);font-size:.9rem">After timeout, Alice reclaims 0.2 tKAS with OP_FALSE + CLTV verification ✅</p>
+  </div>
 
   <h3>v2 — ECIES Encrypted + Local Signing (2026-02-28)</h3>
   <div class="result">
@@ -598,13 +709,13 @@ plaintext = decrypt(privkey_bytes, ciphertext)</code></pre>
   <div class="cards">
     <div class="card">
       <div class="emoji">✅</div>
-      <h3>v2 (Current)</h3>
-      <p>ECIES encryption • Local signing (encode.py / decode.py) • JSON payload {v,t,d,a} • Covenant P2SH • REST API • E2E tested on TN12</p>
+      <h3>v3 (Current)</h3>
+      <p>ECIES encryption • Local signing • CLTV timeout reclaim • OP_IF/OP_ELSE dual paths • JSON payload {v,t,d,a} • Covenant P2SH • REST API • E2E tested on TN12</p>
     </div>
     <div class="card">
       <div class="emoji">🔜</div>
-      <h3>v3 (Next)</h3>
-      <p>CLTV timeout (sender reclaim) • Multi-message inbox • Message indexer • Contact registry • Group messaging</p>
+      <h3>v4 (Next)</h3>
+      <p>Multi-message inbox • Message indexer • Contact registry • Group messaging • TG Bot integration</p>
     </div>
   </div>
 </div>

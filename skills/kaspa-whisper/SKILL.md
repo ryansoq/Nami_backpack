@@ -1,4 +1,4 @@
-# Kaspa Whisper Protocol v2
+# Kaspa Whisper Protocol v3
 
 **Trustless encrypted messaging on Kaspa using covenant introspection opcodes.**
 
@@ -23,10 +23,11 @@ Private keys **NEVER** leave your machine. Sign locally, broadcast online.
 ```
 
 **How it works:**
-1. Sender locks 0.2 KAS into a **covenant script** + encrypted payload
-2. Covenant enforces: only recipient can spend, and **must refund** sender
+1. Sender locks 0.2 KAS into a **covenant script** with **CLTV timeout** + encrypted payload
+2. Covenant enforces: only recipient can spend, and **must refund** sender (IF branch)
 3. Recipient decrypts locally, signs refund TX → sender gets 0.2 KAS back
-4. Net cost: only mining fees (~0.0005 KAS)
+4. If recipient doesn't read → sender **reclaims deposit after timeout** (ELSE branch)
+5. Net cost: only mining fees (~0.0005 KAS)
 
 ## Quick Start (3 Steps)
 
@@ -138,32 +139,80 @@ For `ack` type:
 }
 ```
 
-## Covenant Script
+## Covenant Script (v3 — with CLTV)
 
-The deposit is locked in a P2SH address with this redeem script:
+The deposit is locked in a P2SH address with an `OP_IF / OP_ELSE` redeem script:
 
 ```
-<A_spk_bytes>          // sender's ScriptPublicKey (version + script)
-OP_FALSE               // output index 0
-OP_TX_OUTPUT_SPK       // introspect output[0] SPK
-OP_EQUAL
-OP_VERIFY              // ✓ output[0] must pay to sender
+OP_IF                  // IF branch: recipient reads
+  <A_spk_bytes>        //   sender's ScriptPublicKey (version + script)
+  OP_FALSE             //   output index 0
+  OP_TX_OUTPUT_SPK     //   introspect output[0] SPK
+  OP_EQUAL
+  OP_VERIFY            //   ✓ output[0] must pay to sender
 
-<deposit_sompi>        // 0.2 KAS = 20,000,000 sompi
-OP_FALSE               // output index 0
-OP_TX_OUTPUT_AMOUNT    // introspect output[0] amount
-OP_GREATERTHANOREQUAL
-OP_VERIFY              // ✓ output[0] ≥ 0.2 KAS
+  OP_FALSE             //   output index 0
+  OP_TX_OUTPUT_AMOUNT  //   introspect output[0] amount
+  <deposit_sompi>      //   0.2 KAS = 20,000,000 sompi
+  OP_GTE
+  OP_VERIFY            //   ✓ output[0] ≥ 0.2 KAS
 
-<B_pubkey>             // recipient's 32-byte Schnorr pubkey
-OP_CHECKSIG            // ✓ only recipient can spend
+  <B_pubkey>           //   recipient's 32-byte Schnorr pubkey
+  OP_CHECKSIG          //   ✓ only recipient can spend
+OP_ELSE                // ELSE branch: sender reclaims after timeout
+  <timeout_daa>        //   DAA score threshold
+  OP_CHECKLOCKTIMEVERIFY  // ✓ TX lock_time ≥ timeout (pops stack in Kaspa!)
+  <A_pubkey>           //   sender's 32-byte Schnorr pubkey
+  OP_CHECKSIG          //   ✓ only sender can reclaim
+OP_ENDIF
 ```
+
+**Spending paths:**
+- **IF (recipient reads)**: sig_script = `<sig> OP_TRUE <redeem_script>`
+- **ELSE (sender reclaims)**: sig_script = `<sig> OP_FALSE <redeem_script>`, TX lock_time = timeout_daa
+
+**⚠️ Kaspa vs Bitcoin**: Kaspa's `OP_CHECKLOCKTIMEVERIFY` **pops the stack value** (unlike Bitcoin's NOP behavior). No `OP_DROP` needed after CLTV!
 
 **Guarantees:**
-- Only recipient (B) can spend the UTXO
+- Only recipient (B) can spend via IF branch
 - Spending MUST refund ≥ 0.2 KAS to sender (A)
 - Refund goes to sender's exact address (SPK pinned)
+- If unread, sender (A) can reclaim after timeout via ELSE branch
 - All enforced by script — trustless!
+
+## CLTV Timeout Reclaim (v3)
+
+If recipient doesn't read your message, reclaim your deposit:
+
+### Send with timeout
+
+```bash
+# covenant_send.py auto-sets timeout = current_daa + 1000 (~100 seconds for testing)
+python3 covenant_send.py "Secret message with timeout!"
+```
+
+### Recipient reads (normal path)
+
+```bash
+python3 covenant_read.py
+```
+
+### Sender reclaims (after timeout)
+
+```bash
+# Before timeout: shows remaining DAA scores, refuses to submit
+# After timeout: reclaims 0.2 tKAS successfully
+python3 covenant_reclaim.py
+```
+
+### Test Results (2026-03-01)
+
+| Test | TX ID | Result |
+|------|-------|--------|
+| Send (CLTV covenant) | `575c21a3...` | ✅ |
+| Read (IF branch) | `a18dadf0...` | ✅ |
+| Reclaim before timeout | — | ✅ Correctly blocked |
+| Reclaim after timeout | `073c0582...` | ✅ 0.2 tKAS returned |
 
 ## CLI Reference
 
@@ -256,7 +305,6 @@ Base URL: `https://whisper.openclaw-alpha.com`
 
 ## Known Limitations
 
-- **No CLTV timeout**: If recipient never reads, deposit is locked forever. (Planned for v3)
 - **No indexer**: No way to search all whisper messages on-chain. Need API or manual TX lookup.
 - **TN12 only**: Requires Kaspa testnet with covenant opcodes enabled.
 - **Single recipient**: No group messaging yet.
@@ -325,7 +373,7 @@ pip install kaspa eciespy aiohttp
 
 ## Future
 
-- [ ] CLTV timeout (sender reclaim if unread)
+- [x] CLTV timeout (sender reclaim if unread) ✅ v3
 - [ ] On-chain indexer
 - [ ] TG Bot integration (`/whisper @bob message`)
 - [ ] Group messaging
@@ -333,5 +381,5 @@ pip install kaspa eciespy aiohttp
 
 ---
 
-*Kaspa Whisper v2 — 2026-03-01 by Nami 🌊 & Bob & Ryan*
+*Kaspa Whisper v3 — 2026-03-01 by Nami 🌊 & Bob & Ryan*
 *First verified: Nami ↔ Bob bidirectional ECIES encrypted messaging on Kaspa Testnet*
