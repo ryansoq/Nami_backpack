@@ -187,10 +187,22 @@ async def main():
     if msg_type == "whisper":
         # data is hex-encoded ECIES ciphertext
         from ecies import decrypt as ecies_decrypt
-        # Need full 32-byte private key for decryption
-        privkey_bytes = bytes.fromhex(args.key)
+        # Kaspa uses x-only pubkeys (no parity). Encoder uses 02 prefix,
+        # but if our key's actual parity is 03, we must negate the secret key.
+        # Try normal first, then negated.
         ciphertext = bytes.fromhex(raw_data)
-        plaintext = ecies_decrypt(privkey_bytes, ciphertext)
+        privkey_bytes = bytes.fromhex(args.key)
+        try:
+            plaintext = ecies_decrypt(args.key, ciphertext)
+        except Exception:
+            # Negate the private key (mod curve order) to match opposite parity
+            from coincurve import PrivateKey as _CPrivateKey
+            _sk = _CPrivateKey(privkey_bytes)
+            _prefix = _sk.public_key.format(True)[0]
+            # Curve order n for secp256k1
+            _n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+            _neg = (_n - int.from_bytes(privkey_bytes, 'big')).to_bytes(32, 'big')
+            plaintext = ecies_decrypt(_neg.hex(), ciphertext)
         message = plaintext.decode("utf-8")
     else:
         message = raw_data

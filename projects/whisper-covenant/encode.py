@@ -109,7 +109,8 @@ async def main():
         data_str = args.message
     else:
         from ecies import encrypt as ecies_encrypt
-        # ECIES needs 33-byte compressed pubkey, add 02 prefix to x-only
+        # ECIES needs 33-byte compressed pubkey; x-only has no parity info,
+        # so we try 02 first (even y). Decoder will try both prefixes.
         compressed_hex = "02" + b_xonly_hex
         ciphertext = ecies_encrypt(compressed_hex, args.message.encode("utf-8"))
         data_str = ciphertext.hex()

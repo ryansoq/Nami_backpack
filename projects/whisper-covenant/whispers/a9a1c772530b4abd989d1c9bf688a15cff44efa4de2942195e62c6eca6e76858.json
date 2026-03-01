@@ -1,0 +1,14 @@
+{
+  "tx_id": "a9a1c772530b4abd989d1c9bf688a15cff44efa4de2942195e62c6eca6e76858",
+  "covenant_script_hex": "240000200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac00c3876900c204002d3101a269200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
+  "p2sh_address": "kaspatest:pqk9eym4uh7spf427xa9sq3denhw7uwccsjst0fs9dgfa4g6j4c4k5042s52c",
+  "p2sh_spk": "aa202c5c9375e5fd00a6aaf1ba58022dcceeef71d8c42505bd302b509ed51a95715b87",
+  "a_address": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
+  "a_spk": "200d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19ac",
+  "b_pubkey": "0d7709fe7f62b0ec54f77f3c4441d7b801b8ffff86d740b3004f38302be8dd19",
+  "deposit_sompi": 20000000,
+  "message": "E2E test remote mode",
+  "d": "04734b93bc151d617833bdf32b8802de2d36a5dd21a18dfe66b6d10bc6ddc128ea24d9aa48a91574c80c5f70b9eaabe880d62a7019b7fe22f81cd0e33176e38edb75a4de9540dd6de4b47103f184b913f9a517bd422d2e5edebaef3a833ac920957151fbb3a91040694e9de6616ad12ed8a1ad36bf",
+  "type": "whisper",
+  "output_index": 0
+}
