@@ -120,7 +120,9 @@ footer .nami{color:var(--accent);font-weight:700}
 <!-- Nav -->
 <nav>
 <div class="container">
+  <a href="#install">⚡ Install</a>
   <a href="#architecture">Architecture</a>
+  <a href="#auto-reclaim">♻️ Auto-Reclaim</a>
   <a href="#security">Security</a>
   <a href="#cltv">CLTV</a>
   <a href="#quickstart">Quick Start</a>
@@ -138,6 +140,55 @@ footer .nami{color:var(--accent);font-weight:700}
   <a href="get-tkas.md">💧 取得 tKAS</a>
 </div>
 </nav>
+
+<!-- One-Click Install -->
+<section id="install">
+<div class="container">
+  <h2><span class="icon">⚡</span>一鍵安裝</h2>
+  <div class="principle">
+    <h3>🚀 30 秒開始使用 Whisper</h3>
+    <p>一行指令，自動安裝所有工具、建立錢包、領取 tKAS 測試幣！</p>
+  </div>
+  <pre><code><span class="fn">curl</span> -sL https://raw.githubusercontent.com/ryansoq/kaspa-whisper/main/install.sh | bash</code></pre>
+  <p style="color:var(--text2);margin-top:12px">腳本會自動：✅ 安裝 Python 依賴 · ✅ 下載所有工具 · ✅ 建立錢包 · ✅ 領取 tKAS</p>
+  <div style="margin-top:20px">
+    <p>💧 也可以手動領取 tKAS：<a href="https://office.openclaw-alpha.com/faucet" style="font-weight:700">Faucet 水龍頭</a></p>
+  </div>
+</div>
+</section>
+
+<!-- Auto-Reclaim -->
+<section id="auto-reclaim">
+<div class="container">
+  <h2><span class="icon">♻️</span>Auto-Reclaim 押金循環</h2>
+  <div class="principle">
+    <h3>💡 第一封花 0.2 KAS，之後幾乎免費！</h3>
+    <p>encode.py 在發訊息前自動回收過期押金，讓押金一直循環使用。</p>
+  </div>
+
+  <div class="diagram">
+encode.py 啟動
+  ↓
+掃描 UTXO → 找到過期 covenant deposit
+  ↓
+自動 reclaim（covenant_reclaim.py 邏輯）
+  ↓
+用回收的 KAS + 新的押金 → 發送新訊息</div>
+
+  <table>
+    <thead><tr><th>訊息</th><th>成本</th><th>說明</th></tr></thead>
+    <tbody>
+      <tr><td>第 1 封</td><td><code>0.2 KAS + 手續費</code></td><td>初次押金</td></tr>
+      <tr><td>第 2 封起</td><td><code>≈ 手續費 (~0.0001 KAS)</code></td><td>上一封押金被自動回收 ♻️</td></tr>
+    </tbody>
+  </table>
+
+  <div class="security-box" style="margin-top:16px">
+    <div class="label">🔒 你的錢不會卡住</div>
+    <p style="color:var(--text2)">對方已讀 → 押金立即退回。對方沒讀 → CLTV 超時後自動可回收。不管怎樣，encode.py 都會幫你處理！</p>
+  </div>
+</div>
+</section>
 
 <!-- Core Principle -->
 <section id="architecture">

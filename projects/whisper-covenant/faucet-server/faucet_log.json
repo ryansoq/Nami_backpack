@@ -1,0 +1,16 @@
+{
+  "records": [
+    {
+      "time": "2026-03-02T16:31:39.853274+00:00",
+      "address": "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m",
+      "amount_sompi": 500000000,
+      "amount_tkas": 5.0,
+      "tx_id": "34bf08038677ccc1523d1bdf0100ce2bf8607961f722d62bb9a6fd36da182a0a"
+    }
+  ],
+  "daily": {
+    "2026-03-02": {
+      "kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m": 500000000
+    }
+  }
+}

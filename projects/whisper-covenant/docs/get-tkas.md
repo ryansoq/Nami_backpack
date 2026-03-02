@@ -17,13 +17,33 @@
 
 ---
 
+## 方式 0：一鍵安裝腳本（最簡單）🚀
+
+如果你還沒安裝 Whisper，用這個最快！腳本會自動安裝工具 **並幫你領 tKAS**：
+
+```bash
+curl -sL https://raw.githubusercontent.com/ryansoq/kaspa-whisper/main/install.sh | bash
+```
+
+腳本會自動：
+- ✅ 安裝 Python 依賴（kaspa, eciespy）
+- ✅ 下載所有 Whisper 工具
+- ✅ 建立錢包（如果還沒有）
+- ✅ **自動從 Faucet 領取 tKAS** 💧
+
+安裝完直接可以發訊息，不需要手動領幣！
+
+> 💡 如果你已經安裝好 Whisper，只需要領幣，請用下面的方式。
+
+---
+
 ## 方式 1：網頁 Faucet（即時領取）⚡
 
 最快的方式！幾秒鐘就能收到 tKAS。
 
 ### 用網頁
 
-到 **[https://api.openclaw-alpha.com/faucet](https://api.openclaw-alpha.com/faucet)** 頁面：
+到 **[Faucet 水龍頭](https://office.openclaw-alpha.com/faucet)** 頁面（或 [api.openclaw-alpha.com/faucet](https://api.openclaw-alpha.com/faucet)）：
 
 1. 輸入你的 Kaspa Testnet 地址（`kaspatest:qq...` 開頭）
 2. 點「領取 tKAS」

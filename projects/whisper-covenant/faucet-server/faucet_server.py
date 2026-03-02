@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 WALLET_FILE = Path("/home/ymchang/clawd/.secrets/testnet-wallet.json")
 LOG_FILE = Path(__file__).parent / "faucet_log.json"
 RPC_URL = "ws://127.0.0.1:17210"
-NETWORK_ID = "testnet-10"
+NETWORK_ID = "testnet-12"
 
 DAILY_LIMIT_SOMPI = 50_0000_0000  # 50 tKAS per address per day
 DEFAULT_AMOUNT_SOMPI = 5_0000_0000  # 5 tKAS per request
