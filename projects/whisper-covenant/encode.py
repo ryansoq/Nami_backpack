@@ -14,7 +14,7 @@ Options:
   --key, -k         Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json
   --plain           Send plaintext (type=message); default is ECIES encrypted (type=whisper)
   --remote          Use REST API instead of local kaspad (no node needed!)
-  --timeout-offset  CLTV timeout offset from current DAA score (default: 100 ≈ 10s)
+  --timeout-offset  CLTV timeout offset from current DAA score (default: 1000 ≈ 100s)
 
 Private key NEVER leaves local!
 
@@ -34,8 +34,11 @@ CLTV Covenant Script 結構 / Structure:
 import argparse
 import asyncio
 import json
+import logging
 import os
+import re
 import sys
+import time
 
 import kaspa
 
@@ -44,10 +47,69 @@ WRPC_URL = "ws://localhost:17210"
 NETWORK_ID = "testnet-12"
 NETWORK_TYPE = "testnet"
 DEPOSIT_SOMPI = 20_000_000      # 0.2 tKAS
-FEE_SOMPI = 10_000
-FEE_BUFFER_SOMPI = 5_000
+
+# Dynamic Fee Rate Configuration
+# This rate can be adjusted based on network congestion
+# Standard rate: ~10-20 SOMPI per UTXO (testnet)
+# High priority: 50-100 SOMPI per UTXO
+FEE_RATE = 10_000               # Base transaction fee in SOMPI
+FEE_BUFFER_SOMPI = 5_000        # Extra buffer for covenant operations
 REST_API_URL = "https://api-tn12.kaspa.org"
 WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
+MAX_MESSAGE_SIZE = 2048         # Maximum message size in bytes
+
+# ─── Utility helpers ───────────────────────────────────────────────
+
+def validate_kaspa_address(address):
+    """
+    Validate Kaspa address format.
+    
+    Args:
+        address: Kaspa address string
+        
+    Returns:
+        bool: True if valid format
+    """
+    # Kaspa mainnet: kaspa:
+    # Kaspa testnet: kaspatest:
+    pattern = r'^kaspa(test)?:[a-z0-9]{58,65}$'
+    return bool(re.match(pattern, address))
+
+
+async def retry_request(func, max_retries=3, *args, **kwargs):
+    """
+    Retry an async function with exponential backoff.
+    
+    Args:
+        func: Async function to retry
+        max_retries: Maximum number of retry attempts
+        *args, **kwargs: Arguments to pass to func
+        
+    Returns:
+        Result of successful function call
+        
+    Raises:
+        Last exception if all retries fail
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            
+            if attempt < max_retries:
+                # Exponential backoff: 1s, 2s, 4s, 8s...
+                wait_time = 2 ** attempt
+                print(f"⚠️  Attempt {attempt + 1}/{max_retries + 1} failed: {e}")
+                print(f"   Retrying in {wait_time}s...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"❌ All {max_retries + 1} attempts failed")
+    
+    raise last_exception
+
 
 # ─── Script helpers ───────────────────────────────────────────────
 
@@ -139,151 +201,64 @@ def build_covenant_script_with_timeout(
     return s
 
 
-async def auto_reclaim(a_addr_str, a_privkey, use_remote, client=None, current_daa=None, api_url=None):
-    """
-    自動掃描並回收過期的 covenant 押金。
-    Scan for expired covenant deposits and reclaim them automatically.
-    Failures are caught silently to not block the main encode flow.
-    """
-    import glob
-    project_dir = os.path.dirname(os.path.abspath(__file__))
-    info_files = glob.glob(os.path.join(project_dir, "covenant_info*.json"))
-    if not info_files:
-        return
-
-    reclaimed = 0
-    for info_path in info_files:
-        try:
-            with open(info_path) as f:
-                info = json.load(f)
-
-            # Only reclaim our own covenants
-            if info.get("a_address") != a_addr_str:
-                continue
-
-            timeout_daa = info.get("timeout_daa")
-            if not timeout_daa or current_daa < timeout_daa:
-                continue
-
-            # Check if covenant UTXO still exists
-            p2sh_addr = info["p2sh_address"]
-
-            if use_remote:
-                import urllib.request
-                utxo_url = f"{REST_API_URL}/addresses/{p2sh_addr}/utxos"
-                req = urllib.request.Request(utxo_url, headers={"User-Agent": "whisper/1.0"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    utxo_data = json.loads(resp.read().decode("utf-8"))
-                entries = []
-                for u in utxo_data:
-                    spk = u["utxoEntry"]["scriptPublicKey"]
-                    if isinstance(spk, dict):
-                        spk = "0000" + spk.get("scriptPublicKey", "")
-                    entries.append({
-                        "outpoint": {
-                            "transactionId": u["outpoint"]["transactionId"],
-                            "index": u["outpoint"]["index"],
-                        },
-                        "address": p2sh_addr,
-                        "utxoEntry": {
-                            "amount": int(u["utxoEntry"]["amount"]),
-                            "scriptPublicKey": spk,
-                            "blockDaaScore": int(u["utxoEntry"]["blockDaaScore"]),
-                            "isCoinbase": u["utxoEntry"]["isCoinbase"],
-                        },
-                    })
-            else:
-                result = await client.get_utxos_by_addresses({"addresses": [p2sh_addr]})
-                entries = result.get("entries", [])
-
-            if not entries:
-                continue
-
-            # Find the matching UTXO
-            covenant_entry = None
-            for e in entries:
-                if e["outpoint"]["transactionId"] == info["tx_id"]:
-                    covenant_entry = e
-                    break
-            if not covenant_entry:
-                covenant_entry = entries[0]
-
-            utxo_amount = covenant_entry["utxoEntry"]["amount"]
-
-            if reclaimed == 0:
-                print(f"♻️  發現可回收押金...")
-
-            # Build reclaim TX
-            fee = 3000
-            reclaim_amount = utxo_amount - fee
-
-            a_xonly = a_privkey.to_public_key().to_x_only_public_key()
-            a_addr = a_xonly.to_address(NETWORK_TYPE)
-
-            tx = kaspa.create_transaction(
-                [covenant_entry],
-                [kaspa.PaymentOutput(kaspa.Address(a_addr_str), reclaim_amount)],
-                0, b"",
-            )
-            tx.lock_time = timeout_daa
-
-            sig = kaspa.create_input_signature(tx, 0, a_privkey, kaspa.SighashType.All)
-            sig_bytes = bytes.fromhex(sig) if isinstance(sig, str) else sig
-
-            covenant_script = bytes.fromhex(info["covenant_script_hex"])
-            sig_script = sig_bytes + bytes([0x00]) + push_data(covenant_script)
-            tx.inputs[0].signature_script = sig_script
-            tx.inputs[0].sig_op_count = 1
-
-            # Submit
-            if client and not use_remote:
-                r = await client.submit_transaction({"transaction": tx, "allow_orphan": False})
-                reclaim_tx_id = r.get("transactionId", tx.id)
-            else:
-                import urllib.request
-                broadcast_url = f"{api_url}/api/broadcast"
-                tx_dict = tx.serialize_to_dict()
-                req = urllib.request.Request(
-                    broadcast_url,
-                    data=json.dumps({"signed_tx_dict": tx_dict}).encode("utf-8"),
-                    headers={"Content-Type": "application/json", "User-Agent": "whisper/1.0",
-                              "X-Whisper-Key": os.environ.get("WHISPER_API_KEY", "whisper-testnet-poc-key")},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    result_data = json.loads(resp.read().decode("utf-8"))
-                    reclaim_tx_id = result_data.get("tx_id", tx.id)
-
-            print(f"   ✅ 回收 {utxo_amount / 1e8:.1f} tKAS (TX: {reclaim_tx_id[:8]}...)")
-            reclaimed += 1
-
-            # Remove the covenant_info file after successful reclaim
-            os.remove(info_path)
-
-        except Exception as e:
-            # Silently skip — don't block encode
-            pass
-
-    if reclaimed > 0:
-        print()
-
-
 async def main():
     parser = argparse.ArgumentParser(description="Whisper Covenant v3 — Encode & Sign locally")
     parser.add_argument("--to", required=True, help="Recipient address")
     parser.add_argument("--message", "-m", required=True, help="Message text")
     parser.add_argument("--key", "-k", default=None, help="Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json")
     parser.add_argument("--plain", action="store_true", help="Send plaintext (type=message)")
-    parser.add_argument("--timeout-offset", type=int, default=100, help="CLTV timeout offset from current DAA (default: 100 ≈ 10s)")
+    parser.add_argument("--timeout-offset", type=int, default=1000, help="CLTV timeout offset from current DAA (default: 1000 ≈ 100s)")
     parser.add_argument("--local-only", action="store_true", help="Skip uploading covenant_info to API")
     parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
     parser.add_argument("--remote", action="store_true", help="Use REST API instead of local kaspad (no node needed!)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose debug logging")
     args = parser.parse_args()
+
+    # ── Setup logging ──
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logger = logging.getLogger('whisper.encode')
+
+    # ── Validate recipient address ──
+    if not validate_kaspa_address(args.to):
+        logger.error(f"Invalid recipient address format: {args.to}")
+        print(f"❌ Invalid recipient address format: {args.to}")
+        print(f"   Expected format: kaspa:... or kaspatest:...")
+        sys.exit(1)
+    logger.debug(f"Recipient address format validated: {args.to}")
+
+    # ── Validate message length ──
+    message_bytes = args.message.encode('utf-8')
+    logger.debug(f"Message size: {len(message_bytes)} bytes")
+    if len(message_bytes) > MAX_MESSAGE_SIZE:
+        logger.error(f"Message too long: {len(message_bytes)} bytes (max: {MAX_MESSAGE_SIZE})")
+        print(f"❌ Message too long: {len(message_bytes)} bytes (max: {MAX_MESSAGE_SIZE})")
+        print(f"   Please reduce message length by {len(message_bytes) - MAX_MESSAGE_SIZE} bytes")
+        sys.exit(1)
 
     # ── Load private key ──
     if args.key:
         privkey_hex = args.key
     else:
+        # Check wallet file permissions for security
+        import stat
+        try:
+            file_stat = os.stat(WALLET_PATH)
+            file_mode = stat.filemode(file_stat.st_mode)
+            file_permissions = oct(file_stat.st_mode)[-3:]
+            
+            if file_permissions != "600":
+                logger.warning(f"Wallet file {WALLET_PATH} has permissions {file_permissions} (not 600)")
+                print(f"⚠️  WARNING: Wallet file {WALLET_PATH} has permissions {file_permissions} (not 600)")
+                print(f"   Consider running: chmod 600 {WALLET_PATH}")
+                print()
+        except OSError:
+            pass  # File doesn't exist, will error later
+            
         with open(WALLET_PATH) as f:
             wallet = json.load(f)
         privkey_hex = wallet["private_key"]
@@ -300,14 +275,17 @@ async def main():
     a_pubkey_bytes = bytes.fromhex(a_xonly.to_string())
 
     # ── Derive recipient pubkey ──
+    logger.debug(f"Extracting pubkey from recipient address: {args.to}")
     to_addr_obj = kaspa.Address(args.to)
     to_spk = kaspa.pay_to_address_script(to_addr_obj)
     to_script = bytes.fromhex(to_spk.script)
     if len(to_script) != 34 or to_script[0] != 0x20 or to_script[33] != 0xac:
+        logger.error(f"Cannot extract pubkey from recipient address: {args.to}")
         print("❌ Cannot extract pubkey from recipient address")
         sys.exit(1)
     b_pubkey_bytes = to_script[1:33]
     b_xonly_hex = b_pubkey_bytes.hex()
+    logger.debug(f"Recipient pubkey: {b_xonly_hex}")
 
     # ── Encrypt or plaintext ──
     msg_type = "message" if args.plain else "whisper"
@@ -379,12 +357,6 @@ async def main():
             daa_data = json.loads(resp.read().decode("utf-8"))
         current_daa = int(daa_data["blueScore"])
 
-    # ── Auto-reclaim expired covenant deposits ──
-    await auto_reclaim(a_addr_str, a_privkey, use_remote, client, current_daa, args.api_url)
-
-    print(f"📨 開始發送新訊息...")
-    print()
-
     # ── Calculate CLTV timeout ──
     timeout_daa = current_daa + args.timeout_offset
 
@@ -422,7 +394,7 @@ async def main():
 
     # ── Select UTXO ──
     lock_amount = DEPOSIT_SOMPI + FEE_BUFFER_SOMPI
-    needed = lock_amount + FEE_SOMPI + 10000
+    needed = lock_amount + FEE_RATE + 10000
 
     mature = []
     for e in entries:
@@ -441,7 +413,7 @@ async def main():
 
     selected = mature[0]
     input_amount = selected["utxoEntry"]["amount"]
-    change = input_amount - lock_amount - FEE_SOMPI
+    change = input_amount - lock_amount - FEE_RATE
 
     # ── Build & sign TX ──
     tx = kaspa.create_transaction(

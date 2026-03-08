@@ -26,8 +26,10 @@ Sig script 結構 / Structure (IF branch — Bob reads):
 import argparse
 import asyncio
 import json
+import logging
 import os
 import sys
+import time
 
 import kaspa
 
@@ -37,6 +39,48 @@ NETWORK_ID = "testnet-12"
 NETWORK_TYPE = "testnet"
 REST_API_URL = "https://api-tn12.kaspa.org"
 WALLET_PATH = os.path.expanduser("~/.secrets/testnet-wallet.json")
+
+# Dynamic Fee Rate Configuration  
+# This rate can be adjusted based on network congestion
+# Standard rate: ~3-5 SOMPI per UTXO for simple spends (testnet)
+# High priority: 10-20 SOMPI per UTXO
+FEE_RATE = 3000                 # Refund transaction fee in SOMPI
+
+
+async def retry_request(func, max_retries=3, *args, **kwargs):
+    """
+    Retry an async function with exponential backoff.
+    
+    Args:
+        func: Async function to retry
+        max_retries: Maximum number of retry attempts
+        *args, **kwargs: Arguments to pass to func
+        
+    Returns:
+        Result of successful function call
+        
+    Raises:
+        Last exception if all retries fail
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            
+            if attempt < max_retries:
+                # Exponential backoff: 1s, 2s, 4s, 8s...
+                wait_time = 2 ** attempt
+                print(f"⚠️  Attempt {attempt + 1}/{max_retries + 1} failed: {e}")
+                print(f"   Retrying in {wait_time}s...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"❌ All {max_retries + 1} attempts failed")
+    
+    raise last_exception
+
 
 def push_data(data: bytes) -> bytes:
     """Push arbitrary data onto the script stack with the correct opcode prefix."""
@@ -112,12 +156,36 @@ async def main():
     parser.add_argument("--no-refund", action="store_true", help="Only decrypt, don't spend covenant")
     parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")
     parser.add_argument("--remote", action="store_true", help="Use REST API instead of local kaspad (no node needed!)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose debug logging")
     args = parser.parse_args()
+
+    # ── Setup logging ──
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logger = logging.getLogger('whisper.decode')
 
     # ── Load private key ──
     if args.key:
         privkey_hex = args.key
     else:
+        # Check wallet file permissions for security
+        import stat
+        try:
+            file_stat = os.stat(WALLET_PATH)
+            file_mode = stat.filemode(file_stat.st_mode)
+            file_permissions = oct(file_stat.st_mode)[-3:]
+            
+            if file_permissions != "600":
+                print(f"⚠️  WARNING: Wallet file {WALLET_PATH} has permissions {file_permissions} (not 600)")
+                print(f"   Consider running: chmod 600 {WALLET_PATH}")
+                print()
+        except OSError:
+            pass  # File doesn't exist, will error later
+            
         with open(WALLET_PATH) as f:
             wallet = json.load(f)
         privkey_hex = wallet["private_key"]
@@ -309,11 +377,10 @@ async def main():
     utxo_amount = covenant_entry["utxoEntry"]["amount"]
     deposit = info["deposit_sompi"]
     a_addr_str = info["a_address"]
-    fee = 3000
-    refund_amount = utxo_amount - fee
+    refund_amount = utxo_amount - FEE_RATE
 
     if refund_amount < deposit:
-        print(f"❌ UTXO too small ({utxo_amount}) for refund ({deposit}) + fee ({fee})")
+        print(f"❌ UTXO too small ({utxo_amount}) for refund ({deposit}) + fee ({FEE_RATE})")
         if client:
             await client.disconnect()
         sys.exit(1)
@@ -339,7 +406,7 @@ async def main():
 
     print(f"📝 Refund TX")
     print(f"   Refund: {refund_amount/1e8:.4f} tKAS → {a_addr_str}")
-    print(f"   Fee: {fee/1e8:.5f} tKAS")
+    print(f"   Fee: {FEE_RATE/1e8:.5f} tKAS")
 
     if client and not use_remote:
         try:
