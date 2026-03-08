@@ -31,7 +31,7 @@
                     <h2>Get Started</h2>
                     <p>Create a new wallet or import an existing one</p>
                     <button id="btn-create" class="btn btn-primary">Create New Wallet</button>
-                    <button id="btn-import" class="btn btn-secondary">Import Private Key</button>
+                    <button id="btn-import" class="btn btn-secondary">Import Wallet</button>
                 </div>
 
                 <!-- Has wallet state -->
@@ -45,21 +45,34 @@
                     </div>
                 </div>
 
-                <!-- Create wallet form -->
+                <!-- Create wallet form (password) -->
                 <div id="create-form" style="display:none">
                     <h2>Create Wallet</h2>
-                    <p>Set a password to encrypt your private key</p>
+                    <p>Set a password to encrypt your wallet</p>
                     <input type="password" id="create-password" placeholder="Password (min 6 chars)" autocomplete="new-password">
                     <input type="password" id="create-password2" placeholder="Confirm Password" autocomplete="new-password">
-                    <button id="btn-do-create" class="btn btn-primary">Create</button>
+                    <button id="btn-do-create" class="btn btn-primary">Generate Mnemonic</button>
                     <button id="btn-back-create" class="btn btn-ghost">Back</button>
                 </div>
 
                 <!-- Import wallet form -->
                 <div id="import-form" style="display:none">
                     <h2>Import Wallet</h2>
-                    <p>Enter your private key and set a password</p>
-                    <input type="text" id="import-privkey" placeholder="Private key (hex)" autocomplete="off">
+                    <!-- Import method tabs -->
+                    <div class="import-tabs">
+                        <button class="import-tab active" data-import="mnemonic">🔤 Mnemonic</button>
+                        <button class="import-tab" data-import="privkey">🔑 Private Key</button>
+                    </div>
+                    <!-- Mnemonic import -->
+                    <div id="import-mnemonic-panel" class="import-panel">
+                        <p>Enter your 12 or 24 word recovery phrase</p>
+                        <textarea id="import-mnemonic" placeholder="Enter mnemonic words separated by spaces..." rows="3"></textarea>
+                    </div>
+                    <!-- Private key import -->
+                    <div id="import-privkey-panel" class="import-panel" style="display:none">
+                        <p>Enter your 64-character hex private key</p>
+                        <input type="text" id="import-privkey" placeholder="Private key (64 hex characters)" autocomplete="off">
+                    </div>
                     <input type="password" id="import-password" placeholder="Password (min 6 chars)" autocomplete="new-password">
                     <input type="password" id="import-password2" placeholder="Confirm Password" autocomplete="new-password">
                     <button id="btn-do-import" class="btn btn-primary">Import</button>
@@ -68,11 +81,12 @@
 
                 <!-- Mnemonic display (after create) -->
                 <div id="mnemonic-display" style="display:none">
-                    <h2>⚠️ Save Your Private Key</h2>
-                    <p class="warning">Write this down! You will NOT see it again.</p>
-                    <div id="privkey-display" class="privkey-box"></div>
+                    <h2>🔐 Recovery Phrase</h2>
+                    <p class="warning">⚠️ Write these words down! This is the ONLY way to recover your wallet.</p>
+                    <p class="mnemonic-subtitle">Store them safely offline. Never share them with anyone.</p>
+                    <div id="mnemonic-grid" class="mnemonic-grid"></div>
                     <label class="checkbox-label">
-                        <input type="checkbox" id="saved-checkbox"> I have saved my private key
+                        <input type="checkbox" id="saved-checkbox"> I have written down my recovery phrase
                     </label>
                     <button id="btn-continue" class="btn btn-primary" disabled>Continue to Wallet</button>
                 </div>
@@ -132,13 +146,11 @@
 
             <!-- Whisper Tab -->
             <div id="tab-whisper" class="tab-content">
-                <!-- Sub-tabs for Whisper -->
                 <div class="whisper-subtabs">
                     <button class="whisper-subtab active" data-subtab="inbox">📥 Inbox</button>
                     <button class="whisper-subtab" data-subtab="compose">✉️ Compose</button>
                 </div>
 
-                <!-- Inbox -->
                 <div id="whisper-inbox" class="card whisper-panel active">
                     <div class="whisper-inbox-header">
                         <h3>📥 Whisper Inbox</h3>
@@ -149,7 +161,6 @@
                     </div>
                 </div>
 
-                <!-- Compose -->
                 <div id="whisper-compose" class="card whisper-panel" style="display:none">
                     <h3>✉️ Send Whisper</h3>
                     <p>End-to-end encrypted message on Kaspa blockchain</p>
@@ -166,7 +177,6 @@
                     <div id="whisper-send-result" style="display:none"></div>
                 </div>
 
-                <!-- Read Modal (inline) -->
                 <div id="whisper-read" class="card" style="display:none">
                     <h3>🔓 Decrypted Whisper</h3>
                     <div id="whisper-read-meta" class="whisper-meta"></div>
@@ -186,6 +196,8 @@
                         <p><strong>Network:</strong> Testnet-12</p>
                         <p><strong>Node:</strong> wRPC (Borsh)</p>
                         <p><strong>Security:</strong> AES-256-GCM + PBKDF2</p>
+                        <p><strong>Key Derivation:</strong> BIP-39 / BIP-32</p>
+                        <p><strong>Path:</strong> m/44'/111111'/0'/0/0</p>
                     </div>
                 </div>
             </div>
@@ -204,6 +216,6 @@
         </div>
     </div>
 
-    <script type="module" src="kaspa-wallet.js"></script>
+    <script type="module" src="kaspa-wallet.js?v=4"></script>
 </body>
 </html>

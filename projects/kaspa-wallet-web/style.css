@@ -478,5 +478,77 @@ textarea:focus { border-color: var(--primary); }
     padding: 20px;
 }
 
+/* Mnemonic grid */
+.mnemonic-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.mnemonic-word {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.mnemonic-num {
+    color: var(--text2);
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 18px;
+}
+
+.mnemonic-text {
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+.mnemonic-subtitle {
+    color: var(--text2) !important;
+    font-size: 13px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Import method tabs */
+.import-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 3px;
+}
+
+.import-tab {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.import-tab.active {
+    background: var(--card);
+    color: var(--primary);
+}
+
+.import-panel p {
+    color: var(--text2);
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinning { animation: spin 1s linear infinite; display: inline-block; }

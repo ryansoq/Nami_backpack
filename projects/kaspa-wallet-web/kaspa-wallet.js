@@ -1,31 +1,70 @@
 // Kaspa Testnet-12 Web Wallet
+// BIP-39 mnemonic + BIP-32 key derivation
 // Pure browser-based, no private keys leave the client
 
 // ============================================================
 // Crypto helpers - secp256k1 (Schnorr) + Kaspa address encoding
 // ============================================================
 
-// We use SubtleCrypto for PBKDF2/AES and noble-secp256k1 via CDN
 let secp;
 const NETWORK_PREFIX = 'kaspatest';
 
+// BIP-39 / BIP-32 modules
+let bip39, bip32, hmacMod, sha512Mod;
+
 async function loadSecp256k1() {
-    // Load noble-secp256k1 v2
     const mod = await import('https://esm.sh/@noble/secp256k1@2.1.0');
     secp = mod;
-    // Also need noble-hashes for schnorr
     const hashes = await import('https://esm.sh/@noble/hashes@1.6.1/sha256');
     const utils = await import('https://esm.sh/@noble/hashes@1.6.1/utils');
     return { secp: mod, sha256: hashes.sha256, bytesToHex: utils.bytesToHex, hexToBytes: utils.hexToBytes };
+}
+
+async function loadBip39Bip32() {
+    // Load scure-bip39 and scure-bip32 (from same author as noble-secp256k1)
+    const [bip39Mod, bip32Mod, wordlistMod, hmac, sha512] = await Promise.all([
+        import('https://esm.sh/@scure/bip39@1.4.0'),
+        import('https://esm.sh/@scure/bip32@1.5.0'),
+        import('https://esm.sh/@scure/bip39@1.4.0/wordlists/english'),
+        import('https://esm.sh/@noble/hashes@1.6.1/hmac'),
+        import('https://esm.sh/@noble/hashes@1.6.1/sha512'),
+    ]);
+    bip39 = { ...bip39Mod, wordlist: wordlistMod.wordlist };
+    bip32 = bip32Mod;
+    hmacMod = hmac;
+    sha512Mod = sha512;
 }
 
 let cryptoLib;
 
 async function init() {
     cryptoLib = await loadSecp256k1();
+    await loadBip39Bip32();
 }
 
-// Generate a random 32-byte private key
+// ============================================================
+// BIP-39 Mnemonic + BIP-32 Key Derivation
+// ============================================================
+
+// Kaspa derivation path: m/44'/111111'/0'/0/0
+const KASPA_DERIVATION_PATH = "m/44'/111111'/0'/0/0";
+
+function generateMnemonic() {
+    return bip39.generateMnemonic(bip39.wordlist, 128); // 128 bits = 12 words
+}
+
+function validateMnemonic(mnemonic) {
+    return bip39.validateMnemonic(mnemonic, bip39.wordlist);
+}
+
+function derivePrivateKeyFromMnemonic(mnemonic) {
+    const seed = bip39.mnemonicToSeedSync(mnemonic);
+    const hdKey = bip32.HDKey.fromMasterSeed(seed);
+    const child = hdKey.derive(KASPA_DERIVATION_PATH);
+    return cryptoLib.bytesToHex(child.privateKey);
+}
+
+// Generate a random 32-byte private key (fallback, used for raw import)
 function generatePrivateKey() {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
@@ -35,17 +74,12 @@ function generatePrivateKey() {
 // Get public key (x-only for schnorr, 32 bytes)
 function getPublicKey(privKeyHex) {
     const pubKey = secp.getPublicKey(privKeyHex, true); // compressed 33 bytes
-    // Kaspa uses the schnorr x-only public key (32 bytes, drop first byte)
-    return pubKey.slice(1); // remove 02/03 prefix
+    return pubKey.slice(1); // remove 02/03 prefix → x-only 32 bytes
 }
 
 // ============================================================
-// Kaspa Address encoding (bech32-like, but Kaspa uses its own variant)
+// Kaspa Address encoding (cashaddr variant)
 // ============================================================
-
-// Kaspa uses a custom cashaddr-like encoding
-// Format: prefix:payload
-// Payload = base32 encoded (version byte + pubkey hash)
 
 const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 
@@ -100,20 +134,6 @@ function createChecksum(prefix, payload) {
     return result;
 }
 
-function encodeCashAddr(prefix, version, hash) {
-    // version: 0 = pubkey, 1 = script
-    // Kaspa address payload: [version_byte, ...hash_5bit]
-    const versionByte = (version << 3); // type in upper bits, size=0 (20 bytes)
-    const payload5bit = convertBits([versionByte, ...hash], 8, 5, true);
-    const checksum = createChecksum(prefix, payload5bit);
-    const combined = [...payload5bit, ...checksum];
-    let addr = prefix + ':';
-    for (const c of combined) {
-        addr += CHARSET[c];
-    }
-    return addr;
-}
-
 function decodeCashAddr(addrStr) {
     const parts = addrStr.split(':');
     if (parts.length !== 2) throw new Error('Invalid address format');
@@ -124,10 +144,8 @@ function decodeCashAddr(addrStr) {
         if (idx === -1) throw new Error('Invalid character in address');
         data5bit.push(idx);
     }
-    // Verify checksum
     const values = [...prefixExpand(prefix), ...data5bit];
     if (polymod(values) !== 0n) throw new Error('Invalid checksum');
-    // Remove 8-byte checksum
     const payload5bit = data5bit.slice(0, -8);
     const payload8bit = convertBits(payload5bit, 5, 8, false);
     const versionByte = payload8bit[0];
@@ -135,44 +153,9 @@ function decodeCashAddr(addrStr) {
     return { prefix, version: versionByte >> 3, hash: new Uint8Array(hash) };
 }
 
-// Simple BLAKE2b (Kaspa uses blake2b for address hashing)
-// We'll use SubtleCrypto SHA-256 as fallback, but Kaspa actually uses
-// ECDSA Schnorr pubkey directly in address (no hashing for schnorr addresses)
-
-// Actually, Kaspa schnorr addresses use the raw 32-byte x-only pubkey directly
-// Address = prefix:cashaddr_encode(version=1, schnorr_pubkey_32bytes)
-// But Kaspa also supports ECDSA addresses with version=0 and pubkey hash
-
-// For schnorr (which is the modern Kaspa way):
-// version byte encodes: type (3 bits) | size (5 bits)
-// type 1 = schnorr, size depends on pubkey length
-// For 32 byte pubkey: size code = 0x03 (32 bytes => code 3 in the size table)
-
-// Kaspa address version byte:
-// bits 0-2: address type (0=PubKey, 1=PubKeyECDSA, 8=ScriptHash)  
-// bits 3-7: depends on implementation
-// Actually let me look at this more carefully...
-
-// In Kaspa, the address payload is simply:
-// For P2PK (schnorr): version=0x00, then 32 bytes of schnorr public key
-// For P2PKH (ecdsa): version=0x01, then 33 bytes of compressed public key  
-// Encoded with cashaddr
-
 function pubkeyToAddress(pubkeyBytes, prefix = NETWORK_PREFIX) {
-    // Kaspa uses schnorr x-only pubkey (32 bytes) with version 0
-    // The version byte for cashaddr:
-    // Upper 4 bits = type (0 for pubkey)
-    // Lower 4 bits = size index
-    // For 32 bytes, size index is 3 (since 32 = 20 + 12... actually let me check the size table)
-    
-    // CashAddr size table: 
-    // 0 -> 20 bytes, 1 -> 24, 2 -> 28, 3 -> 32, 4 -> 40, 5 -> 48, 6 -> 56, 7 -> 64
-    // So 32 bytes = index 3
-    
-    // Type: 0 = P2PK_Schnorr in Kaspa
-    // Version byte = (type << 3) | sizeIndex = (0 << 3) | 3 = 3
-    
-    const versionByte = 0x03; // type=0 (schnorr pubkey), size=3 (32 bytes)
+    // Schnorr x-only pubkey (32 bytes), version=0 (PubKey)
+    const versionByte = 0x00;
     const payload = [versionByte, ...pubkeyBytes];
     const payload5bit = convertBits(payload, 8, 5, true);
     const checksum = createChecksum(prefix, payload5bit);
@@ -212,7 +195,6 @@ async function encryptData(password, data) {
         key,
         enc.encode(data)
     );
-    // Return salt + iv + ciphertext as hex
     const result = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
     result.set(salt, 0);
     result.set(iv, salt.length);
@@ -324,32 +306,262 @@ async function submitTransaction(tx) {
 }
 
 // ============================================================
-// ECIES Encryption/Decryption (browser-side)
-// Compatible with Python eciespy library
+// Local Transaction Signing (browser-side, no private key leaves the client)
+// Uses Blake2b-256 sighash (Kaspa consensus) + Schnorr signature
 // ============================================================
 
-// eciespy format:
-// Ciphertext = ephemeral_pubkey(65 bytes uncompressed) + iv(16) + aes_tag(16) + ciphertext
-// Uses ECDH shared secret → SHA-256 hash → AES-256-GCM
+let blake2bMod;
+
+async function loadBlake2b() {
+    if (!blake2bMod) {
+        blake2bMod = await import('https://esm.sh/@noble/hashes@1.6.1/blake2b');
+    }
+    return blake2bMod;
+}
+
+// Blake2b-256 with key (personalization) — matches Kaspa's TransactionSigningHash
+function sigHasher(key) {
+    // @noble/hashes blake2b uses `key` option for keyed hashing
+    return blake2bMod.blake2b.create({ dkLen: 32, key });
+}
+
+const SIG_HASH_ALL = 0x01;
+const ZERO_HASH = new Uint8Array(32); // 32 zero bytes
+const SUBNETWORK_ID_NATIVE = new Uint8Array(20); // 20 zero bytes
+const TX_SIGNING_KEY = new TextEncoder().encode('TransactionSigningHash');
+
+// Little-endian encoding helpers
+function writeU8(v) { return new Uint8Array([v & 0xff]); }
+function writeU16LE(v) { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, v, true); return b; }
+function writeU32LE(v) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); return b; }
+function writeU64LE(v) {
+    // v can be number or BigInt; we handle both
+    const b = new Uint8Array(8);
+    const dv = new DataView(b.buffer);
+    const big = BigInt(v);
+    dv.setUint32(0, Number(big & 0xFFFFFFFFn), true);
+    dv.setUint32(4, Number((big >> 32n) & 0xFFFFFFFFn), true);
+    return b;
+}
+
+function writeVarBytes(bytes) {
+    // length as u64 LE, then the bytes
+    const lenBytes = writeU64LE(bytes.length);
+    const result = new Uint8Array(8 + bytes.length);
+    result.set(lenBytes, 0);
+    result.set(bytes, 8);
+    return result;
+}
+
+function addressToScriptPublicKey(addr) {
+    const decoded = decodeCashAddr(addr);
+    const hashBytes = decoded.hash;
+    // P2PK script: OP_DATA_32 <pubkey_hash> OP_CHECKSIG
+    const script = new Uint8Array(34);
+    script[0] = 0x20; // push 32 bytes
+    script.set(hashBytes, 1);
+    script[33] = 0xac; // OP_CHECKSIG
+    return { script, version: 0 };
+}
+
+function hashScriptPublicKey(hasher, spk) {
+    hasher.update(writeU16LE(spk.version));
+    hasher.update(writeVarBytes(spk.script));
+}
+
+function hashOutpoint(hasher, txIdBytes, index) {
+    hasher.update(txIdBytes); // 32 bytes
+    hasher.update(writeU32LE(index));
+}
+
+function hashOutput(hasher, output) {
+    hasher.update(writeU64LE(output.amount));
+    hashScriptPublicKey(hasher, output.spk);
+}
+
+function hexToBytes32(hex) {
+    // Transaction IDs in Kaspa are stored/displayed in natural byte order
+    const bytes = cryptoLib.hexToBytes(hex);
+    if (bytes.length !== 32) throw new Error(`Expected 32 bytes, got ${bytes.length}`);
+    return bytes;
+}
+
+function calcPreviousOutputsHash(inputs) {
+    const h = sigHasher(TX_SIGNING_KEY);
+    for (const inp of inputs) {
+        hashOutpoint(h, inp.txIdBytes, inp.index);
+    }
+    return h.digest();
+}
+
+function calcSequencesHash(inputs) {
+    const h = sigHasher(TX_SIGNING_KEY);
+    for (const inp of inputs) {
+        h.update(writeU64LE(inp.sequence));
+    }
+    return h.digest();
+}
+
+function calcSigOpCountsHash(inputs) {
+    const h = sigHasher(TX_SIGNING_KEY);
+    for (const inp of inputs) {
+        h.update(writeU8(inp.sigOpCount));
+    }
+    return h.digest();
+}
+
+function calcOutputsHash(outputs) {
+    const h = sigHasher(TX_SIGNING_KEY);
+    for (const out of outputs) {
+        hashOutput(h, out);
+    }
+    return h.digest();
+}
+
+function calcSigHash(tx, inputIndex, utxoEntry) {
+    const h = sigHasher(TX_SIGNING_KEY);
+    const inp = tx.inputs[inputIndex];
+
+    // Precomputed hashes (SIG_HASH_ALL)
+    h.update(writeU16LE(tx.version));                    // version
+    h.update(tx._previousOutputsHash);                   // previous outputs hash
+    h.update(tx._sequencesHash);                         // sequences hash
+    h.update(tx._sigOpCountsHash);                       // sig op counts hash
+
+    // Per-input data
+    hashOutpoint(h, inp.txIdBytes, inp.index);           // outpoint
+    hashScriptPublicKey(h, utxoEntry.spk);               // utxo script public key
+    h.update(writeU64LE(utxoEntry.amount));               // utxo amount
+    h.update(writeU64LE(inp.sequence));                   // sequence
+    h.update(writeU8(inp.sigOpCount));                    // sig op count
+
+    h.update(tx._outputsHash);                           // outputs hash
+    h.update(writeU64LE(tx.lockTime));                    // lock time
+    h.update(SUBNETWORK_ID_NATIVE);                      // subnetwork id (20 bytes)
+    h.update(writeU64LE(0));                              // gas
+    h.update(ZERO_HASH);                                  // payload hash (native + empty = zero)
+    h.update(writeU8(SIG_HASH_ALL));                      // hash type
+
+    return h.digest();
+}
+
+// Build, sign locally, and submit a transaction (all client-side!)
+async function buildAndSendTransaction(privKeyHex, fromAddress, toAddress, amountSompi) {
+    await loadBlake2b();
+    const { bytesToHex, hexToBytes } = cryptoLib;
+
+    const pubKeyFull = secp.getPublicKey(privKeyHex, true); // 33 bytes compressed
+    const pubKeyXOnly = pubKeyFull.slice(1); // 32 bytes x-only
+
+    // Get UTXOs
+    const utxos = await getUtxos(fromAddress);
+    if (!utxos.length) throw new Error('No UTXOs available');
+
+    // Select UTXOs (fee = 0.0001 KAS)
+    const fee = 10000;
+    const needed = amountSompi + fee;
+    let total = 0;
+    const selected = [];
+    const sorted = [...utxos].sort((a, b) => parseInt(b.utxoEntry.amount) - parseInt(a.utxoEntry.amount));
+    for (const u of sorted) {
+        selected.push(u);
+        total += parseInt(u.utxoEntry.amount);
+        if (total >= needed) break;
+    }
+    if (total < needed) throw new Error(`Insufficient balance: have ${total/1e8}, need ${needed/1e8}`);
+
+    const change = total - amountSompi - fee;
+
+    const toSPK = addressToScriptPublicKey(toAddress);
+    const fromSPK = addressToScriptPublicKey(fromAddress);
+
+    // Build structured inputs
+    const inputs = selected.map(u => ({
+        txIdBytes: hexToBytes32(u.outpoint.transactionId),
+        txId: u.outpoint.transactionId,
+        index: u.outpoint.index,
+        sequence: 0,
+        sigOpCount: 1,
+        utxoEntry: {
+            amount: parseInt(u.utxoEntry.amount),
+            spk: fromSPK  // all UTXOs belong to fromAddress
+        }
+    }));
+
+    // Build outputs
+    const outputs = [{ amount: amountSompi, spk: toSPK }];
+    if (change > 0) {
+        outputs.push({ amount: change, spk: fromSPK });
+    }
+
+    // Build tx object with precomputed hashes
+    const tx = {
+        version: 0,
+        inputs,
+        outputs,
+        lockTime: 0,
+        _previousOutputsHash: calcPreviousOutputsHash(inputs),
+        _sequencesHash: calcSequencesHash(inputs),
+        _sigOpCountsHash: calcSigOpCountsHash(inputs),
+        _outputsHash: calcOutputsHash(outputs),
+    };
+
+    // Sign each input with Schnorr
+    const signedInputs = [];
+    for (let i = 0; i < inputs.length; i++) {
+        const sigHash = calcSigHash(tx, i, inputs[i].utxoEntry);
+        const sig = secp.schnorr.sign(sigHash, privKeyHex);
+        const sigScript = new Uint8Array(1 + 64 + 1);
+        sigScript[0] = 65; // push 65 bytes (sig + hashType)
+        sigScript.set(sig, 1);
+        sigScript[65] = SIG_HASH_ALL;
+
+        signedInputs.push({
+            previousOutpoint: {
+                transactionId: inputs[i].txId,
+                index: inputs[i].index
+            },
+            signatureScript: bytesToHex(sigScript),
+            sequence: '0',
+            sigOpCount: 1
+        });
+    }
+
+    // Format outputs for submission
+    const formattedOutputs = outputs.map(o => ({
+        amount: o.amount.toString(),
+        scriptPublicKey: {
+            scriptPublicKey: bytesToHex(o.spk.script),
+            version: o.spk.version
+        }
+    }));
+
+    // Submit the signed transaction
+    const submittedTx = {
+        version: 0,
+        inputs: signedInputs,
+        outputs: formattedOutputs,
+        lockTime: '0',
+        subnetworkId: '0000000000000000000000000000000000000000',
+        gas: '0',
+        payload: ''
+    };
+
+    const result = await submitTransaction(submittedTx);
+    return result;
+}
+
+// ============================================================
+// ECIES Encryption/Decryption (browser-side)
+// ============================================================
 
 async function eciesEncrypt(recipientPubKeyHex, plaintext) {
-    // recipientPubKeyHex: 33-byte compressed pubkey (02/03 + 32 bytes x)
     const recipientPubBytes = cryptoLib.hexToBytes(recipientPubKeyHex);
-    
-    // Generate ephemeral keypair
     const ephPrivKey = secp.utils.randomPrivateKey();
-    const ephPubKey = secp.getPublicKey(ephPrivKey, false); // 65 bytes uncompressed
-    
-    // ECDH: shared point
-    const sharedPoint = secp.getSharedSecret(ephPrivKey, recipientPubBytes, false); // uncompressed
-    // eciespy uses sha256(sharedPoint.x) as the AES key (32 bytes)
-    // sharedPoint is 65 bytes: 04 + x(32) + y(32)
+    const ephPubKey = secp.getPublicKey(ephPrivKey, false);
+    const sharedPoint = secp.getSharedSecret(ephPrivKey, recipientPubBytes, false);
     const sharedX = sharedPoint.slice(1, 33);
-    
-    // Derive AES key: SHA-256 of the x-coordinate
     const aesKey = await crypto.subtle.digest('SHA-256', sharedX);
-    
-    // AES-256-GCM encrypt
     const iv = crypto.getRandomValues(new Uint8Array(16));
     const key = await crypto.subtle.importKey('raw', aesKey, 'AES-GCM', false, ['encrypt']);
     const enc = new TextEncoder();
@@ -358,59 +570,42 @@ async function eciesEncrypt(recipientPubKeyHex, plaintext) {
         key,
         enc.encode(plaintext)
     );
-    
-    // AES-GCM output: ciphertext + tag(16 bytes at end)
     const encArray = new Uint8Array(encrypted);
     const ciphertext = encArray.slice(0, -16);
     const tag = encArray.slice(-16);
-    
-    // eciespy format: ephPubKey(65) + iv(16) + tag(16) + ciphertext
     const result = new Uint8Array(65 + 16 + 16 + ciphertext.length);
     result.set(ephPubKey, 0);
     result.set(iv, 65);
     result.set(tag, 65 + 16);
     result.set(ciphertext, 65 + 16 + 16);
-    
     return cryptoLib.bytesToHex(result);
 }
 
 async function eciesDecrypt(privKeyHex, ciphertextHex) {
     const data = cryptoLib.hexToBytes(ciphertextHex);
-    
-    // Parse eciespy format
-    const ephPubKey = data.slice(0, 65);  // uncompressed ephemeral pubkey
-    const iv = data.slice(65, 81);         // 16 bytes IV
-    const tag = data.slice(81, 97);        // 16 bytes AES-GCM tag
-    const ciphertext = data.slice(97);     // actual ciphertext
-    
-    // ECDH
+    const ephPubKey = data.slice(0, 65);
+    const iv = data.slice(65, 81);
+    const tag = data.slice(81, 97);
+    const ciphertext = data.slice(97);
     const sharedPoint = secp.getSharedSecret(privKeyHex, ephPubKey, false);
     const sharedX = sharedPoint.slice(1, 33);
-    
-    // Derive AES key
     const aesKeyBuf = await crypto.subtle.digest('SHA-256', sharedX);
     const key = await crypto.subtle.importKey('raw', aesKeyBuf, 'AES-GCM', false, ['decrypt']);
-    
-    // Reconstruct AES-GCM input: ciphertext + tag
     const encData = new Uint8Array(ciphertext.length + 16);
     encData.set(ciphertext, 0);
     encData.set(tag, ciphertext.length);
-    
     const decrypted = await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv, tagLength: 128 },
         key,
         encData
     );
-    
     return new TextDecoder().decode(decrypted);
 }
 
-// Try decryption with both key parities (x-only pubkey issue)
 async function eciesDecryptWithRetry(privKeyHex, ciphertextHex) {
     try {
         return await eciesDecrypt(privKeyHex, ciphertextHex);
     } catch (e) {
-        // Try negated private key (opposite parity)
         const n = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141');
         const privBigInt = BigInt('0x' + privKeyHex);
         const negated = (n - privBigInt).toString(16).padStart(64, '0');
@@ -442,9 +637,6 @@ async function whisperGetInfo(txId) {
 }
 
 async function whisperSend(toAddress, encryptedDataHex, senderPrivKeyHex) {
-    // We need to send the whisper via the API
-    // The API's /api/send endpoint builds the covenant TX
-    // We pass the pre-encrypted data so the API doesn't need the plaintext
     const res = await fetch(`${WHISPER_API}/api/send`, {
         method: 'POST',
         headers: {
@@ -472,8 +664,9 @@ async function whisperSend(toAddress, encryptedDataHex, senderPrivKeyHex) {
 
 let currentAddress = null;
 let currentPubKey = null;
+let currentImportMethod = 'mnemonic';
+let pendingMnemonic = null; // temp store during create flow
 
-// DOM helpers
 const $ = (id) => document.getElementById(id);
 const show = (el) => { if (typeof el === 'string') el = $(el); el.style.display = ''; };
 const hide = (el) => { if (typeof el === 'string') el = $(el); el.style.display = 'none'; };
@@ -509,44 +702,70 @@ async function showAuthScreen() {
     }
 }
 
+// Display mnemonic words in a numbered grid
+function displayMnemonicGrid(mnemonic) {
+    const words = mnemonic.split(' ');
+    const grid = $('mnemonic-grid');
+    grid.innerHTML = words.map((word, i) =>
+        `<div class="mnemonic-word"><span class="mnemonic-num">${i + 1}</span><span class="mnemonic-text">${word}</span></div>`
+    ).join('');
+}
+
 async function createWallet(password) {
-    const privKey = generatePrivateKey();
+    const mnemonic = generateMnemonic();
+    const privKey = derivePrivateKeyFromMnemonic(mnemonic);
     const pubKey = getPublicKey(privKey);
     const address = pubkeyToAddress(pubKey);
-    
-    // Encrypt and store
+
+    // Encrypt and store the derived private key (NOT the mnemonic)
     const encrypted = await encryptData(password, privKey);
     await dbSet('encryptedKey', encrypted);
     await dbSet('address', address);
     await dbSet('pubkey', cryptoLib.bytesToHex(pubKey));
-    
-    return { privKey, address };
+
+    return { mnemonic, address };
 }
 
-async function importWallet(privKeyHex, password) {
-    // Validate
+async function importWalletFromMnemonic(mnemonic, password) {
+    const normalized = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!validateMnemonic(normalized)) {
+        throw new Error('Invalid mnemonic phrase. Please check your words.');
+    }
+
+    const privKey = derivePrivateKeyFromMnemonic(normalized);
+    const pubKey = getPublicKey(privKey);
+    const address = pubkeyToAddress(pubKey);
+
+    const encrypted = await encryptData(password, privKey);
+    await dbSet('encryptedKey', encrypted);
+    await dbSet('address', address);
+    await dbSet('pubkey', cryptoLib.bytesToHex(pubKey));
+
+    return { address };
+}
+
+async function importWalletFromPrivKey(privKeyHex, password) {
     if (!/^[0-9a-fA-F]{64}$/.test(privKeyHex)) {
         throw new Error('Invalid private key (must be 64 hex characters)');
     }
-    
+
     const pubKey = getPublicKey(privKeyHex);
     const address = pubkeyToAddress(pubKey);
-    
+
     const encrypted = await encryptData(password, privKeyHex);
     await dbSet('encryptedKey', encrypted);
     await dbSet('address', address);
     await dbSet('pubkey', cryptoLib.bytesToHex(pubKey));
-    
+
     return { address };
 }
 
 async function unlockWallet(password) {
     const encrypted = await dbGet('encryptedKey');
     if (!encrypted) throw new Error('No wallet found');
-    
+
     try {
         const privKey = await decryptData(password, encrypted);
-        // Verify it's valid
         const pubKey = getPublicKey(privKey);
         const address = pubkeyToAddress(pubKey);
         return { address, pubKey: cryptoLib.bytesToHex(pubKey) };
@@ -557,37 +776,33 @@ async function unlockWallet(password) {
 
 async function showWalletScreen(address) {
     currentAddress = address;
-    
+
     hide('auth-screen');
     $('auth-screen').classList.remove('active');
     const walletScreen = $('wallet-screen');
     walletScreen.classList.add('active');
     show(walletScreen);
-    
-    // Show address
+
     $('address-display').textContent = address;
-    
-    // Generate QR
+
     const qr = qrcode(0, 'M');
     qr.addData(address);
     qr.make();
     $('qr-container').innerHTML = qr.createSvgTag(5, 0);
-    // Style the SVG
     const svg = $('qr-container').querySelector('svg');
     if (svg) {
         svg.style.borderRadius = '8px';
         svg.style.background = 'white';
         svg.style.padding = '12px';
     }
-    
-    // Fetch balance
+
     refreshBalance();
 }
 
 async function refreshBalance() {
     const btn = $('btn-refresh');
     btn.classList.add('spinning');
-    
+
     try {
         const sompi = await getBalance(currentAddress);
         if (sompi !== null) {
@@ -601,7 +816,7 @@ async function refreshBalance() {
         $('balance-value').textContent = '--';
         $('balance-usd').textContent = 'Connection error';
     }
-    
+
     btn.classList.remove('spinning');
 }
 
@@ -613,59 +828,85 @@ function setupEventListeners() {
     // Create wallet
     $('btn-create').addEventListener('click', () => showAuthForm('create-form'));
     $('btn-back-create').addEventListener('click', () => showAuthForm('no-wallet'));
-    
+
     $('btn-do-create').addEventListener('click', async () => {
         const pw = $('create-password').value;
         const pw2 = $('create-password2').value;
         if (pw.length < 6) return showError('Password must be at least 6 characters');
         if (pw !== pw2) return showError('Passwords do not match');
-        
+
         try {
-            const { privKey, address } = await createWallet(pw);
-            $('privkey-display').textContent = privKey;
+            const { mnemonic, address } = await createWallet(pw);
+            pendingMnemonic = mnemonic;
+            displayMnemonicGrid(mnemonic);
             showAuthForm('mnemonic-display');
-            
-            // Store address for later
             currentAddress = address;
         } catch (e) {
             showError(e.message);
         }
     });
-    
+
     $('saved-checkbox').addEventListener('change', (e) => {
         $('btn-continue').disabled = !e.target.checked;
     });
-    
+
     $('btn-continue').addEventListener('click', () => {
-        $('privkey-display').textContent = ''; // Clear from DOM
+        // Clear mnemonic from memory and DOM
+        pendingMnemonic = null;
+        $('mnemonic-grid').innerHTML = '';
         showWalletScreen(currentAddress);
     });
-    
+
     // Import wallet
     $('btn-import').addEventListener('click', () => showAuthForm('import-form'));
     $('btn-back-import').addEventListener('click', () => showAuthForm('no-wallet'));
-    
+
+    // Import method tabs
+    document.querySelectorAll('.import-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentImportMethod = tab.dataset.import;
+            if (currentImportMethod === 'mnemonic') {
+                show('import-mnemonic-panel');
+                hide('import-privkey-panel');
+            } else {
+                hide('import-mnemonic-panel');
+                show('import-privkey-panel');
+            }
+        });
+    });
+
     $('btn-do-import').addEventListener('click', async () => {
-        const privKey = $('import-privkey').value.trim();
         const pw = $('import-password').value;
         const pw2 = $('import-password2').value;
         if (pw.length < 6) return showError('Password must be at least 6 characters');
         if (pw !== pw2) return showError('Passwords do not match');
-        
+
         try {
-            const { address } = await importWallet(privKey, pw);
-            $('import-privkey').value = '';
-            showWalletScreen(address);
+            let result;
+            if (currentImportMethod === 'mnemonic') {
+                const mnemonic = $('import-mnemonic').value.trim();
+                if (!mnemonic) return showError('Enter your mnemonic phrase');
+                result = await importWalletFromMnemonic(mnemonic, pw);
+                $('import-mnemonic').value = '';
+            } else {
+                const privKey = $('import-privkey').value.trim();
+                if (!privKey) return showError('Enter your private key');
+                result = await importWalletFromPrivKey(privKey, pw);
+                $('import-privkey').value = '';
+            }
+            showWalletScreen(result.address);
         } catch (e) {
             showError(e.message);
         }
     });
-    
+
     // Login
     $('btn-login').addEventListener('click', async () => {
         const pw = $('login-password').value;
         if (!pw) return showError('Enter your password');
-        
+
         try {
             const { address } = await unlockWallet(pw);
             $('login-password').value = '';
@@ -674,22 +915,22 @@ function setupEventListeners() {
             showError(e.message);
         }
     });
-    
+
     $('login-password').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') $('btn-login').click();
     });
-    
+
     // Reset wallet
     $('btn-reset').addEventListener('click', async (e) => {
         e.preventDefault();
-        if (confirm('This will delete your wallet from this browser. Make sure you have your private key backed up!')) {
+        if (confirm('This will delete your wallet from this browser. Make sure you have your recovery phrase or private key backed up!')) {
             await dbDelete('encryptedKey');
             await dbDelete('address');
             await dbDelete('pubkey');
             showAuthForm('no-wallet');
         }
     });
-    
+
     // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -699,10 +940,10 @@ function setupEventListeners() {
             $(`tab-${tab.dataset.tab}`).classList.add('active');
         });
     });
-    
+
     // Refresh balance
     $('btn-refresh').addEventListener('click', refreshBalance);
-    
+
     // Copy address
     $('btn-copy-addr').addEventListener('click', async () => {
         try {
@@ -710,7 +951,6 @@ function setupEventListeners() {
             $('btn-copy-addr').textContent = '✅ Copied!';
             setTimeout(() => $('btn-copy-addr').textContent = '📋 Copy Address', 2000);
         } catch {
-            // Fallback
             const ta = document.createElement('textarea');
             ta.value = currentAddress;
             document.body.appendChild(ta);
@@ -721,50 +961,37 @@ function setupEventListeners() {
             setTimeout(() => $('btn-copy-addr').textContent = '📋 Copy Address', 2000);
         }
     });
-    
+
     // Send
     $('btn-send').addEventListener('click', async () => {
         const addr = $('send-address').value.trim();
         const amount = parseFloat($('send-amount').value);
         const pw = $('send-password').value;
-        
+
         if (!addr.startsWith('kaspatest:')) return showSendResult('Invalid address (must start with kaspatest:)', true);
         if (!amount || amount <= 0) return showSendResult('Invalid amount', true);
         if (!pw) return showSendResult('Enter your password', true);
-        
+
         try {
-            // Decrypt private key
             const encrypted = await dbGet('encryptedKey');
             const privKey = await decryptData(pw, encrypted);
-            
-            // Get UTXOs
             const utxos = await getUtxos(currentAddress);
             if (!utxos.length) {
                 showSendResult('No UTXOs available', true);
                 return;
             }
-            
+
             const sompiAmount = Math.round(amount * 100000000);
-            
-            // Build and submit transaction via API
-            const result = await rpcCall('createAndSubmitTransaction', {
-                privateKey: privKey,
-                toAddress: addr,
-                amount: sompiAmount,
-                fromAddress: currentAddress
-            });
-            
-            // Clear privkey from memory
+            const result = await buildAndSendTransaction(privKey, currentAddress, addr, sompiAmount);
+
             showSendResult(`✅ Transaction sent! TX: ${result.transactionId || 'submitted'}`, false);
             $('send-password').value = '';
-            
-            // Refresh balance
             setTimeout(refreshBalance, 3000);
         } catch (e) {
             showSendResult(`Error: ${e.message}`, true);
         }
     });
-    
+
     function showSendResult(msg, isError) {
         const el = $('send-result');
         el.className = isError ? 'error-msg' : 'success-msg';
@@ -772,20 +999,21 @@ function setupEventListeners() {
         show(el);
         setTimeout(() => hide(el), 8000);
     }
-    
+
     // Export
     $('btn-export').addEventListener('click', () => {
         show('export-modal');
         $('export-password').value = '';
         hide('export-result');
     });
-    
+
     $('btn-do-export').addEventListener('click', async () => {
         const pw = $('export-password').value;
         try {
             const encrypted = await dbGet('encryptedKey');
             const privKey = await decryptData(pw, encrypted);
             $('export-result').textContent = privKey;
+            $('export-result').style.color = '';
             show('export-result');
         } catch {
             $('export-result').textContent = 'Wrong password';
@@ -793,22 +1021,22 @@ function setupEventListeners() {
             show('export-result');
         }
     });
-    
+
     $('btn-close-export').addEventListener('click', () => {
         $('export-result').textContent = '';
         hide('export-modal');
     });
-    
+
     // Logout
     $('btn-logout').addEventListener('click', () => {
         currentAddress = null;
         currentPubKey = null;
         showAuthScreen();
     });
-    
+
     // Delete wallet
     $('btn-delete').addEventListener('click', async () => {
-        if (confirm('⚠️ DELETE WALLET?\n\nThis permanently removes your encrypted key from this browser.\nMake sure you have backed up your private key!')) {
+        if (confirm('⚠️ DELETE WALLET?\n\nThis permanently removes your encrypted key from this browser.\nMake sure you have backed up your recovery phrase or private key!')) {
             await dbDelete('encryptedKey');
             await dbDelete('address');
             await dbDelete('pubkey');
@@ -816,10 +1044,9 @@ function setupEventListeners() {
             showAuthScreen();
         }
     });
-    
+
     // ── Whisper ──────────────────────────────────────────────
-    
-    // Whisper sub-tabs
+
     document.querySelectorAll('.whisper-subtab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.whisper-subtab').forEach(t => t.classList.remove('active'));
@@ -832,56 +1059,36 @@ function setupEventListeners() {
             else show('whisper-compose');
         });
     });
-    
-    // Refresh inbox
+
     $('btn-refresh-inbox').addEventListener('click', loadInbox);
-    
-    // Auto-load inbox when switching to whisper tab
     document.querySelector('[data-tab="whisper"]').addEventListener('click', loadInbox);
-    
-    // Send whisper
+
     $('btn-send-whisper').addEventListener('click', async () => {
         const toAddr = $('whisper-to').value.trim();
         const message = $('whisper-message').value.trim();
         const password = $('whisper-password').value;
-        
+
         if (!toAddr.startsWith('kaspatest:')) return showWhisperResult('Invalid address', true);
         if (!message) return showWhisperResult('Enter a message', true);
         if (!password) return showWhisperResult('Enter your wallet password', true);
-        
+
         const btn = $('btn-send-whisper');
         btn.disabled = true;
         btn.textContent = '🔐 Encrypting & Sending...';
-        
+
         try {
-            // Decrypt private key
             const encrypted = await dbGet('encryptedKey');
             const privKey = await decryptData(password, encrypted);
-            
-            // Get recipient's pubkey from address (x-only 32 bytes)
-            // We need 02 + x_only for ECIES
-            // Extract from the address... we'd need to decode the cashaddr
-            // For now, let the API handle the pubkey extraction
-            // Actually, let's encrypt locally:
-            
-            // The address encodes the x-only pubkey. We need to decode it.
+
             const decoded = decodeCashAddr(toAddr);
-            // decoded.hash is the 32-byte x-only pubkey
             const recipientPubHex = '02' + cryptoLib.bytesToHex(decoded.hash);
-            
-            // ECIES encrypt
+
             const ciphertextHex = await eciesEncrypt(recipientPubHex, message);
-            
-            // Send via API (passing sender private key for TX signing)
-            // Note: The private key is sent over HTTPS to our own server for TX building
-            // In a production wallet, TX building would happen in the browser
             const result = await whisperSend(toAddr, ciphertextHex, privKey);
-            
+
             showWhisperResult(`✅ Whisper sent!\nTX: ${result.tx_id || 'submitted'}\nDeposit: 0.2 tKAS (refunded when read)`, false);
             $('whisper-message').value = '';
             $('whisper-password').value = '';
-            
-            // Refresh balance after a bit
             setTimeout(refreshBalance, 3000);
         } catch (e) {
             showWhisperResult(`Error: ${e.message}`, true);
@@ -890,8 +1097,7 @@ function setupEventListeners() {
             btn.textContent = '🌊 Send Whisper';
         }
     });
-    
-    // Close whisper read view
+
     $('btn-close-whisper').addEventListener('click', () => {
         hide('whisper-read');
         show('whisper-inbox');
@@ -902,15 +1108,15 @@ function setupEventListeners() {
 
 async function loadInbox() {
     if (!currentAddress) return;
-    
+
     const btn = $('btn-refresh-inbox');
     btn.classList.add('spinning');
-    
+
     try {
         const data = await whisperInbox(currentAddress);
         const messages = data.messages || data || [];
         const list = $('inbox-list');
-        
+
         if (!messages.length) {
             list.innerHTML = '<div class="inbox-empty">No whispers yet. Share your address to receive encrypted messages!</div>';
         } else {
@@ -924,8 +1130,7 @@ async function loadInbox() {
                     <div class="inbox-item-arrow">→</div>
                 </div>
             `).join('');
-            
-            // Add click handlers
+
             list.querySelectorAll('.inbox-item').forEach(item => {
                 item.addEventListener('click', () => readWhisper(item.dataset.txid));
             });
@@ -933,38 +1138,36 @@ async function loadInbox() {
     } catch (e) {
         $('inbox-list').innerHTML = `<div class="inbox-empty">Error loading inbox: ${e.message}</div>`;
     }
-    
+
     btn.classList.remove('spinning');
 }
 
 async function readWhisper(txId) {
     hide('whisper-inbox');
     show('whisper-read');
-    
+
     $('whisper-read-meta').innerHTML = `<strong>TX:</strong> ${txId}<br><div class="whisper-decrypting">🔐 Fetching & decrypting...</div>`;
     $('whisper-read-content').textContent = '';
-    
+
     try {
-        // Get covenant info
         const info = await whisperGetInfo(txId);
-        
+
         $('whisper-read-meta').innerHTML = `
             <strong>From:</strong> ${info.a_address || info.sender || 'unknown'}<br>
             <strong>TX:</strong> <span style="font-size:11px">${txId}</span><br>
             <strong>Type:</strong> ${info.type || 'whisper'}
         `;
-        
+
         const msgType = info.type || info.t || 'message';
         const rawData = info.d || info.message || '';
-        
+
         if (msgType === 'whisper' && rawData) {
-            // Need to decrypt with private key - prompt for password
             const password = prompt('Enter wallet password to decrypt this whisper:');
             if (!password) {
                 $('whisper-read-content').textContent = '❌ Decryption cancelled';
                 return;
             }
-            
+
             try {
                 const encrypted = await dbGet('encryptedKey');
                 const privKey = await decryptData(password, encrypted);
@@ -974,7 +1177,6 @@ async function readWhisper(txId) {
                 $('whisper-read-content').textContent = `❌ Decryption failed: ${e.message}`;
             }
         } else {
-            // Plaintext message
             $('whisper-read-content').textContent = rawData || '(empty message)';
         }
     } catch (e) {
