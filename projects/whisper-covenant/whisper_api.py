@@ -191,10 +191,13 @@ async def handle_send(request):
             selected = mature[0]
             input_amount = selected["utxoEntry"]["amount"]
             change = input_amount - lock_amount - FEE_SOMPI
+            msg_type = body.get("type", "message")
+            pre_encrypted = body.get("pre_encrypted", False)
+            payload_data = message  # already encrypted hex if pre_encrypted
             payload = json.dumps({
-                "v": 1,
-                "t": "message",
-                "d": message,
+                "v": 3,
+                "t": msg_type if pre_encrypted else "message",
+                "d": payload_data,
                 "a": {
                     "from": a_addr_str,
                     "script": covenant_script.hex(),

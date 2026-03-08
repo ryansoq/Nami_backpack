@@ -324,6 +324,149 @@ async function submitTransaction(tx) {
 }
 
 // ============================================================
+// ECIES Encryption/Decryption (browser-side)
+// Compatible with Python eciespy library
+// ============================================================
+
+// eciespy format:
+// Ciphertext = ephemeral_pubkey(65 bytes uncompressed) + iv(16) + aes_tag(16) + ciphertext
+// Uses ECDH shared secret → SHA-256 hash → AES-256-GCM
+
+async function eciesEncrypt(recipientPubKeyHex, plaintext) {
+    // recipientPubKeyHex: 33-byte compressed pubkey (02/03 + 32 bytes x)
+    const recipientPubBytes = cryptoLib.hexToBytes(recipientPubKeyHex);
+    
+    // Generate ephemeral keypair
+    const ephPrivKey = secp.utils.randomPrivateKey();
+    const ephPubKey = secp.getPublicKey(ephPrivKey, false); // 65 bytes uncompressed
+    
+    // ECDH: shared point
+    const sharedPoint = secp.getSharedSecret(ephPrivKey, recipientPubBytes, false); // uncompressed
+    // eciespy uses sha256(sharedPoint.x) as the AES key (32 bytes)
+    // sharedPoint is 65 bytes: 04 + x(32) + y(32)
+    const sharedX = sharedPoint.slice(1, 33);
+    
+    // Derive AES key: SHA-256 of the x-coordinate
+    const aesKey = await crypto.subtle.digest('SHA-256', sharedX);
+    
+    // AES-256-GCM encrypt
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+    const key = await crypto.subtle.importKey('raw', aesKey, 'AES-GCM', false, ['encrypt']);
+    const enc = new TextEncoder();
+    const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        key,
+        enc.encode(plaintext)
+    );
+    
+    // AES-GCM output: ciphertext + tag(16 bytes at end)
+    const encArray = new Uint8Array(encrypted);
+    const ciphertext = encArray.slice(0, -16);
+    const tag = encArray.slice(-16);
+    
+    // eciespy format: ephPubKey(65) + iv(16) + tag(16) + ciphertext
+    const result = new Uint8Array(65 + 16 + 16 + ciphertext.length);
+    result.set(ephPubKey, 0);
+    result.set(iv, 65);
+    result.set(tag, 65 + 16);
+    result.set(ciphertext, 65 + 16 + 16);
+    
+    return cryptoLib.bytesToHex(result);
+}
+
+async function eciesDecrypt(privKeyHex, ciphertextHex) {
+    const data = cryptoLib.hexToBytes(ciphertextHex);
+    
+    // Parse eciespy format
+    const ephPubKey = data.slice(0, 65);  // uncompressed ephemeral pubkey
+    const iv = data.slice(65, 81);         // 16 bytes IV
+    const tag = data.slice(81, 97);        // 16 bytes AES-GCM tag
+    const ciphertext = data.slice(97);     // actual ciphertext
+    
+    // ECDH
+    const sharedPoint = secp.getSharedSecret(privKeyHex, ephPubKey, false);
+    const sharedX = sharedPoint.slice(1, 33);
+    
+    // Derive AES key
+    const aesKeyBuf = await crypto.subtle.digest('SHA-256', sharedX);
+    const key = await crypto.subtle.importKey('raw', aesKeyBuf, 'AES-GCM', false, ['decrypt']);
+    
+    // Reconstruct AES-GCM input: ciphertext + tag
+    const encData = new Uint8Array(ciphertext.length + 16);
+    encData.set(ciphertext, 0);
+    encData.set(tag, ciphertext.length);
+    
+    const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        key,
+        encData
+    );
+    
+    return new TextDecoder().decode(decrypted);
+}
+
+// Try decryption with both key parities (x-only pubkey issue)
+async function eciesDecryptWithRetry(privKeyHex, ciphertextHex) {
+    try {
+        return await eciesDecrypt(privKeyHex, ciphertextHex);
+    } catch (e) {
+        // Try negated private key (opposite parity)
+        const n = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141');
+        const privBigInt = BigInt('0x' + privKeyHex);
+        const negated = (n - privBigInt).toString(16).padStart(64, '0');
+        return await eciesDecrypt(negated, ciphertextHex);
+    }
+}
+
+// ============================================================
+// Whisper API
+// ============================================================
+
+const WHISPER_API = '/whisper';
+
+async function whisperInbox(address) {
+    try {
+        const res = await fetch(`${WHISPER_API}/api/inbox?address=${encodeURIComponent(address)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    } catch (e) {
+        console.error('Inbox error:', e);
+        return { messages: [], error: e.message };
+    }
+}
+
+async function whisperGetInfo(txId) {
+    const res = await fetch(`${WHISPER_API}/api/whisper/${txId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+}
+
+async function whisperSend(toAddress, encryptedDataHex, senderPrivKeyHex) {
+    // We need to send the whisper via the API
+    // The API's /api/send endpoint builds the covenant TX
+    // We pass the pre-encrypted data so the API doesn't need the plaintext
+    const res = await fetch(`${WHISPER_API}/api/send`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Whisper-Key': 'whisper-testnet-poc-key'
+        },
+        body: JSON.stringify({
+            to: toAddress,
+            message: encryptedDataHex,
+            sender_key: senderPrivKeyHex,
+            type: 'whisper',
+            pre_encrypted: true
+        })
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+}
+
+// ============================================================
 // App State & UI
 // ============================================================
 
@@ -673,6 +816,179 @@ function setupEventListeners() {
             showAuthScreen();
         }
     });
+    
+    // ── Whisper ──────────────────────────────────────────────
+    
+    // Whisper sub-tabs
+    document.querySelectorAll('.whisper-subtab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.whisper-subtab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const target = tab.dataset.subtab;
+            hide('whisper-inbox');
+            hide('whisper-compose');
+            hide('whisper-read');
+            if (target === 'inbox') show('whisper-inbox');
+            else show('whisper-compose');
+        });
+    });
+    
+    // Refresh inbox
+    $('btn-refresh-inbox').addEventListener('click', loadInbox);
+    
+    // Auto-load inbox when switching to whisper tab
+    document.querySelector('[data-tab="whisper"]').addEventListener('click', loadInbox);
+    
+    // Send whisper
+    $('btn-send-whisper').addEventListener('click', async () => {
+        const toAddr = $('whisper-to').value.trim();
+        const message = $('whisper-message').value.trim();
+        const password = $('whisper-password').value;
+        
+        if (!toAddr.startsWith('kaspatest:')) return showWhisperResult('Invalid address', true);
+        if (!message) return showWhisperResult('Enter a message', true);
+        if (!password) return showWhisperResult('Enter your wallet password', true);
+        
+        const btn = $('btn-send-whisper');
+        btn.disabled = true;
+        btn.textContent = '🔐 Encrypting & Sending...';
+        
+        try {
+            // Decrypt private key
+            const encrypted = await dbGet('encryptedKey');
+            const privKey = await decryptData(password, encrypted);
+            
+            // Get recipient's pubkey from address (x-only 32 bytes)
+            // We need 02 + x_only for ECIES
+            // Extract from the address... we'd need to decode the cashaddr
+            // For now, let the API handle the pubkey extraction
+            // Actually, let's encrypt locally:
+            
+            // The address encodes the x-only pubkey. We need to decode it.
+            const decoded = decodeCashAddr(toAddr);
+            // decoded.hash is the 32-byte x-only pubkey
+            const recipientPubHex = '02' + cryptoLib.bytesToHex(decoded.hash);
+            
+            // ECIES encrypt
+            const ciphertextHex = await eciesEncrypt(recipientPubHex, message);
+            
+            // Send via API (passing sender private key for TX signing)
+            // Note: The private key is sent over HTTPS to our own server for TX building
+            // In a production wallet, TX building would happen in the browser
+            const result = await whisperSend(toAddr, ciphertextHex, privKey);
+            
+            showWhisperResult(`✅ Whisper sent!\nTX: ${result.tx_id || 'submitted'}\nDeposit: 0.2 tKAS (refunded when read)`, false);
+            $('whisper-message').value = '';
+            $('whisper-password').value = '';
+            
+            // Refresh balance after a bit
+            setTimeout(refreshBalance, 3000);
+        } catch (e) {
+            showWhisperResult(`Error: ${e.message}`, true);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🌊 Send Whisper';
+        }
+    });
+    
+    // Close whisper read view
+    $('btn-close-whisper').addEventListener('click', () => {
+        hide('whisper-read');
+        show('whisper-inbox');
+    });
+}
+
+// ── Whisper helper functions ─────────────────────────────────
+
+async function loadInbox() {
+    if (!currentAddress) return;
+    
+    const btn = $('btn-refresh-inbox');
+    btn.classList.add('spinning');
+    
+    try {
+        const data = await whisperInbox(currentAddress);
+        const messages = data.messages || data || [];
+        const list = $('inbox-list');
+        
+        if (!messages.length) {
+            list.innerHTML = '<div class="inbox-empty">No whispers yet. Share your address to receive encrypted messages!</div>';
+        } else {
+            list.innerHTML = messages.map(msg => `
+                <div class="inbox-item" data-txid="${msg.tx_id}">
+                    <div class="inbox-item-icon">🌊</div>
+                    <div class="inbox-item-details">
+                        <div class="inbox-item-sender">From: ${msg.sender || 'unknown'}</div>
+                        <div class="inbox-item-deposit">${(msg.deposit || 0) / 1e8} tKAS locked</div>
+                    </div>
+                    <div class="inbox-item-arrow">→</div>
+                </div>
+            `).join('');
+            
+            // Add click handlers
+            list.querySelectorAll('.inbox-item').forEach(item => {
+                item.addEventListener('click', () => readWhisper(item.dataset.txid));
+            });
+        }
+    } catch (e) {
+        $('inbox-list').innerHTML = `<div class="inbox-empty">Error loading inbox: ${e.message}</div>`;
+    }
+    
+    btn.classList.remove('spinning');
+}
+
+async function readWhisper(txId) {
+    hide('whisper-inbox');
+    show('whisper-read');
+    
+    $('whisper-read-meta').innerHTML = `<strong>TX:</strong> ${txId}<br><div class="whisper-decrypting">🔐 Fetching & decrypting...</div>`;
+    $('whisper-read-content').textContent = '';
+    
+    try {
+        // Get covenant info
+        const info = await whisperGetInfo(txId);
+        
+        $('whisper-read-meta').innerHTML = `
+            <strong>From:</strong> ${info.a_address || info.sender || 'unknown'}<br>
+            <strong>TX:</strong> <span style="font-size:11px">${txId}</span><br>
+            <strong>Type:</strong> ${info.type || 'whisper'}
+        `;
+        
+        const msgType = info.type || info.t || 'message';
+        const rawData = info.d || info.message || '';
+        
+        if (msgType === 'whisper' && rawData) {
+            // Need to decrypt with private key - prompt for password
+            const password = prompt('Enter wallet password to decrypt this whisper:');
+            if (!password) {
+                $('whisper-read-content').textContent = '❌ Decryption cancelled';
+                return;
+            }
+            
+            try {
+                const encrypted = await dbGet('encryptedKey');
+                const privKey = await decryptData(password, encrypted);
+                const plaintext = await eciesDecryptWithRetry(privKey, rawData);
+                $('whisper-read-content').textContent = plaintext;
+            } catch (e) {
+                $('whisper-read-content').textContent = `❌ Decryption failed: ${e.message}`;
+            }
+        } else {
+            // Plaintext message
+            $('whisper-read-content').textContent = rawData || '(empty message)';
+        }
+    } catch (e) {
+        $('whisper-read-content').textContent = `❌ Error: ${e.message}`;
+    }
+}
+
+function showWhisperResult(msg, isError) {
+    const el = $('whisper-send-result');
+    el.className = isError ? 'error-msg' : 'success-msg';
+    el.textContent = msg;
+    el.style.whiteSpace = 'pre-line';
+    show(el);
+    if (!isError) setTimeout(() => hide(el), 15000);
 }
 
 // ============================================================
