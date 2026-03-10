@@ -288,6 +288,8 @@ asyncio.run(main())
             }
 
             case 'submitTransaction': {
+                console.log('[submitTx] has transaction?', !!params.transaction, 'keys:', Object.keys(params));
+                if (params.transaction) console.log('[submitTx] tx keys:', Object.keys(params.transaction), 'payload len:', (params.transaction.payload||'').length);
                 const r = await rpcCall(
                     'submitTransactionRequest',
                     'submitTransactionResponse',
@@ -297,6 +299,26 @@ asyncio.run(main())
                 break;
             }
             
+            case 'getBlockTemplate': {
+                const r = await rpcCall(
+                    'getBlockTemplateRequest',
+                    'getBlockTemplateResponse',
+                    { payAddress: params.payAddress, extraData: params.extraData || '' }
+                );
+                result = r;
+                break;
+            }
+
+            case 'submitBlock': {
+                const r = await rpcCall(
+                    'submitBlockRequest',
+                    'submitBlockResponse',
+                    { block: params.block, allowNonDAABlocks: params.allowNonDAABlocks || false }
+                );
+                result = r;
+                break;
+            }
+
             default:
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: `Unknown method: ${method}` }));

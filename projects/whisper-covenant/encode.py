@@ -206,7 +206,7 @@ async def main():
     parser.add_argument("--to", required=True, help="Recipient address")
     parser.add_argument("--message", "-m", required=True, help="Message text")
     parser.add_argument("--key", "-k", default=None, help="Sender private key (hex). Falls back to ~/.secrets/testnet-wallet.json")
-    parser.add_argument("--plain", action="store_true", help="Send plaintext (type=message)")
+    parser.add_argument("--plain", action="store_true", help="Send as plaintext (type=message); default is ECIES encrypted (type=whisper)")
     parser.add_argument("--timeout-offset", type=int, default=1000, help="CLTV timeout offset from current DAA (default: 1000 ≈ 100s)")
     parser.add_argument("--local-only", action="store_true", help="Skip uploading covenant_info to API")
     parser.add_argument("--api-url", default="http://whisper.openclaw-alpha.com", help="Whisper API URL")

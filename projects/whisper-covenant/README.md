@@ -1,6 +1,6 @@
 # 🌊 Whisper Covenant v2
 
-**Trustless encrypted messaging on Kaspa TN12 using covenant introspection opcodes.**
+**Trustless encrypted messaging on Kaspa TN12 using covenant introspection opcodes. Messages are ECIES-encrypted by default — a Kaspa address IS a public key, so encryption needs zero extra steps. Use `--plain` to opt into plaintext.**
 
 Private keys **NEVER** leave your machine. Sign locally, broadcast online.
 

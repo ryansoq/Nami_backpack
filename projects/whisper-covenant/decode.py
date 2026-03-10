@@ -103,14 +103,20 @@ def covenant_info_from_payload(payload_json, tx_id):
     script_bytes = bytes.fromhex(script_hex)
 
     # Extract b_pubkey from covenant script
-    # For v3 CLTV script, the IF branch ends with: push_data(b_pubkey_32) + 0xac + 0x67 (OP_ELSE)
-    # For v2 script, it ends with: push_data(b_pubkey_32) + 0xac
-    # We search for the pattern: 0x20 (push 32 bytes) + 32 bytes + 0xac
+    # For v3 CLTV script: OP_IF <aSPK> ... <bPubkey> OP_CHECKSIG OP_ELSE ...
+    # The FIRST 0x20+32+0xac match is aSPK (sender's scriptPublicKey),
+    # the SECOND match is bPubkey (recipient's x-only pubkey).
+    # We need the second one (before OP_ELSE 0x67).
     b_pubkey_hex = ""
+    matches = []
     for i in range(len(script_bytes) - 34):
         if script_bytes[i] == 0x20 and script_bytes[i + 33] == 0xac:
-            b_pubkey_hex = script_bytes[i + 1:i + 33].hex()
-            break
+            matches.append(script_bytes[i + 1:i + 33].hex())
+    # Second match = recipient pubkey (first is sender SPK which also has 0x20...0xac structure)
+    if len(matches) >= 2:
+        b_pubkey_hex = matches[1]
+    elif len(matches) == 1:
+        b_pubkey_hex = matches[0]  # fallback for v2 scripts
 
     # Reconstruct p2sh_address from script
     p2sh_address = ""

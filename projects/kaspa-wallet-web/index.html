@@ -112,6 +112,7 @@
                 <button class="tab active" data-tab="receive">Receive</button>
                 <button class="tab" data-tab="send">Send</button>
                 <button class="tab" data-tab="whisper">🌊 Whisper</button>
+                <button class="tab" data-tab="mine">⛏️ Mine</button>
                 <button class="tab" data-tab="settings">Settings</button>
             </div>
 
@@ -168,8 +169,14 @@
                     <input type="text" id="whisper-to" placeholder="kaspatest:...">
                     <label>Message</label>
                     <textarea id="whisper-message" placeholder="Type your secret message..." rows="4"></textarea>
+                    <div style="margin:8px 0">
+                        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.95em">
+                            <input type="checkbox" id="whisper-encrypt" checked style="width:18px;height:18px;accent-color:#00e5a0">
+                            🔒 Encrypt (ECIES)
+                        </label>
+                    </div>
                     <div class="whisper-info">
-                        <span>🔒 ECIES encrypted with recipient's public key</span>
+                        <span id="whisper-mode-info">🔒 ECIES encrypted with recipient's public key</span>
                         <span>💰 Deposit: 0.2 tKAS (refunded when read)</span>
                     </div>
                     <input type="password" id="whisper-password" placeholder="Wallet password to sign">
@@ -181,7 +188,47 @@
                     <h3>🔓 Decrypted Whisper</h3>
                     <div id="whisper-read-meta" class="whisper-meta"></div>
                     <div id="whisper-read-content" class="whisper-content"></div>
+                    
+                    <div id="whisper-redeem-section" style="display:none; margin-top: 16px; padding: 12px; background: rgba(0, 229, 160, 0.1); border-radius: 8px; border: 1px solid rgba(0, 229, 160, 0.3);">
+                        <div id="whisper-redeem-info" style="margin-bottom: 8px; font-size: 0.9em; color: #666;"></div>
+                        <button id="btn-redeem-deposit" class="btn btn-primary" style="background: #00e5a0; border-color: #00e5a0;">🔓 Redeem 0.2 tKAS deposit</button>
+                    </div>
+                    
                     <button id="btn-close-whisper" class="btn btn-ghost">← Back to Inbox</button>
+                </div>
+            </div>
+
+            <!-- Mine Tab -->
+            <div id="tab-mine" class="tab-content">
+                <div class="card">
+                    <h3>⛏️ Browser Mining</h3>
+                    <p style="color:#8b949e;margin-bottom:16px">Mine tKAS directly in your browser using your device's CPU</p>
+                    
+                    <div id="mine-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                        <div style="background:#161b22;border-radius:8px;padding:12px;text-align:center">
+                            <div style="color:#8b949e;font-size:.75rem">⚡ Hashrate</div>
+                            <div id="mine-hashrate" style="color:#49EACB;font-size:1.2rem;font-weight:bold">0 H/s</div>
+                        </div>
+                        <div style="background:#161b22;border-radius:8px;padding:12px;text-align:center">
+                            <div style="color:#8b949e;font-size:.75rem">💎 Blocks Found</div>
+                            <div id="mine-blocks" style="color:#49EACB;font-size:1.2rem;font-weight:bold">0</div>
+                        </div>
+                        <div style="background:#161b22;border-radius:8px;padding:12px;text-align:center">
+                            <div style="color:#8b949e;font-size:.75rem">🔢 Total Hashes</div>
+                            <div id="mine-hashes" style="color:#c9d1d9;font-size:1rem">0</div>
+                        </div>
+                        <div style="background:#161b22;border-radius:8px;padding:12px;text-align:center">
+                            <div style="color:#8b949e;font-size:.75rem">⏱️ Elapsed</div>
+                            <div id="mine-elapsed" style="color:#c9d1d9;font-size:1rem">0m 0s</div>
+                        </div>
+                    </div>
+                    
+                    <button id="btn-mine-start" class="btn btn-primary" style="width:100%;font-size:1.1rem;padding:14px" onclick="try{startMining()}catch(e){document.getElementById('mine-log').innerHTML='<div>❌ '+e.message+'</div>'}">⛏️ Start Mining</button>
+                    <button id="btn-mine-stop" class="btn btn-danger" style="width:100%;font-size:1.1rem;padding:14px;display:none">⏹ Stop Mining</button>
+                    
+                    <div id="mine-log" style="margin-top:16px;background:#0d1117;border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;font-family:monospace;font-size:.75rem;color:#8b949e"></div>
+                    
+                    <p style="color:#8b949e;font-size:.75rem;margin-top:12px">💡 Mining uses your device's CPU via Web Worker. Your wallet address is used automatically.</p>
                 </div>
             </div>
 
@@ -216,6 +263,6 @@
         </div>
     </div>
 
-    <script type="module" src="kaspa-wallet.js?v=4"></script>
+    <script type="module" src="kaspa-wallet.js?v=21"></script>
 </body>
 </html>

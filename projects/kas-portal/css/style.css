@@ -1,0 +1,245 @@
+/* 🌊 Kas Portal - Kaspa Web Miner */
+
+:root {
+  --kaspa-cyan: #49eacb;
+  --kaspa-blue: #1a3a4a;
+  --kaspa-dark: #0d1b2a;
+  --kaspa-darker: #080f1a;
+  --kaspa-light: #e0f7fa;
+  --kaspa-accent: #00bcd4;
+  --kaspa-gold: #ffd700;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: var(--kaspa-darker);
+  color: var(--kaspa-light);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 2rem;
+}
+
+.container {
+  max-width: 720px;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+/* Block found flash */
+.container.block-found {
+  animation: flashCyan 0.5s ease 3;
+}
+.container.block-accepted {
+  animation: flashGold 0.8s ease 3;
+}
+
+@keyframes flashCyan {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 60px var(--kaspa-cyan), 0 0 120px var(--kaspa-cyan); }
+}
+@keyframes flashGold {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 80px var(--kaspa-gold), 0 0 160px var(--kaspa-gold); }
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 2.2rem;
+  color: var(--kaspa-cyan);
+  text-shadow: 0 0 20px rgba(73, 234, 203, 0.3);
+  margin-bottom: 0.3rem;
+}
+
+.header .subtitle {
+  color: #6b8fa3;
+  font-size: 0.9rem;
+}
+
+/* Config */
+.config {
+  background: var(--kaspa-dark);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #1e3a4a;
+}
+
+.config label {
+  display: block;
+  color: var(--kaspa-accent);
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.config input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: var(--kaspa-darker);
+  border: 1px solid #2a4a5a;
+  border-radius: 8px;
+  color: var(--kaspa-light);
+  font-family: inherit;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s;
+}
+
+.config input:focus {
+  outline: none;
+  border-color: var(--kaspa-cyan);
+  box-shadow: 0 0 8px rgba(73, 234, 203, 0.2);
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.btn {
+  padding: 0.8rem 2.5rem;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+
+.btn-start {
+  background: linear-gradient(135deg, var(--kaspa-cyan), var(--kaspa-accent));
+  color: var(--kaspa-darker);
+}
+.btn-start:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(73, 234, 203, 0.4);
+}
+
+.btn-stop {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+}
+.btn-stop:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(231, 76, 60, 0.4);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hidden { display: none !important; }
+
+/* Stats Grid */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--kaspa-dark);
+  border-radius: 10px;
+  padding: 1.2rem;
+  text-align: center;
+  border: 1px solid #1e3a4a;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #6b8fa3;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.4rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  color: var(--kaspa-cyan);
+  font-weight: bold;
+}
+
+.stat-value.pulse {
+  animation: pulseStat 0.3s ease;
+}
+
+@keyframes pulseStat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Status */
+.status-bar {
+  text-align: center;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.status-connected { color: #2ecc71; }
+.status-connecting, .status-reconnecting { color: #f39c12; }
+.status-error { color: #e74c3c; }
+.status-stopped { color: #6b8fa3; }
+
+/* Log */
+.log-container {
+  background: var(--kaspa-dark);
+  border-radius: 10px;
+  padding: 1rem;
+  border: 1px solid #1e3a4a;
+}
+
+.log-header {
+  color: var(--kaspa-accent);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+}
+
+#log {
+  height: 200px;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.log-line {
+  color: #8ab4c7;
+  word-break: break-all;
+}
+
+#log::-webkit-scrollbar {
+  width: 6px;
+}
+#log::-webkit-scrollbar-track {
+  background: var(--kaspa-darker);
+}
+#log::-webkit-scrollbar-thumb {
+  background: #2a4a5a;
+  border-radius: 3px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  body { padding: 1rem; }
+  .header h1 { font-size: 1.6rem; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .stat-value { font-size: 1.2rem; }
+}

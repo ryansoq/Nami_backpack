@@ -269,7 +269,8 @@ async function dbDelete(key) {
 // RPC - Talk to kaspad via API proxy
 // ============================================================
 
-const API_BASE = '/kaspa/api';
+// Auto-detect: standalone domain uses /api, embedded uses /kaspa/api
+const API_BASE = window.location.pathname.startsWith('/kaspa') ? '/kaspa/api' : '/api';
 
 async function rpcCall(method, params = {}) {
     const res = await fetch(`${API_BASE}/${method}`, {
@@ -418,6 +419,16 @@ function calcOutputsHash(outputs) {
     return h.digest();
 }
 
+function calcPayloadHash(payloadBytes) {
+    // Native subnetwork + empty payload = ZERO_HASH
+    if (!payloadBytes || payloadBytes.length === 0) return ZERO_HASH;
+    // Blake2b-256(key="TransactionSigningHash", varint_len + payload)
+    const h = sigHasher(TX_SIGNING_KEY);
+    h.update(writeU64LE(payloadBytes.length));  // var_bytes: length prefix
+    h.update(payloadBytes);
+    return h.digest();
+}
+
 function calcSigHash(tx, inputIndex, utxoEntry) {
     const h = sigHasher(TX_SIGNING_KEY);
     const inp = tx.inputs[inputIndex];
@@ -439,15 +450,29 @@ function calcSigHash(tx, inputIndex, utxoEntry) {
     h.update(writeU64LE(tx.lockTime));                    // lock time
     h.update(SUBNETWORK_ID_NATIVE);                      // subnetwork id (20 bytes)
     h.update(writeU64LE(0));                              // gas
-    h.update(ZERO_HASH);                                  // payload hash (native + empty = zero)
+    h.update(tx._payloadHash || ZERO_HASH);               // payload hash
     h.update(writeU8(SIG_HASH_ALL));                      // hash type
 
     return h.digest();
 }
 
 // Build, sign locally, and submit a transaction (all client-side!)
+let schnorrMod = null;
+async function loadSchnorr() {
+    if (!schnorrMod) {
+        const mod = await import('https://esm.sh/@noble/curves@1.7.0/secp256k1');
+        schnorrMod = mod.schnorr;
+    }
+    return schnorrMod;
+}
+function schnorrSign(msgHash, privKey) {
+    if (!schnorrMod) throw new Error('schnorr not loaded');
+    return schnorrMod.sign(msgHash, privKey);
+}
+
 async function buildAndSendTransaction(privKeyHex, fromAddress, toAddress, amountSompi) {
     await loadBlake2b();
+    await loadSchnorr();
     const { bytesToHex, hexToBytes } = cryptoLib;
 
     const pubKeyFull = secp.getPublicKey(privKeyHex, true); // 33 bytes compressed
@@ -510,7 +535,7 @@ async function buildAndSendTransaction(privKeyHex, fromAddress, toAddress, amoun
     const signedInputs = [];
     for (let i = 0; i < inputs.length; i++) {
         const sigHash = calcSigHash(tx, i, inputs[i].utxoEntry);
-        const sig = secp.schnorr.sign(sigHash, privKeyHex);
+        const sig = schnorrSign(sigHash, privKeyHex);
         const sigScript = new Uint8Array(1 + 64 + 1);
         sigScript[0] = 65; // push 65 bytes (sig + hashType)
         sigScript.set(sig, 1);
@@ -555,27 +580,40 @@ async function buildAndSendTransaction(privKeyHex, fromAddress, toAddress, amoun
 // ECIES Encryption/Decryption (browser-side)
 // ============================================================
 
+// ECIES encrypt — compatible with Python ecies library
+// KDF: HKDF-SHA256(ephPub + sharedPoint) → 32-byte AES key
+// Format: ephPub(65) + nonce(16) + tag(16) + ciphertext
 async function eciesEncrypt(recipientPubKeyHex, plaintext) {
     const recipientPubBytes = cryptoLib.hexToBytes(recipientPubKeyHex);
     const ephPrivKey = secp.utils.randomPrivateKey();
-    const ephPubKey = secp.getPublicKey(ephPrivKey, false);
-    const sharedPoint = secp.getSharedSecret(ephPrivKey, recipientPubBytes, false);
-    const sharedX = sharedPoint.slice(1, 33);
-    const aesKey = await crypto.subtle.digest('SHA-256', sharedX);
-    const iv = crypto.getRandomValues(new Uint8Array(16));
-    const key = await crypto.subtle.importKey('raw', aesKey, 'AES-GCM', false, ['encrypt']);
+    const ephPubKey = secp.getPublicKey(ephPrivKey, false); // uncompressed 65 bytes
+    const sharedPoint = secp.getSharedSecret(ephPrivKey, recipientPubBytes, false); // uncompressed 65 bytes
+
+    // KDF: HKDF-SHA256(master=ephPub+sharedPoint, salt="", info="", len=32)
+    // Uses manual HKDF to match Python eciespy v0.4.6 exactly
+    const aesKeyBits = await hkdfSha256(
+        new Uint8Array([...ephPubKey, ...sharedPoint]),
+        new Uint8Array(0),
+        new Uint8Array(0),
+        32
+    );
+
+    const nonce = crypto.getRandomValues(new Uint8Array(16));
+    const key = await crypto.subtle.importKey('raw', aesKeyBits, 'AES-GCM', false, ['encrypt']);
     const enc = new TextEncoder();
     const encrypted = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv, tagLength: 128 },
+        { name: 'AES-GCM', iv: nonce, tagLength: 128 },
         key,
         enc.encode(plaintext)
     );
+    // AES-GCM output = ciphertext + tag(16)
     const encArray = new Uint8Array(encrypted);
     const ciphertext = encArray.slice(0, -16);
     const tag = encArray.slice(-16);
+    // Output format: ephPub(65) + nonce(16) + tag(16) + ciphertext (matches Python ecies)
     const result = new Uint8Array(65 + 16 + 16 + ciphertext.length);
     result.set(ephPubKey, 0);
-    result.set(iv, 65);
+    result.set(nonce, 65);
     result.set(tag, 65 + 16);
     result.set(ciphertext, 65 + 16 + 16);
     return cryptoLib.bytesToHex(result);
@@ -587,10 +625,21 @@ async function eciesDecrypt(privKeyHex, ciphertextHex) {
     const iv = data.slice(65, 81);
     const tag = data.slice(81, 97);
     const ciphertext = data.slice(97);
+
+    // ECDH: get shared point (uncompressed, 65 bytes)
+    // Web Wallet loads @noble/curves@1.7.0/secp256k1, so use schnorrMod's parent
     const sharedPoint = secp.getSharedSecret(privKeyHex, ephPubKey, false);
-    const sharedX = sharedPoint.slice(1, 33);
-    const aesKeyBuf = await crypto.subtle.digest('SHA-256', sharedX);
-    const key = await crypto.subtle.importKey('raw', aesKeyBuf, 'AES-GCM', false, ['decrypt']);
+
+    // HKDF-SHA256: master = ephPub(65) + sharedPoint(65), salt="", info="", len=32
+    // Manual HKDF to avoid Web Crypto API inconsistencies
+    const aesKeyBits = await hkdfSha256(
+        new Uint8Array([...ephPubKey, ...sharedPoint]),
+        new Uint8Array(0),
+        new Uint8Array(0),
+        32
+    );
+
+    const key = await crypto.subtle.importKey('raw', aesKeyBits, 'AES-GCM', false, ['decrypt']);
     const encData = new Uint8Array(ciphertext.length + 16);
     encData.set(ciphertext, 0);
     encData.set(tag, ciphertext.length);
@@ -600,6 +649,28 @@ async function eciesDecrypt(privKeyHex, ciphertextHex) {
         encData
     );
     return new TextDecoder().decode(decrypted);
+}
+
+// Manual HKDF-SHA256 implementation (matches RFC 5869)
+async function hkdfSha256(ikm, salt, info, length) {
+    // Extract: PRK = HMAC-SHA256(salt, IKM)
+    if (!salt || salt.length === 0) salt = new Uint8Array(32); // default salt = 32 zero bytes
+    const saltKey = await crypto.subtle.importKey('raw', salt, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const prk = new Uint8Array(await crypto.subtle.sign('HMAC', saltKey, ikm));
+    // Expand: OKM = T(1) || T(2) || ...
+    const prkKey = await crypto.subtle.importKey('raw', prk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const n = Math.ceil(length / 32);
+    const okm = new Uint8Array(n * 32);
+    let prev = new Uint8Array(0);
+    for (let i = 0; i < n; i++) {
+        const input = new Uint8Array(prev.length + info.length + 1);
+        input.set(prev, 0);
+        input.set(info, prev.length);
+        input[prev.length + info.length] = i + 1;
+        prev = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, input));
+        okm.set(prev, i * 32);
+    }
+    return okm.slice(0, length);
 }
 
 async function eciesDecryptWithRetry(privKeyHex, ciphertextHex) {
@@ -619,14 +690,118 @@ async function eciesDecryptWithRetry(privKeyHex, ciphertextHex) {
 
 const WHISPER_API = '/whisper';
 
+// Chain-scanning inbox - scans blockchain directly instead of using API
 async function whisperInbox(address) {
+    const messages = [];
+
+    // 1) Whisper API — has indexed covenant info
     try {
         const res = await fetch(`${WHISPER_API}/api/inbox?address=${encodeURIComponent(address)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
+        if (res.ok) {
+            const data = await res.json();
+            for (const msg of (data.messages || [])) {
+                // Enrich with on-chain payload data
+                let payload = null, p2shOutpoint = null;
+                try {
+                    const txRes = await fetch(`https://api-tn12.kaspa.org/transactions/${msg.tx_id}`);
+                    if (txRes.ok) {
+                        const tx = await txRes.json();
+                        if (tx.payload) {
+                            const payloadBytes = cryptoLib.hexToBytes(tx.payload);
+                            payload = JSON.parse(new TextDecoder().decode(payloadBytes));
+                        }
+                        for (let i = 0; i < (tx.outputs || []).length; i++) {
+                            if (tx.outputs[i].script_public_key_type === 'scripthash') {
+                                p2shOutpoint = { txId: tx.transaction_id, index: i, amount: parseInt(tx.outputs[i].amount) };
+                                break;
+                            }
+                        }
+                    }
+                } catch {}
+                messages.push({
+                    tx_id: msg.tx_id,
+                    sender: msg.sender || 'unknown',
+                    type: payload ? (payload.t || 'whisper') : 'whisper',
+                    timestamp: msg.timestamp || '',
+                    deposit: msg.deposit || DEPOSIT_SOMPI,
+                    payload,
+                    p2sh_outpoint: p2shOutpoint,
+                });
+            }
+        }
     } catch (e) {
-        console.error('Inbox error:', e);
-        return { messages: [], error: e.message };
+        console.warn('Whisper API inbox error:', e.message);
+    }
+
+    // 2) Chain scan — catch any whispers not indexed by API
+    try {
+        const txRes = await fetch(`https://api-tn12.kaspa.org/addresses/${address}/full-transactions?limit=50&resolve_previous_outpoints=no`);
+        if (txRes.ok) {
+            const txData = await txRes.json();
+            const knownTxIds = new Set(messages.map(m => m.tx_id));
+            for (const tx of txData) {
+                if (knownTxIds.has(tx.transaction_id)) continue;
+                if (!tx.payload || tx.payload.length < 20) continue;
+                try {
+                    const payloadBytes = cryptoLib.hexToBytes(tx.payload);
+                    const payloadObj = JSON.parse(new TextDecoder().decode(payloadBytes));
+                    if (payloadObj.v !== 3 || !payloadObj.a || !payloadObj.a.script) continue;
+                    const recipientAddr = extractRecipientFromCovenantScript(payloadObj.a.script, address);
+                    if (recipientAddr !== address) continue;
+                    let p2shOutpoint = null;
+                    for (let i = 0; i < (tx.outputs || []).length; i++) {
+                        if (tx.outputs[i].script_public_key_type === 'scripthash') {
+                            p2shOutpoint = { txId: tx.transaction_id, index: i, amount: parseInt(tx.outputs[i].amount) };
+                            break;
+                        }
+                    }
+                    messages.push({
+                        tx_id: tx.transaction_id,
+                        sender: payloadObj.a.from || 'unknown',
+                        type: payloadObj.t || 'whisper',
+                        timestamp: tx.block_time ? new Date(tx.block_time).toISOString() : '',
+                        deposit: payloadObj.a.deposit || DEPOSIT_SOMPI,
+                        payload: payloadObj,
+                        p2sh_outpoint: p2shOutpoint,
+                    });
+                } catch {}
+            }
+        }
+    } catch (e) {
+        console.warn('Chain scan inbox error:', e.message);
+    }
+
+    // Deduplicate & sort newest first
+    const seen = new Set();
+    const unique = messages.filter(m => { if (seen.has(m.tx_id)) return false; seen.add(m.tx_id); return true; });
+    unique.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+    return { messages: unique };
+}
+
+// Extract recipient pubkey from covenant script and convert to address
+function extractRecipientFromCovenantScript(scriptHex, currentUserAddress) {
+    try {
+        const scriptBytes = cryptoLib.hexToBytes(scriptHex);
+        
+        // Look for the second occurrence of 0x20 + 32bytes + 0xac pattern
+        // This pattern represents: OP_PUSH(32) <pubkey> OP_CHECKSIG
+        let patternCount = 0;
+        
+        for (let i = 0; i < scriptBytes.length - 33; i++) {
+            if (scriptBytes[i] === 0x20 && scriptBytes[i + 33] === 0xac) {
+                patternCount++;
+                if (patternCount === 2) {
+                    // Found the second pattern (recipient pubkey)
+                    const pubkeyBytes = scriptBytes.slice(i + 1, i + 33);
+                    return pubkeyToAddress(pubkeyBytes, NETWORK_PREFIX);
+                }
+            }
+        }
+        
+        return currentUserAddress; // Fallback if parsing fails
+    } catch (e) {
+        console.warn('Failed to extract recipient from covenant script:', e);
+        return currentUserAddress; // Fallback
     }
 }
 
@@ -636,26 +811,264 @@ async function whisperGetInfo(txId) {
     return res.json();
 }
 
-async function whisperSend(toAddress, encryptedDataHex, senderPrivKeyHex) {
-    const res = await fetch(`${WHISPER_API}/api/send`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Whisper-Key': 'whisper-testnet-poc-key'
-        },
-        body: JSON.stringify({
-            to: toAddress,
-            message: encryptedDataHex,
-            sender_key: senderPrivKeyHex,
-            type: 'whisper',
-            pre_encrypted: true
-        })
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${res.status}`);
+// ── Whisper Covenant: local build + sign (private key never leaves browser) ──
+
+const DEPOSIT_SOMPI = 20_000_000; // 0.2 tKAS
+const WHISPER_FEE = 10_000;
+const WHISPER_FEE_BUFFER = 5_000;
+const TIMEOUT_OFFSET = 1000; // ~100 seconds in DAA score
+
+// Script push helpers (match encode.py)
+function pushData(data) {
+    const n = data.length;
+    if (n === 0) return new Uint8Array([0x00]);
+    if (n <= 75) return new Uint8Array([n, ...data]);
+    if (n <= 255) return new Uint8Array([0x4c, n, ...data]);
+    return new Uint8Array([0x4d, n & 0xff, (n >> 8) & 0xff, ...data]);
+}
+
+function pushInt(val) {
+    if (val === 0) return new Uint8Array([0x00]);
+    if (val >= 1 && val <= 16) return new Uint8Array([0x50 + val]);
+    const neg = val < 0;
+    let absVal = Math.abs(val);
+    const result = [];
+    while (absVal > 0) {
+        result.push(absVal & 0xff);
+        absVal = Math.floor(absVal / 256);
     }
-    return res.json();
+    if (result[result.length - 1] & 0x80) {
+        result.push(neg ? 0x80 : 0x00);
+    } else if (neg) {
+        result[result.length - 1] |= 0x80;
+    }
+    return pushData(new Uint8Array(result));
+}
+
+function buildCovenantScript(aSPKBytes, aPubkey, bPubkey, deposit, timeoutDaa) {
+    // CLTV covenant: IF (B reads + covenant check) ELSE (A reclaims after timeout)
+    const OP_IF = 0x63, OP_ELSE = 0x67, OP_ENDIF = 0x68;
+    const OP_CLTV = 0xb0;
+    const OP_TX_OUTPUT_SPK = 0xc3, OP_TX_OUTPUT_AMOUNT = 0xc2;
+    const OP_EQUAL = 0x87, OP_VERIFY = 0x69, OP_GTE = 0xa2;
+    const OP_CHECKSIG = 0xac;
+
+    const parts = [];
+    parts.push(new Uint8Array([OP_IF]));
+    // IF: covenant check — output[0] must pay to A's address
+    parts.push(pushData(aSPKBytes));
+    parts.push(pushInt(0));
+    parts.push(new Uint8Array([OP_TX_OUTPUT_SPK, OP_EQUAL, OP_VERIFY]));
+    // output[0] amount >= deposit
+    parts.push(pushInt(0));
+    parts.push(new Uint8Array([OP_TX_OUTPUT_AMOUNT]));
+    parts.push(pushInt(deposit));
+    parts.push(new Uint8Array([OP_GTE, OP_VERIFY]));
+    // B signs
+    parts.push(pushData(bPubkey));
+    parts.push(new Uint8Array([OP_CHECKSIG]));
+    // ELSE: A reclaims after timeout
+    parts.push(new Uint8Array([OP_ELSE]));
+    parts.push(pushInt(timeoutDaa));
+    parts.push(new Uint8Array([OP_CLTV]));
+    parts.push(pushData(aPubkey));
+    parts.push(new Uint8Array([OP_CHECKSIG]));
+    parts.push(new Uint8Array([OP_ENDIF]));
+
+    // Concatenate
+    let totalLen = 0;
+    for (const p of parts) totalLen += p.length;
+    const script = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const p of parts) { script.set(p, offset); offset += p.length; }
+    return script;
+}
+
+function blake2b256(data) {
+    return blake2bMod.blake2b(data, { dkLen: 32 });
+}
+
+function computeP2SHScriptPublicKey(covenantScript) {
+    // P2SH: OP_HASH256 OP_DATA_32 <hash> OP_EQUAL
+    const scriptHash = blake2b256(covenantScript);
+    const spkScript = new Uint8Array(35);
+    spkScript[0] = 0xaa; // OP_HASH256 (actually OP_BLAKE2B in Kaspa)
+    spkScript[1] = 0x20; // push 32 bytes
+    spkScript.set(scriptHash, 2);
+    spkScript[34] = 0x87; // OP_EQUAL
+    return { script: spkScript, version: 0 };
+}
+
+async function getDaaScore() {
+    // Use Kaspa REST API to get current DAA score
+    const res = await fetch('https://api-tn12.kaspa.org/info/virtual-chain-blue-score');
+    if (!res.ok) throw new Error('Failed to get DAA score');
+    const data = await res.json();
+    return parseInt(data.blueScore);
+}
+
+async function whisperSend(toAddress, dataValue, senderPrivKeyHex, msgType = 'whisper') {
+    await loadBlake2b();
+    await loadSchnorr();
+    const { bytesToHex, hexToBytes } = cryptoLib;
+
+    // Derive sender info
+    const senderPubFull = secp.getPublicKey(senderPrivKeyHex, true); // 33 bytes
+    const senderPubXOnly = senderPubFull.slice(1); // 32 bytes
+    const senderAddress = currentAddress;
+
+    // Sender SPK (P2PK)
+    const senderSPK = addressToScriptPublicKey(senderAddress);
+    // For covenant script: version(2 bytes BE) + script
+    const aSPKBytes = new Uint8Array(2 + senderSPK.script.length);
+    aSPKBytes[0] = 0; aSPKBytes[1] = 0; // version 0 big-endian
+    aSPKBytes.set(senderSPK.script, 2);
+
+    // Recipient pubkey from address
+    const recipientDecoded = decodeCashAddr(toAddress);
+    const recipientPubBytes = recipientDecoded.hash; // 32 bytes x-only
+
+    // Get DAA score for CLTV timeout
+    const currentDaa = await getDaaScore();
+    const timeoutDaa = currentDaa + TIMEOUT_OFFSET;
+
+    // Build covenant script
+    const covenantScript = buildCovenantScript(
+        aSPKBytes, senderPubXOnly, recipientPubBytes, DEPOSIT_SOMPI, timeoutDaa
+    );
+
+    // P2SH script public key
+    const p2shSPK = computeP2SHScriptPublicKey(covenantScript);
+
+    // Build payload
+    const payloadObj = {
+        v: 3,
+        t: msgType,
+        d: dataValue,
+        a: {
+            from: senderAddress,
+            script: bytesToHex(covenantScript),
+            spk: bytesToHex(senderSPK.script),
+            deposit: DEPOSIT_SOMPI,
+            timeout_daa: timeoutDaa,
+        }
+    };
+    const payloadBytes = new TextEncoder().encode(JSON.stringify(payloadObj));
+
+    // Select UTXOs
+    const lockAmount = DEPOSIT_SOMPI + WHISPER_FEE_BUFFER;
+    const needed = lockAmount + WHISPER_FEE + 10000;
+    const utxos = await getUtxos(senderAddress);
+    if (!utxos.length) throw new Error('No UTXOs available');
+
+    const sorted = [...utxos].sort((a, b) => parseInt(b.utxoEntry.amount) - parseInt(a.utxoEntry.amount));
+    let total = 0;
+    const selected = [];
+    for (const u of sorted) {
+        selected.push(u);
+        total += parseInt(u.utxoEntry.amount);
+        if (total >= needed) break;
+    }
+    if (total < needed) throw new Error(`Insufficient balance: have ${(total/1e8).toFixed(4)}, need ${(needed/1e8).toFixed(4)} tKAS`);
+
+    const change = total - lockAmount - WHISPER_FEE;
+
+    // Build inputs
+    const inputs = selected.map(u => ({
+        txIdBytes: hexToBytes32(u.outpoint.transactionId),
+        txId: u.outpoint.transactionId,
+        index: u.outpoint.index,
+        sequence: 0,
+        sigOpCount: 1,
+        utxoEntry: { amount: parseInt(u.utxoEntry.amount), spk: senderSPK }
+    }));
+
+    // Build outputs: [0] P2SH covenant, [1] change
+    const outputs = [
+        { amount: lockAmount, spk: p2shSPK },
+    ];
+    if (change > 0) {
+        outputs.push({ amount: change, spk: senderSPK });
+    }
+
+    // Build tx with precomputed hashes
+    const tx = {
+        version: 0,
+        inputs,
+        outputs,
+        lockTime: 0,
+        _previousOutputsHash: calcPreviousOutputsHash(inputs),
+        _sequencesHash: calcSequencesHash(inputs),
+        _sigOpCountsHash: calcSigOpCountsHash(inputs),
+        _outputsHash: calcOutputsHash(outputs),
+        _payloadHash: calcPayloadHash(payloadBytes),
+    };
+
+    // Sign each input
+    const signedInputs = [];
+    for (let i = 0; i < inputs.length; i++) {
+        const sigHash = calcSigHash(tx, i, inputs[i].utxoEntry);
+        const sig = schnorrSign(sigHash, senderPrivKeyHex);
+        const sigScript = new Uint8Array(1 + 64 + 1);
+        sigScript[0] = 65;
+        sigScript.set(sig, 1);
+        sigScript[65] = SIG_HASH_ALL;
+        signedInputs.push({
+            previousOutpoint: { transactionId: inputs[i].txId, index: inputs[i].index },
+            signatureScript: bytesToHex(sigScript),
+            sequence: '0',
+            sigOpCount: 1
+        });
+    }
+
+    // Format outputs for submission
+    const formattedOutputs = outputs.map(o => ({
+        amount: o.amount.toString(),
+        scriptPublicKey: {
+            scriptPublicKey: bytesToHex(o.spk.script),
+            version: o.spk.version
+        }
+    }));
+
+    // Build payload hex
+    const payloadHex = bytesToHex(payloadBytes);
+
+    // Submit signed transaction
+    const submittedTx = {
+        version: 0,
+        inputs: signedInputs,
+        outputs: formattedOutputs,
+        lockTime: '0',
+        subnetworkId: '0000000000000000000000000000000000000000',
+        gas: '0',
+        payload: payloadHex
+    };
+
+    const result = await submitTransaction(submittedTx);
+
+    // Also notify Whisper API about the covenant (for inbox indexing)
+    try {
+        const covenantInfo = {
+            tx_id: result.transactionId || '',
+            covenant_script_hex: bytesToHex(covenantScript),
+            p2sh_spk: bytesToHex(p2shSPK.script),
+            a_address: senderAddress,
+            a_spk: bytesToHex(senderSPK.script),
+            a_pubkey: bytesToHex(senderPubXOnly),
+            b_pubkey: bytesToHex(recipientPubBytes),
+            deposit_sompi: DEPOSIT_SOMPI,
+            timeout_daa: timeoutDaa,
+        };
+        await fetch(`${WHISPER_API}/api/broadcast`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Whisper-Key': 'whisper-testnet-poc-key' },
+            body: JSON.stringify({ covenant_info: covenantInfo })
+        });
+    } catch (e) {
+        console.warn('Covenant info upload failed (non-critical):', e);
+    }
+
+    return { tx_id: result.transactionId || 'submitted' };
 }
 
 // ============================================================
@@ -1063,10 +1476,21 @@ function setupEventListeners() {
     $('btn-refresh-inbox').addEventListener('click', loadInbox);
     document.querySelector('[data-tab="whisper"]').addEventListener('click', loadInbox);
 
+    // Toggle encrypt checkbox info text
+    $('whisper-encrypt').addEventListener('change', () => {
+        const info = $('whisper-mode-info');
+        if ($('whisper-encrypt').checked) {
+            info.textContent = '🔒 ECIES encrypted with recipient\'s public key';
+        } else {
+            info.textContent = '📝 Plaintext — anyone can read this on-chain';
+        }
+    });
+
     $('btn-send-whisper').addEventListener('click', async () => {
         const toAddr = $('whisper-to').value.trim();
         const message = $('whisper-message').value.trim();
         const password = $('whisper-password').value;
+        const doEncrypt = $('whisper-encrypt').checked;
 
         if (!toAddr.startsWith('kaspatest:')) return showWhisperResult('Invalid address', true);
         if (!message) return showWhisperResult('Enter a message', true);
@@ -1074,17 +1498,23 @@ function setupEventListeners() {
 
         const btn = $('btn-send-whisper');
         btn.disabled = true;
-        btn.textContent = '🔐 Encrypting & Sending...';
+        btn.textContent = doEncrypt ? '🔐 Encrypting & Sending...' : '📝 Sending plaintext...';
 
         try {
             const encrypted = await dbGet('encryptedKey');
             const privKey = await decryptData(password, encrypted);
 
-            const decoded = decodeCashAddr(toAddr);
-            const recipientPubHex = '02' + cryptoLib.bytesToHex(decoded.hash);
-
-            const ciphertextHex = await eciesEncrypt(recipientPubHex, message);
-            const result = await whisperSend(toAddr, ciphertextHex, privKey);
+            let dataHex, msgType;
+            if (doEncrypt) {
+                const decoded = decodeCashAddr(toAddr);
+                const recipientPubHex = '02' + cryptoLib.bytesToHex(decoded.hash);
+                dataHex = await eciesEncrypt(recipientPubHex, message);
+                msgType = 'whisper';
+            } else {
+                msgType = 'message';
+                dataHex = message; // plaintext string, not hex
+            }
+            const result = await whisperSend(toAddr, dataHex, privKey, msgType);
 
             showWhisperResult(`✅ Whisper sent!\nTX: ${result.tx_id || 'submitted'}\nDeposit: 0.2 tKAS (refunded when read)`, false);
             $('whisper-message').value = '';
@@ -1101,7 +1531,11 @@ function setupEventListeners() {
     $('btn-close-whisper').addEventListener('click', () => {
         hide('whisper-read');
         show('whisper-inbox');
+        currentWhisperData = null; // Clear current whisper data
     });
+
+    // Redeem deposit button
+    $('btn-redeem-deposit').addEventListener('click', redeemCovenantDeposit);
 }
 
 // ── Whisper helper functions ─────────────────────────────────
@@ -1114,25 +1548,43 @@ async function loadInbox() {
 
     try {
         const data = await whisperInbox(currentAddress);
-        const messages = data.messages || data || [];
+        const messages = data.messages || [];
         const list = $('inbox-list');
 
         if (!messages.length) {
             list.innerHTML = '<div class="inbox-empty">No whispers yet. Share your address to receive encrypted messages!</div>';
         } else {
-            list.innerHTML = messages.map(msg => `
-                <div class="inbox-item" data-txid="${msg.tx_id}">
-                    <div class="inbox-item-icon">🌊</div>
-                    <div class="inbox-item-details">
-                        <div class="inbox-item-sender">From: ${msg.sender || 'unknown'}</div>
-                        <div class="inbox-item-deposit">${(msg.deposit || 0) / 1e8} tKAS locked</div>
+            list.innerHTML = messages.map((msg, index) => {
+                const timestamp = new Date(msg.timestamp).toLocaleDateString();
+                const typeIcon = msg.type === 'whisper' ? '🔐' : '📝';
+                return `
+                    <div class="inbox-item" data-txid="${msg.tx_id}" data-index="${index}">
+                        <div class="inbox-item-icon">${typeIcon}</div>
+                        <div class="inbox-item-details">
+                            <div class="inbox-item-sender">From: ${msg.sender || 'unknown'}</div>
+                            <div class="inbox-item-meta">
+                                <span class="inbox-item-type">${msg.type || 'whisper'}</span>
+                                <span class="inbox-item-time">${timestamp}</span>
+                            </div>
+                            <div class="inbox-item-deposit">${(msg.deposit || 0) / 1e8} tKAS locked</div>
+                        </div>
+                        <button class="btn-read">Read</button>
                     </div>
-                    <div class="inbox-item-arrow">→</div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+
+            // Store messages data for readWhisper function
+            list._messagesData = messages;
 
             list.querySelectorAll('.inbox-item').forEach(item => {
-                item.addEventListener('click', () => readWhisper(item.dataset.txid));
+                const readBtn = item.querySelector('.btn-read');
+                readBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const txId = item.dataset.txid;
+                    const index = parseInt(item.dataset.index);
+                    const messageData = messages[index];
+                    readWhisper(txId, messageData);
+                });
             });
         }
     } catch (e) {
@@ -1142,26 +1594,46 @@ async function loadInbox() {
     btn.classList.remove('spinning');
 }
 
-async function readWhisper(txId) {
+// Store current message data for redeem functionality
+let currentWhisperData = null;
+
+async function readWhisper(txId, messageData = null) {
     hide('whisper-inbox');
     show('whisper-read');
 
-    $('whisper-read-meta').innerHTML = `<strong>TX:</strong> ${txId}<br><div class="whisper-decrypting">🔐 Fetching & decrypting...</div>`;
+    $('whisper-read-meta').innerHTML = `<strong>TX:</strong> ${txId}<br><div class="whisper-decrypting">🔐 Loading message...</div>`;
     $('whisper-read-content').textContent = '';
+    hide('whisper-redeem-section');
 
     try {
-        const info = await whisperGetInfo(txId);
+        // Use messageData from chain scanning if provided, otherwise fall back to API
+        let info;
+        if (messageData) {
+            info = {
+                sender: messageData.sender,
+                type: messageData.type,
+                d: messageData.payload.d,
+                payload: messageData.payload,
+                p2sh_outpoint: messageData.p2sh_outpoint
+            };
+        } else {
+            info = await whisperGetInfo(txId);
+        }
+
+        // Store for redeem functionality
+        currentWhisperData = info;
 
         $('whisper-read-meta').innerHTML = `
-            <strong>From:</strong> ${info.a_address || info.sender || 'unknown'}<br>
+            <strong>From:</strong> ${info.sender || 'unknown'}<br>
             <strong>TX:</strong> <span style="font-size:11px">${txId}</span><br>
             <strong>Type:</strong> ${info.type || 'whisper'}
         `;
 
-        const msgType = info.type || info.t || 'message';
-        const rawData = info.d || info.message || '';
+        const msgType = info.type || 'message';
+        const rawData = info.d || '';
 
         if (msgType === 'whisper' && rawData) {
+            // Encrypted whisper - prompt for password
             const password = prompt('Enter wallet password to decrypt this whisper:');
             if (!password) {
                 $('whisper-read-content').textContent = '❌ Decryption cancelled';
@@ -1170,17 +1642,212 @@ async function readWhisper(txId) {
 
             try {
                 const encrypted = await dbGet('encryptedKey');
+                if (!encrypted) throw new Error('No wallet key found — import wallet first');
                 const privKey = await decryptData(password, encrypted);
+                console.log('Private key decrypted OK, length:', privKey.length);
+                console.log('ECIES ciphertext length:', rawData.length);
                 const plaintext = await eciesDecryptWithRetry(privKey, rawData);
                 $('whisper-read-content').textContent = plaintext;
+                
+                // Show redeem button after successful decryption
+                showRedeemButton();
             } catch (e) {
-                $('whisper-read-content').textContent = `❌ Decryption failed: ${e.message}`;
+                console.error('Decrypt error:', e);
+                $('whisper-read-content').textContent = `❌ Decryption failed: ${e.message}\n\n(Check browser console for details)`;
             }
         } else {
+            // Plaintext message
             $('whisper-read-content').textContent = rawData || '(empty message)';
+            
+            // Show redeem button for plaintext messages too
+            showRedeemButton();
         }
     } catch (e) {
         $('whisper-read-content').textContent = `❌ Error: ${e.message}`;
+    }
+}
+
+function showRedeemButton() {
+    if (currentWhisperData && currentWhisperData.payload) {
+        show('whisper-redeem-section');
+        const depositAmount = (currentWhisperData.payload.a.deposit || DEPOSIT_SOMPI) / 1e8;
+        $('whisper-redeem-info').textContent = `Covenant deposit: ${depositAmount} tKAS`;
+    }
+}
+
+// Redeem covenant deposit by spending the P2SH UTXO
+async function redeemCovenantDeposit() {
+    if (!currentWhisperData || !currentWhisperData.payload || !currentWhisperData.p2sh_outpoint) {
+        alert('No covenant data available for redemption');
+        return;
+    }
+
+    const password = prompt('Enter wallet password to sign redemption transaction:');
+    if (!password) return;
+
+    const btn = $('btn-redeem-deposit');
+    btn.disabled = true;
+    btn.textContent = '🔐 Building redemption transaction...';
+
+    try {
+        await loadBlake2b();
+        await loadSchnorr();
+        
+        // Get private key
+        const encrypted = await dbGet('encryptedKey');
+        const recipientPrivKey = await decryptData(password, encrypted);
+        
+        const payload = currentWhisperData.payload;
+        const p2shOutpoint = currentWhisperData.p2sh_outpoint;
+        
+        // Covenant script from payload
+        const covenantScript = cryptoLib.hexToBytes(payload.a.script);
+        
+        // Sender address and SPK (from payload.a.from and payload.a.spk)
+        const senderAddress = payload.a.from;
+        const senderSPKBytes = cryptoLib.hexToBytes(payload.a.spk);
+        const senderSPK = { script: senderSPKBytes, version: 0 };
+        
+        // Build redemption transaction
+        const depositAmount = payload.a.deposit;
+        const fee = WHISPER_FEE_BUFFER; // Use the fee buffer as actual fee
+        const outputAmount = depositAmount; // Send full deposit back to sender
+        
+        // Input: P2SH UTXO
+        const input = {
+            txIdBytes: cryptoLib.hexToBytes(p2shOutpoint.txId),
+            txId: p2shOutpoint.txId,
+            index: p2shOutpoint.index,
+            sequence: 0,
+            sigOpCount: 1,
+            utxoEntry: {
+                amount: p2shOutpoint.amount,
+                spk: { script: computeP2SHScriptPublicKey(covenantScript).script, version: 0 }
+            }
+        };
+
+        // Output: send deposit back to sender (MUST be output[0] for covenant check)
+        const output = {
+            amount: outputAmount,
+            spk: { script: senderSPKBytes, version: 0 }
+        };
+
+        // Build transaction
+        const tx = {
+            version: 0,
+            inputs: [input],
+            outputs: [output],
+            lockTime: 0,
+            _previousOutputsHash: calcPreviousOutputsHash([input]),
+            _sequencesHash: calcSequencesHash([input]),
+            _sigOpCountsHash: calcSigOpCountsHash([input]),
+            _outputsHash: calcOutputsHash([output]),
+            _payloadHash: ZERO_HASH
+        };
+
+        // For P2SH spend, the scriptPublicKey in SigHash should be the redeem script
+        const redeemScriptSPK = { version: 0, script: covenantScript };
+        const sigHash = calcSigHash(tx, 0, { 
+            amount: p2shOutpoint.amount, 
+            spk: redeemScriptSPK 
+        });
+        
+        // Sign with recipient's private key
+        const signature = schnorrSign(sigHash, recipientPrivKey);
+        
+        // Build sig script for IF branch: <signature + SIG_HASH_ALL> <OP_TRUE> <redeem_script>
+        const scriptLen = covenantScript.length;
+        let sigScriptLen = 1 + 64 + 1 + 1; // sig push + sig + sighash + OP_TRUE
+        
+        if (scriptLen <= 75) {
+            sigScriptLen += 1 + scriptLen; // length byte + script
+        } else {
+            sigScriptLen += 2 + scriptLen; // OP_PUSHDATA1 + length + script
+        }
+        
+        const sigScript = new Uint8Array(sigScriptLen);
+        let offset = 0;
+        
+        // Push signature (65 bytes: 64-byte signature + SIG_HASH_ALL)
+        sigScript[offset++] = 65;
+        sigScript.set(signature, offset);
+        offset += 64;
+        sigScript[offset++] = SIG_HASH_ALL;
+        
+        // OP_TRUE (0x51)
+        sigScript[offset++] = 0x51;
+        
+        // Push redeem script
+        if (scriptLen <= 75) {
+            sigScript[offset++] = scriptLen;
+        } else {
+            // Handle longer scripts if needed
+            sigScript[offset++] = 0x4c;
+            sigScript[offset++] = scriptLen;
+        }
+        sigScript.set(covenantScript, offset);
+
+        // Build final transaction for submission
+        const submittedTx = {
+            version: 0,
+            inputs: [{
+                previousOutpoint: {
+                    transactionId: p2shOutpoint.txId,
+                    index: p2shOutpoint.index
+                },
+                signatureScript: cryptoLib.bytesToHex(sigScript),
+                sequence: '0',
+                sigOpCount: 1
+            }],
+            outputs: [{
+                amount: outputAmount.toString(),
+                scriptPublicKey: {
+                    scriptPublicKey: cryptoLib.bytesToHex(senderSPKBytes),
+                    version: 0
+                }
+            }],
+            lockTime: '0',
+            subnetworkId: '0000000000000000000000000000000000000000',
+            gas: '0',
+            payload: ''
+        };
+
+        // Submit transaction
+        const result = await submitTransaction(submittedTx);
+        
+        btn.textContent = '✅ Deposit redeemed!';
+        btn.style.background = '#00e5a0';
+        setTimeout(() => {
+            hide('whisper-redeem-section');
+            setTimeout(refreshBalance, 2000);
+        }, 3000);
+
+        // Show success message
+        const successMsg = document.createElement('div');
+        successMsg.className = 'success-msg';
+        successMsg.style.marginTop = '12px';
+        successMsg.textContent = `✅ Redemption successful! TX: ${result.transactionId || 'submitted'}`;
+        $('whisper-redeem-section').appendChild(successMsg);
+
+    } catch (e) {
+        console.error('Redemption error:', e);
+        btn.textContent = '❌ Redemption failed';
+        btn.style.background = '#ff4444';
+        btn.disabled = false;
+        
+        // Show error message
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'error-msg';
+        errorMsg.style.marginTop = '12px';
+        errorMsg.textContent = `❌ Redemption failed: ${e.message}`;
+        $('whisper-redeem-section').appendChild(errorMsg);
+        
+        setTimeout(() => {
+            btn.textContent = '🔓 Redeem 0.2 tKAS deposit';
+            btn.style.background = '';
+            const msgs = $('whisper-redeem-section').querySelectorAll('.error-msg');
+            msgs.forEach(msg => msg.remove());
+        }, 5000);
     }
 }
 
@@ -1194,11 +1861,121 @@ function showWhisperResult(msg, isError) {
 }
 
 // ============================================================
+// Mining
+// ============================================================
+
+let mineWorker = null;
+let miningActive = false;
+let mineStartTime = null;
+
+function setupMining() {
+    const btnStart = $('btn-mine-start');
+    const btnStop = $('btn-mine-stop');
+    console.log('[Mine] setup:', btnStart, btnStop);
+    if (!btnStart) { console.error('[Mine] btn-mine-start not found!'); return; }
+
+    btnStart.onclick = () => {
+        console.log('[Mine] Start clicked');
+        try { startMining(); } catch(e) { console.error('[Mine]', e); mineLog('❌ ' + e.message); }
+    };
+    btnStop.onclick = () => {
+        console.log('[Mine] Stop clicked');
+        stopMining();
+    };
+}
+
+function startMining() {
+    if (miningActive) return;
+    if (!currentAddress) { mineLog('❌ Unlock wallet first'); return; }
+
+    miningActive = true;
+    mineStartTime = Date.now();
+    $('btn-mine-start').style.display = 'none';
+    $('btn-mine-stop').style.display = 'block';
+
+    // Use HTTP API proxy
+    const apiUrl = `${location.origin}/api/`;
+
+    mineLog('🔧 Creating Web Worker...');
+    try {
+        mineWorker = new Worker('miner-v20.js');
+    } catch(e) {
+        mineLog('❌ Worker creation failed: ' + e.message);
+        stopMining();
+        return;
+    }
+
+    mineWorker.onmessage = (e) => {
+        const { type, data } = e.data;
+        switch (type) {
+            case 'stats':
+                $('mine-hashrate').textContent = `${data.hashrate} H/s`;
+                $('mine-hashes').textContent = data.hashes.toLocaleString();
+                $('mine-blocks').textContent = data.blocks;
+                const secs = Math.floor((Date.now() - mineStartTime) / 1000);
+                $('mine-elapsed').textContent = `${Math.floor(secs/60)}m ${secs%60}s`;
+                break;
+            case 'log':
+                mineLog(data);
+                break;
+            case 'found':
+                mineLog(`💎 FOUND! nonce=${data.nonce}`);
+                $('mine-blocks').textContent = parseInt($('mine-blocks').textContent || '0') + 1;
+                break;
+            case 'accepted':
+                mineLog('🎉 Block ACCEPTED by network!');
+                break;
+            case 'status':
+                mineLog(`Status: ${data}`);
+                break;
+        }
+    };
+
+    mineWorker.onerror = (e) => {
+        mineLog(`❌ Worker error: ${e.message || e.filename + ':' + e.lineno}`);
+        stopMining();
+    };
+    mineWorker.addEventListener('messageerror', (e) => mineLog(`❌ Message error: ${e}`));
+
+    mineWorker.postMessage({
+        type: 'start',
+        data: { apiUrl, walletAddress: currentAddress }
+    });
+
+    mineLog(`🌊 Mining started → ${currentAddress.slice(0,20)}...`);
+    mineLog(`Worker created, sending start command...`);
+}
+
+function stopMining() {
+    miningActive = false;
+    $('btn-mine-start').style.display = 'block';
+    $('btn-mine-stop').style.display = 'none';
+    if (mineWorker) {
+        mineWorker.postMessage({ type: 'stop' });
+        setTimeout(() => { mineWorker.terminate(); mineWorker = null; }, 500);
+    }
+    mineLog('⏹ Mining stopped');
+}
+
+function mineLog(msg) {
+    const el = $('mine-log');
+    if (!el) return;
+    const t = new Date().toLocaleTimeString();
+    el.innerHTML += `<div>[${t}] ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+    while (el.children.length > 50) el.removeChild(el.firstChild);
+}
+
+// ============================================================
 // Boot
 // ============================================================
 
 (async () => {
     await init();
     setupEventListeners();
+    setupMining();
+    // Expose for inline onclick
+    window.startMining = startMining;
+    window.stopMining = stopMining;
     showAuthScreen();
 })();

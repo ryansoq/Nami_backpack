@@ -422,6 +422,41 @@ label {
     flex-shrink: 0;
 }
 
+.inbox-item-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text2);
+}
+
+.inbox-item-type {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.inbox-item-time {
+    opacity: 0.7;
+}
+
+.btn-read {
+    background: var(--primary);
+    color: var(--bg);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.btn-read:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
 textarea {
     width: 100%;
     padding: 12px 16px;

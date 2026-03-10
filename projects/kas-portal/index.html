@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌊 Kas Portal - Web Miner</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🌊 Kas Portal</h1>
+      <div class="subtitle">Browser-based Kaspa Miner — by Nami</div>
+    </div>
+
+    <!-- Config -->
+    <div class="config">
+      <label>💰 Wallet Address</label>
+      <input type="text" id="wallet-address" 
+             value="kaspatest:qqxhwz070a3tpmz57alnc3zp67uqrw8ll7rdws9nqp8nsvptarw3jl87m5j2m"
+             placeholder="kaspatest:qq...">
+      
+      <label>🔗 wRPC Endpoint</label>
+      <input type="text" id="ws-url" 
+             value=""
+             placeholder="auto-detect">
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn btn-start" id="btn-start">⛏️ Start Mining</button>
+      <button class="btn btn-stop hidden" id="btn-stop" disabled>⏹ Stop</button>
+    </div>
+
+    <!-- Status -->
+    <div class="status-bar">
+      <span id="status" class="status-stopped">⏹ Stopped</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">⚡ Hashrate</div>
+        <div class="stat-value" id="hashrate">0 H/s</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🔢 Total Hashes</div>
+        <div class="stat-value" id="total-hashes">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">💎 Blocks Found</div>
+        <div class="stat-value" id="blocks-found">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">⏱️ Elapsed</div>
+        <div class="stat-value" id="elapsed">0m 0s</div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="log-container">
+      <div class="log-header">📋 Log</div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
