@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaspa Hero Card</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a12;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Noto Sans TC', sans-serif;
+}
+
+.card-wrapper {
+  position: relative;
+  width: 400px;
+  height: 560px;
+  perspective: 1000px;
+}
+
+.hero-card {
+  position: relative;
+  width: 400px;
+  height: 560px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(165deg, #1a1a2e 0%, #0f0f1a 40%, #16162a 100%);
+  box-shadow:
+    0 0 20px rgba(0,0,0,0.8),
+    inset 0 0 60px rgba(0,0,0,0.4);
+}
+
+/* === BORDER GLOW by rarity === */
+.hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  padding: 3px;
+  background: var(--border-gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Rarity: N */
+.hero-card[data-rarity="N"] { --border-gradient: linear-gradient(135deg, #4a4a4a, #6a6a6a, #4a4a4a); --accent: #888; --accent-rgb: 136,136,136; }
+/* Rarity: R */
+.hero-card[data-rarity="R"] { --border-gradient: linear-gradient(135deg, #1a3a8a, #4a8aff, #1a3a8a); --accent: #4a8aff; --accent-rgb: 74,138,255; }
+/* Rarity: SR */
+.hero-card[data-rarity="SR"] { --border-gradient: linear-gradient(135deg, #6a1a8a, #c44aff, #8a2aaa, #c44aff, #6a1a8a); --accent: #c44aff; --accent-rgb: 196,74,255; }
+/* Rarity: SSR */
+.hero-card[data-rarity="SSR"] { --border-gradient: linear-gradient(135deg, #8a6a1a, #ffd700, #ffaa00, #ffd700, #8a6a1a); --accent: #ffd700; --accent-rgb: 255,215,0; }
+
+/* === SR shimmer === */
+.hero-card[data-rarity="SR"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: linear-gradient(45deg, transparent 30%, rgba(196,74,255,0.08) 50%, transparent 70%);
+  background-size: 300% 300%;
+  animation: shimmer 3s ease-in-out infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* === SSR shine === */
+.hero-card[data-rarity="SSR"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background:
+    linear-gradient(45deg, transparent 20%, rgba(255,215,0,0.12) 45%, rgba(255,170,0,0.08) 55%, transparent 80%);
+  background-size: 400% 400%;
+  animation: ssr-shine 2.5s ease-in-out infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 200% 200%; }
+  50% { background-position: -100% -100%; }
+}
+
+@keyframes ssr-shine {
+  0%, 100% { background-position: 200% 200%; opacity: 0.6; }
+  50% { background-position: -100% -100%; opacity: 1; }
+}
+
+/* SSR border pulse */
+.hero-card[data-rarity="SSR"]::before {
+  animation: border-pulse 2s ease-in-out infinite;
+}
+@keyframes border-pulse {
+  0%, 100% { opacity: 0.8; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.4); }
+}
+
+/* SR border subtle pulse */
+.hero-card[data-rarity="SR"]::before {
+  animation: border-pulse-sr 3s ease-in-out infinite;
+}
+@keyframes border-pulse-sr {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* === Card inner content === */
+.card-inner {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+/* === Top: Art area === */
+.art-area {
+  position: relative;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.art-bg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Class colors */
+.class-騎士 .art-bg { background: linear-gradient(135deg, #1a0505 0%, #4a1010 30%, #8a2020 60%, #4a1010 100%); }
+.class-法師 .art-bg { background: linear-gradient(135deg, #050520 0%, #101050 30%, #2040a0 60%, #101050 100%); }
+.class-弓手 .art-bg { background: linear-gradient(135deg, #051a05 0%, #104a10 30%, #208a30 60%, #104a10 100%); }
+.class-盜賊 .art-bg { background: linear-gradient(135deg, #1a0520 0%, #3a1050 30%, #6a2090 60%, #3a1050 100%); }
+
+.class-icon {
+  font-size: 72px;
+  filter: drop-shadow(0 0 20px rgba(255,255,255,0.3));
+  user-select: none;
+}
+
+/* Level badge */
+.level-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 2px 10px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+  text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.5);
+}
+
+/* Rarity badge */
+.rarity-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 2px 10px;
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.6);
+  letter-spacing: 2px;
+}
+
+/* Testnet watermark */
+.watermark {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* === Name & Class === */
+.hero-info {
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.hero-name {
+  font-size: 22px;
+  font-weight: 900;
+  color: #eee;
+  text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.4);
+  letter-spacing: 2px;
+  line-height: 1.3;
+}
+
+.hero-class {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* === Divider === */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin: 6px 0;
+  opacity: 0.5;
+}
+
+/* === Stats === */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 12px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-icon {
+  width: 20px;
+  font-size: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.stat-label {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #888;
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.stat-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stat-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s ease;
+}
+
+.stat-atk .stat-bar { background: linear-gradient(90deg, #e74c3c, #ff6b6b); }
+.stat-def .stat-bar { background: linear-gradient(90deg, #3498db, #74b9ff); }
+.stat-spd .stat-bar { background: linear-gradient(90deg, #2ecc71, #7bed9f); }
+.stat-hp .stat-bar { background: linear-gradient(90deg, #e67e22, #fdcb6e); }
+
+.stat-value {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ccc;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* === Skills === */
+.skills-area {
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  flex: 1;
+}
+
+.skill-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.skill-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.skill-normal .skill-icon {
+  background: linear-gradient(135deg, #2a2a4a, #3a3a5a);
+  border: 1px solid #555;
+}
+
+.skill-ultimate .skill-icon {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.3), rgba(var(--accent-rgb), 0.15));
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
+}
+
+.skill-info {
+  flex: 1;
+}
+
+.skill-tag {
+  font-size: 9px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.skill-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ddd;
+}
+
+.skill-ultimate .skill-name {
+  color: var(--accent);
+  text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.3);
+}
+
+/* === Bottom === */
+.card-footer {
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.stars {
+  color: var(--accent);
+  font-size: 14px;
+  letter-spacing: 2px;
+  margin-bottom: 2px;
+  text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.4);
+}
+
+.daa-id {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  color: #555;
+  letter-spacing: 1px;
+}
+
+.verified {
+  font-size: 8px;
+  color: #3a3a3a;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* === SSR particle effect === */
+.particles {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: float-up 3s ease-in-out infinite;
+}
+
+@keyframes float-up {
+  0% { opacity: 0; transform: translateY(0) scale(0); }
+  20% { opacity: 0.8; transform: translateY(-20px) scale(1); }
+  100% { opacity: 0; transform: translateY(-120px) scale(0.3); }
+}
+
+/* === Showcase mode === */
+.showcase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  min-height: 100vh;
+}
+
+.showcase-title {
+  width: 100%;
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 36px;
+  font-weight: 900;
+  color: #c8aa6e;
+  text-shadow: 0 0 20px rgba(200,170,110,0.3);
+  letter-spacing: 4px;
+  margin-bottom: 10px;
+}
+
+.showcase-subtitle {
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+  color: #555;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+
+/* Scale for showcase */
+.showcase .card-wrapper {
+  transform: scale(0.85);
+  transform-origin: top center;
+}
+</style>
+</head>
+<body>
+<script>
+const CLASS_ICONS = { '騎士': '⚔️', '法師': '🔮', '弓手': '🏹', '盜賊': '🗡️' };
+const RARITY_STARS = { 'N': '★', 'R': '★★', 'SR': '★★★', 'SSR': '★★★★★' };
+
+function createCard(hero) {
+  const r = hero.rarity || 'N';
+  const cls = hero.class || '騎士';
+  const maxStat = 1200;
+
+  let particles = '';
+  if (r === 'SSR') {
+    for (let i = 0; i < 12; i++) {
+      const left = Math.random() * 100;
+      const delay = Math.random() * 3;
+      const dur = 2 + Math.random() * 2;
+      particles += `<div class="particle" style="left:${left}%;bottom:10%;animation-delay:${delay}s;animation-duration:${dur}s"></div>`;
+    }
+  }
+
+  return `
+  <div class="card-wrapper">
+    <div class="hero-card class-${cls}" data-rarity="${r}">
+      ${(r === 'SSR') ? `<div class="particles">${particles}</div>` : ''}
+      <div class="card-inner">
+        <div class="art-area">
+          <div class="art-bg">
+            <span class="class-icon">${CLASS_ICONS[cls] || '⚔️'}</span>
+          </div>
+          <div class="level-badge">Lv.${hero.level || 1}</div>
+          <div class="rarity-badge">${r}</div>
+          <div class="watermark">KASPA TESTNET</div>
+        </div>
+
+        <div class="hero-info">
+          <div class="hero-name">${hero.name || 'Unknown Hero'}</div>
+          <div class="hero-class">${cls}</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="stats-grid">
+          <div class="stat-row stat-atk">
+            <span class="stat-icon">⚔️</span>
+            <span class="stat-label">ATK</span>
+            <div class="stat-bar-bg"><div class="stat-bar" style="width:${(hero.atk/maxStat)*100}%"></div></div>
+            <span class="stat-value">${hero.atk}</span>
+          </div>
+          <div class="stat-row stat-def">
+            <span class="stat-icon">🛡️</span>
+            <span class="stat-label">DEF</span>
+            <div class="stat-bar-bg"><div class="stat-bar" style="width:${(hero.def/maxStat)*100}%"></div></div>
+            <span class="stat-value">${hero.def}</span>
+          </div>
+          <div class="stat-row stat-spd">
+            <span class="stat-icon">💨</span>
+            <span class="stat-label">SPD</span>
+            <div class="stat-bar-bg"><div class="stat-bar" style="width:${(hero.spd/maxStat)*100}%"></div></div>
+            <span class="stat-value">${hero.spd}</span>
+          </div>
+          <div class="stat-row stat-hp">
+            <span class="stat-icon">❤️</span>
+            <span class="stat-label">HP</span>
+            <div class="stat-bar-bg"><div class="stat-bar" style="width:${(hero.hp/maxStat)*100}%"></div></div>
+            <span class="stat-value">${hero.hp}</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="skills-area">
+          <div class="skill-item skill-normal">
+            <div class="skill-icon">⚡</div>
+            <div class="skill-info">
+              <div class="skill-tag">技能 SKILL</div>
+              <div class="skill-name">${hero.skill || '—'}</div>
+            </div>
+          </div>
+          <div class="skill-item skill-ultimate">
+            <div class="skill-icon">🌟</div>
+            <div class="skill-info">
+              <div class="skill-tag">大招 ULTIMATE</div>
+              <div class="skill-name">${hero.ultimate || '—'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="card-footer">
+          <div class="stars">${RARITY_STARS[r] || '★'}</div>
+          <div class="daa-id">DAA #${hero.daa || '00000000'}</div>
+          <div class="verified">✦ Verified on Kaspa BlockDAG ✦</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Check URL params for single card mode
+const params = new URLSearchParams(window.location.search);
+const mode = params.get('mode');
+
+if (mode === 'showcase' || !params.get('name')) {
+  // Showcase: 4 cards
+  const heroes = [
+    { name: '烈焰·亞瑟', class: '騎士', rarity: 'N', level: 1, hp: 950, atk: 780, def: 820, spd: 450, skill: '聖劍斬擊', ultimate: '王者之怒', daa: 25068001 },
+    { name: '星辰·艾莉亞', class: '法師', rarity: 'R', level: 5, hp: 620, atk: 1050, def: 380, spd: 680, skill: '冰霜新星', ultimate: '星辰風暴', daa: 25068120 },
+    { name: '翠影·萊恩', class: '弓手', rarity: 'SR', level: 12, hp: 730, atk: 890, def: 420, spd: 960, skill: '穿透箭', ultimate: '萬箭齊發', daa: 25068305 },
+    { name: '影月·薇拉', class: '盜賊', rarity: 'SSR', level: 1, hp: 847, atk: 923, def: 456, spd: 789, skill: '暗影突襲', ultimate: '月蝕斬', daa: 25068643 },
+  ];
+  document.body.innerHTML = `<div class="showcase">
+    <div class="showcase-title">⚔ KASPA HEROES ⚔</div>
+    <div class="showcase-subtitle">Fantasy Adventure on BlockDAG</div>
+    ${heroes.map(h => createCard(h)).join('')}
+  </div>`;
+} else {
+  // Single card from URL params
+  const hero = {
+    name: params.get('name') || 'Hero',
+    class: params.get('class') || '騎士',
+    rarity: params.get('rarity') || 'N',
+    level: parseInt(params.get('level') || '1'),
+    hp: parseInt(params.get('hp') || '500'),
+    atk: parseInt(params.get('atk') || '500'),
+    def: parseInt(params.get('def') || '500'),
+    spd: parseInt(params.get('spd') || '500'),
+    skill: params.get('skill') || '普通攻擊',
+    ultimate: params.get('ultimate') || '必殺技',
+    daa: params.get('daa') || '00000000',
+  };
+  document.body.innerHTML = createCard(hero);
+}
+</script>
+</body>
+</html>

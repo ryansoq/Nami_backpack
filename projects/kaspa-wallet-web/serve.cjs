@@ -17,11 +17,18 @@ const MIME = {
     '.jpg': 'image/jpeg',
     '.svg': 'image/svg+xml',
     '.ico': 'image/x-icon',
+    '.wasm': 'application/wasm',
+    '.pck': 'application/octet-stream',
 };
 
 const server = http.createServer((req, res) => {
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
+    // Godot Web needs these headers (only for /sanguo/)
+    if (req.url.startsWith('/sanguo/')) {
+        res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+        res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    }
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
     // Proxy /api/* to kaspa-api (port 18806)

@@ -1,220 +1,1151 @@
 <!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>KAS 三國</title>
-		<style>
-html, body, #canvas {
-	margin: 0;
-	padding: 0;
-	border: 0;
-}
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KAS 三國志 - 策略Web遊戲</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
 
-body {
-	color: white;
-	background-color: black;
-	overflow: hidden;
-	touch-action: none;
-}
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #0a0a1a;
+            color: #ffd700;
+            overflow: hidden;
+            user-select: none;
+        }
 
-#canvas {
-	display: block;
-}
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
+        }
 
-#canvas:focus {
-	outline: none;
-}
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: pointer;
+            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0a1a 100%);
+        }
 
-#status, #status-splash, #status-progress {
-	position: absolute;
-	left: 0;
-	right: 0;
-}
+        /* 頂部 HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(10, 10, 26, 0.85);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
 
-#status, #status-splash {
-	top: 0;
-	bottom: 0;
-}
+        .hud-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
 
-#status {
-	background-color: #1a1a2e;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	visibility: hidden;
-}
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
 
-#status-splash {
-	max-height: 100%;
-	max-width: 100%;
-	margin: auto;
-}
+        .hud-value {
+            color: #4a90d9;
+        }
 
-#status-splash.show-image--false {
-	display: none;
-}
+        /* 城池面板 */
+        #cityPanel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 26, 0.95);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 300px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            display: none;
+            z-index: 200;
+        }
 
-#status-splash.fullsize--true {
-	height: 100%;
-	width: 100%;
-	object-fit: contain;
-}
+        #cityPanel h2 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 18px;
+        }
 
-#status-splash.use-filter--false {
-	image-rendering: pixelated;
-}
+        .city-info {
+            margin-bottom: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 14px;
+        }
 
-#status-progress, #status-notice {
-	display: none;
-}
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            background: rgba(74, 144, 217, 0.1);
+            border-radius: 5px;
+        }
 
-#status-progress {
-	bottom: 10%;
-	width: 50%;
-	margin: 0 auto;
-}
+        .panel-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
 
-#status-notice {
-	background-color: #5b3943;
-	border-radius: 0.5rem;
-	border: 1px solid #9b3943;
-	color: #e0e0e0;
-	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
-	line-height: 1.3;
-	margin: 0 2rem;
-	overflow: hidden;
-	padding: 1rem;
-	text-align: center;
-	z-index: 1;
-}
-		</style>
-		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
-<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+        .btn {
+            background: linear-gradient(135deg, #4a90d9, #357abd);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 120px;
+        }
 
-	</head>
-	<body>
-		<canvas id="canvas">
-			Your browser does not support the canvas tag.
-		</canvas>
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 144, 217, 0.4);
+        }
 
-		<noscript>
-			Your browser does not support JavaScript.
-		</noscript>
+        .btn:active {
+            transform: translateY(0);
+        }
 
-		<div id="status">
-			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="index.png" alt="">
-			<progress id="status-progress"></progress>
-			<div id="status-notice"></div>
-		</div>
+        .btn-close {
+            background: linear-gradient(135deg, #666, #444);
+            width: 100%;
+            margin-top: 10px;
+        }
 
-		<script src="index.js"></script>
-		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":32944,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
-const GODOT_THREADS_ENABLED = false;
-const engine = new Engine(GODOT_CONFIG);
+        .btn-attack {
+            background: linear-gradient(135deg, #d94a4a, #bd3535);
+        }
 
-(function () {
-	const statusOverlay = document.getElementById('status');
-	const statusProgress = document.getElementById('status-progress');
-	const statusNotice = document.getElementById('status-notice');
+        .btn-attack:hover {
+            box-shadow: 0 5px 15px rgba(217, 74, 74, 0.4);
+        }
 
-	let initializing = true;
-	let statusMode = '';
+        /* 行軍面板 */
+        #marchPanel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 26, 0.95);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 320px;
+            max-width: 90vw;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            display: none;
+            z-index: 200;
+        }
 
-	function setStatusMode(mode) {
-		if (statusMode === mode || !initializing) {
-			return;
-		}
-		if (mode === 'hidden') {
-			statusOverlay.remove();
-			initializing = false;
-			return;
-		}
-		statusOverlay.style.visibility = 'visible';
-		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
-		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
-		statusMode = mode;
-	}
+        .troop-selector {
+            margin: 15px 0;
+        }
 
-	function setStatusNotice(text) {
-		while (statusNotice.lastChild) {
-			statusNotice.removeChild(statusNotice.lastChild);
-		}
-		const lines = text.split('\n');
-		lines.forEach((line) => {
-			statusNotice.appendChild(document.createTextNode(line));
-			statusNotice.appendChild(document.createElement('br'));
-		});
-	}
+        .troop-type {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(74, 144, 217, 0.1);
+            border-radius: 8px;
+        }
 
-	function displayFailureNotice(err) {
-		console.error(err);
-		if (err instanceof Error) {
-			setStatusNotice(err.message);
-		} else if (typeof err === 'string') {
-			setStatusNotice(err);
-		} else {
-			setStatusNotice('An unknown error occurred.');
-		}
-		setStatusMode('notice');
-		initializing = false;
-	}
+        .troop-input {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 5px;
+            background: rgba(10, 10, 26, 0.8);
+            color: #ffd700;
+            text-align: center;
+        }
 
-	const missing = Engine.getMissingFeatures({
-		threads: GODOT_THREADS_ENABLED,
-	});
+        /* 戰報面板 */
+        #battleReportModal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 26, 0.95);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 300px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            display: none;
+            z-index: 300;
+        }
 
-	if (missing.length !== 0) {
-		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
-			let serviceWorkerRegistrationPromise;
-			try {
-				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
-			} catch (err) {
-				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
-			}
-			// There's a chance that installing the service worker would fix the issue
-			Promise.race([
-				serviceWorkerRegistrationPromise.then((registration) => {
-					if (registration != null) {
-						return Promise.reject(new Error('Service worker already exists.'));
-					}
-					return registration;
-				}).then(() => engine.installServiceWorker()),
-				// For some reason, `getRegistration()` can stall
-				new Promise((resolve) => {
-					setTimeout(() => resolve(), 2000);
-				}),
-			]).then(() => {
-				// Reload if there was no error.
-				window.location.reload();
-			}).catch((err) => {
-				console.error('Error while registering service worker:', err);
-			});
-		} else {
-			// Display the message as usual
-			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
-			displayFailureNotice(missingMsg + missing.join('\n'));
-		}
-	} else {
-		setStatusMode('progress');
-		engine.startGame({
-			'onProgress': function (current, total) {
-				if (current > 0 && total > 0) {
-					statusProgress.value = current;
-					statusProgress.max = total;
-				} else {
-					statusProgress.removeAttribute('value');
-					statusProgress.removeAttribute('max');
-				}
-			},
-		}).then(() => {
-			setStatusMode('hidden');
-		}, displayFailureNotice);
-	}
-}());
-		</script>
-	</body>
+        .battle-result {
+            text-align: center;
+            margin: 15px 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .victory {
+            color: #4a90d9;
+        }
+
+        .defeat {
+            color: #d94a4a;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            #hud {
+                height: 50px;
+                padding: 0 10px;
+            }
+
+            .hud-section {
+                font-size: 12px;
+                gap: 10px;
+            }
+
+            #cityPanel, #marchPanel {
+                min-width: 280px;
+                padding: 15px;
+            }
+
+            .btn {
+                padding: 8px 12px;
+                font-size: 12px;
+                min-width: 100px;
+            }
+        }
+
+        /* 載入動畫 */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffd700;
+            font-size: 18px;
+            z-index: 1000;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* 城池光暈效果 */
+        .city-glow {
+            filter: drop-shadow(0 0 10px rgba(74, 144, 217, 0.6));
+        }
+
+        .enemy-city-glow {
+            filter: drop-shadow(0 0 8px rgba(102, 102, 102, 0.4));
+        }
+
+        /* 禁用文字選取和拖拽 */
+        canvas {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div class="loading" id="loadingScreen">載入中...</div>
+        
+        <!-- 頂部 HUD -->
+        <div id="hud">
+            <div class="hud-section">
+                <div class="hud-item">
+                    <span>👤</span>
+                    <span id="playerName">玩家</span>
+                </div>
+            </div>
+            <div class="hud-section">
+                <div class="hud-item">
+                    <span>💰</span>
+                    <span class="hud-value" id="kasBalance">100</span>
+                    <span>tKAS</span>
+                </div>
+                <div class="hud-item">
+                    <span>🏰</span>
+                    <span class="hud-value" id="cityCount">1</span>
+                </div>
+                <div class="hud-item">
+                    <span>⚔️</span>
+                    <span class="hud-value" id="totalTroops">50</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲畫布 -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 城池面板 -->
+        <div id="cityPanel">
+            <h2 id="cityName">城池名稱</h2>
+            <div class="city-info">
+                <div class="info-item">
+                    <span>等級</span>
+                    <span id="cityLevel">C</span>
+                </div>
+                <div class="info-item">
+                    <span>產出</span>
+                    <span id="cityProduction">15/時</span>
+                </div>
+                <div class="info-item">
+                    <span>步兵</span>
+                    <span id="cityInfantry">0</span>
+                </div>
+                <div class="info-item">
+                    <span>騎兵</span>
+                    <span id="cityCavalry">0</span>
+                </div>
+            </div>
+            
+            <div class="panel-buttons" id="cityActions">
+                <!-- 動態生成按鈕 -->
+            </div>
+            
+            <button class="btn btn-close" onclick="closeCityPanel()">關閉</button>
+        </div>
+
+        <!-- 行軍面板 -->
+        <div id="marchPanel">
+            <h2>出兵 - <span id="marchTarget"></span></h2>
+            
+            <div class="troop-selector">
+                <div class="troop-type">
+                    <span>步兵 (可用: <span id="availableInfantry">0</span>)</span>
+                    <input type="number" class="troop-input" id="marchInfantry" min="0" max="0" value="0">
+                </div>
+                <div class="troop-type">
+                    <span>騎兵 (可用: <span id="availableCavalry">0</span>)</span>
+                    <input type="number" class="troop-input" id="marchCavalry" min="0" max="0" value="0">
+                </div>
+            </div>
+            
+            <div class="city-info">
+                <div class="info-item">
+                    <span>行軍時間</span>
+                    <span id="marchTime">1分鐘</span>
+                </div>
+                <div class="info-item">
+                    <span>糧草消耗</span>
+                    <span id="marchCost">5 tKAS</span>
+                </div>
+            </div>
+            
+            <div class="panel-buttons">
+                <button class="btn btn-attack" onclick="confirmMarch()">確認出兵</button>
+                <button class="btn btn-close" onclick="closeMarchPanel()">取消</button>
+            </div>
+        </div>
+
+        <!-- 戰報面板 -->
+        <div id="battleReportModal">
+            <h2>戰報</h2>
+            <div id="battleReportContent">
+                <!-- 動態生成戰報內容 -->
+            </div>
+            <button class="btn btn-close" onclick="closeBattleReport()">確定</button>
+        </div>
+    </div>
+
+    <script>
+        // 遊戲常數
+        const GAME_CONFIG = {
+            PRODUCTION_INTERVAL: 30000, // 30秒產出一次（MVP加速）
+            MARCH_SPEED: {
+                infantry: 1.0,
+                cavalry: 1.5
+            },
+            TROOP_COST: {
+                infantry: 1.5,
+                cavalry: 3
+            },
+            TROOP_STATS: {
+                infantry: { attack: 5, defense: 6 },
+                cavalry: { attack: 8, defense: 3 }
+            }
+        };
+
+        // 城池資料（根據 GDD）
+        const CITIES_DATA = {
+            'runnan': { name: '汝南', tier: 'C', production: 15, position: { x: 400, y: 350 }, owner: 'player', garrison: { infantry: 50, cavalry: 0 } },
+            'chenliu': { name: '陳留', tier: 'D', production: 5, position: { x: 350, y: 200 }, owner: null, garrison: { infantry: 30, cavalry: 0 } },
+            'xiaopei': { name: '小沛', tier: 'D', production: 5, position: { x: 500, y: 180 }, owner: null, garrison: { infantry: 30, cavalry: 0 } },
+            'xinye': { name: '新野', tier: 'D', production: 5, position: { x: 320, y: 400 }, owner: null, garrison: { infantry: 20, cavalry: 0 } },
+            'shangyong': { name: '上庸', tier: 'D', production: 5, position: { x: 250, y: 450 }, owner: null, garrison: { infantry: 20, cavalry: 0 } },
+            'wancheng': { name: '宛城', tier: 'C', production: 15, position: { x: 300, y: 320 }, owner: null, garrison: { infantry: 80, cavalry: 0 } },
+            'xiangyang': { name: '襄陽', tier: 'B', production: 30, position: { x: 280, y: 380 }, owner: null, garrison: { infantry: 200, cavalry: 0 } },
+            'hanzhong': { name: '漢中', tier: 'B', production: 30, position: { x: 180, y: 400 }, owner: null, garrison: { infantry: 200, cavalry: 0 } },
+            'xuchang': { name: '許昌', tier: 'A', production: 60, position: { x: 380, y: 280 }, owner: null, garrison: { infantry: 300, cavalry: 100 } },
+            'luoyang': { name: '洛陽', tier: 'S', production: 100, position: { x: 350, y: 250 }, owner: null, garrison: { infantry: 500, cavalry: 300 } }
+        };
+
+        // 城池連接（道路）
+        const CITY_CONNECTIONS = {
+            'runnan': ['chenliu', 'wancheng', 'xinye', 'xuchang'],
+            'chenliu': ['runnan', 'xiaopei', 'xuchang'],
+            'xiaopei': ['chenliu', 'xuchang'],
+            'xinye': ['runnan', 'wancheng', 'xiangyang'],
+            'shangyong': ['xinye', 'hanzhong'],
+            'wancheng': ['runnan', 'xinye', 'xiangyang', 'xuchang'],
+            'xiangyang': ['xinye', 'wancheng', 'hanzhong'],
+            'hanzhong': ['xiangyang', 'shangyong'],
+            'xuchang': ['runnan', 'chenliu', 'xiaopei', 'wancheng', 'luoyang'],
+            'luoyang': ['xuchang']
+        };
+
+        // 遊戲狀態
+        let gameState = {
+            player: {
+                name: '玩家',
+                kasBalance: 100,
+                cities: ['runnan'],
+                totalTroops: 50
+            },
+            cities: JSON.parse(JSON.stringify(CITIES_DATA)), // 深複製
+            marches: [],
+            selectedCity: null,
+            marchFrom: null,
+            marchTo: null,
+            lastProduction: Date.now()
+        };
+
+        // Canvas 和渲染
+        let canvas, ctx, animationId;
+
+        // 初始化遊戲
+        function initGame() {
+            console.log('🎮 初始化 KAS 三國志...');
+            
+            // 載入存檔
+            loadGameState();
+            
+            // 設置 Canvas
+            setupCanvas();
+            
+            // 開始遊戲循環
+            gameLoop();
+            
+            // 開始產出計時器
+            setInterval(processProduction, GAME_CONFIG.PRODUCTION_INTERVAL);
+            
+            // 隱藏載入畫面
+            document.getElementById('loadingScreen').style.display = 'none';
+            
+            console.log('✅ 遊戲初始化完成');
+        }
+
+        // 設置 Canvas
+        function setupCanvas() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // 設置 Canvas 尺寸
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 添加觸控事件
+            canvas.addEventListener('click', handleCanvasClick);
+            canvas.addEventListener('touchstart', handleTouch, { passive: false });
+        }
+
+        // 調整 Canvas 尺寸
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        // 主遊戲循環
+        function gameLoop() {
+            // 清除畫布
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 繪製地圖
+            drawMap();
+            
+            // 繪製城池
+            drawCities();
+            
+            // 繪製行軍箭頭
+            drawMarches();
+            
+            // 更新 HUD
+            updateHUD();
+            
+            // 處理行軍
+            processMarches();
+            
+            // 請求下一幀
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // 繪製地圖背景和道路
+        function drawMap() {
+            // 繪製道路連接
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            
+            for (const [cityId, connections] of Object.entries(CITY_CONNECTIONS)) {
+                const city = gameState.cities[cityId];
+                if (!city) continue;
+                
+                connections.forEach(connectedCityId => {
+                    const connectedCity = gameState.cities[connectedCityId];
+                    if (!connectedCity) return;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(city.position.x, city.position.y);
+                    ctx.lineTo(connectedCity.position.x, connectedCity.position.y);
+                    ctx.stroke();
+                });
+            }
+            
+            ctx.setLineDash([]);
+        }
+
+        // 繪製城池
+        function drawCities() {
+            for (const [cityId, city] of Object.entries(gameState.cities)) {
+                const x = city.position.x;
+                const y = city.position.y;
+                
+                // 城池圓圈大小根據等級
+                const radius = getTierRadius(city.tier);
+                
+                // 城池顏色
+                const isPlayerCity = city.owner === 'player';
+                const cityColor = isPlayerCity ? '#4a90d9' : '#666666';
+                
+                // 繪製光暈效果
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 1.5);
+                gradient.addColorStop(0, cityColor + '40');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x - radius * 1.5, y - radius * 1.5, radius * 3, radius * 3);
+                
+                // 繪製城池圓圈
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = cityColor;
+                ctx.fill();
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 繪製城池名稱
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(city.name, x, y - radius - 15);
+                
+                // 繪製兵力資訊
+                const totalGarrison = city.garrison.infantry + city.garrison.cavalry;
+                if (totalGarrison > 0) {
+                    ctx.font = '10px Arial';
+                    ctx.fillStyle = isPlayerCity ? '#87ceeb' : '#cccccc';
+                    ctx.fillText(`🛡️${totalGarrison}`, x, y + radius + 20);
+                }
+            }
+        }
+
+        // 根據等級獲取城池半徑
+        function getTierRadius(tier) {
+            const radii = { 'S': 25, 'A': 22, 'B': 18, 'C': 15, 'D': 12 };
+            return radii[tier] || 12;
+        }
+
+        // 繪製行軍箭頭
+        function drawMarches() {
+            const currentTime = Date.now();
+            
+            gameState.marches.forEach(march => {
+                if (march.status !== 'marching') return;
+                
+                const fromCity = gameState.cities[march.from];
+                const toCity = gameState.cities[march.to];
+                if (!fromCity || !toCity) return;
+                
+                // 計算行軍進度
+                const progress = Math.min(1, (currentTime - march.startTime) / march.duration);
+                
+                // 計算當前位置
+                const currentX = fromCity.position.x + (toCity.position.x - fromCity.position.x) * progress;
+                const currentY = fromCity.position.y + (toCity.position.y - fromCity.position.y) * progress;
+                
+                // 繪製行軍箭頭
+                ctx.save();
+                ctx.translate(currentX, currentY);
+                
+                // 計算箭頭角度
+                const angle = Math.atan2(toCity.position.y - fromCity.position.y, toCity.position.x - fromCity.position.x);
+                ctx.rotate(angle);
+                
+                // 繪製箭頭
+                ctx.fillStyle = '#ff6b6b';
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-15, -5);
+                ctx.lineTo(-10, 0);
+                ctx.lineTo(-15, 5);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 繪製兵力數量
+                ctx.rotate(-angle);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px Arial';
+                ctx.textAlign = 'center';
+                const totalTroops = march.troops.infantry + march.troops.cavalry;
+                ctx.fillText(`⚔️${totalTroops}`, 0, -15);
+                
+                ctx.restore();
+            });
+        }
+
+        // 更新 HUD
+        function updateHUD() {
+            document.getElementById('kasBalance').textContent = Math.floor(gameState.player.kasBalance);
+            document.getElementById('cityCount').textContent = gameState.player.cities.length;
+            
+            // 計算總兵力
+            let totalTroops = 0;
+            gameState.player.cities.forEach(cityId => {
+                const city = gameState.cities[cityId];
+                if (city) {
+                    totalTroops += city.garrison.infantry + city.garrison.cavalry;
+                }
+            });
+            document.getElementById('totalTroops').textContent = totalTroops;
+        }
+
+        // 處理 Canvas 點擊
+        function handleCanvasClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // 檢查是否點擊了城池
+            for (const [cityId, city] of Object.entries(gameState.cities)) {
+                const distance = Math.sqrt(
+                    Math.pow(x - city.position.x, 2) + 
+                    Math.pow(y - city.position.y, 2)
+                );
+                
+                if (distance <= getTierRadius(city.tier)) {
+                    openCityPanel(cityId);
+                    return;
+                }
+            }
+        }
+
+        // 處理觸控事件
+        function handleTouch(event) {
+            event.preventDefault();
+            const touch = event.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            // 檢查是否觸控了城池
+            for (const [cityId, city] of Object.entries(gameState.cities)) {
+                const distance = Math.sqrt(
+                    Math.pow(x - city.position.x, 2) + 
+                    Math.pow(y - city.position.y, 2)
+                );
+                
+                if (distance <= getTierRadius(city.tier) + 10) { // 觸控區域稍大一些
+                    openCityPanel(cityId);
+                    return;
+                }
+            }
+        }
+
+        // 開啟城池面板
+        function openCityPanel(cityId) {
+            const city = gameState.cities[cityId];
+            if (!city) return;
+            
+            gameState.selectedCity = cityId;
+            
+            // 更新面板資訊
+            document.getElementById('cityName').textContent = city.name;
+            document.getElementById('cityLevel').textContent = city.tier;
+            document.getElementById('cityProduction').textContent = `${city.production}/時`;
+            document.getElementById('cityInfantry').textContent = city.garrison.infantry;
+            document.getElementById('cityCavalry').textContent = city.garrison.cavalry;
+            
+            // 生成按鈕
+            const actionsDiv = document.getElementById('cityActions');
+            actionsDiv.innerHTML = '';
+            
+            if (city.owner === 'player') {
+                // 玩家城池按鈕
+                actionsDiv.innerHTML = `
+                    <button class="btn" onclick="trainTroops('infantry')">練兵 - 步兵 (${GAME_CONFIG.TROOP_COST.infantry} tKAS)</button>
+                    <button class="btn" onclick="trainTroops('cavalry')">練兵 - 騎兵 (${GAME_CONFIG.TROOP_COST.cavalry} tKAS)</button>
+                    <button class="btn" onclick="openMarchPanel()">出兵</button>
+                `;
+            } else {
+                // 敵方城池按鈕
+                actionsDiv.innerHTML = `
+                    <button class="btn btn-attack" onclick="openMarchPanel()">攻打此城</button>
+                `;
+            }
+            
+            // 顯示面板
+            document.getElementById('cityPanel').style.display = 'block';
+            document.getElementById('cityPanel').classList.add('fade-in');
+        }
+
+        // 關閉城池面板
+        function closeCityPanel() {
+            document.getElementById('cityPanel').style.display = 'none';
+            gameState.selectedCity = null;
+        }
+
+        // 訓練兵種
+        function trainTroops(troopType) {
+            const cost = GAME_CONFIG.TROOP_COST[troopType];
+            
+            if (gameState.player.kasBalance < cost) {
+                alert('tKAS 不足！');
+                return;
+            }
+            
+            const cityId = gameState.selectedCity;
+            const city = gameState.cities[cityId];
+            
+            if (!city || city.owner !== 'player') {
+                alert('無法在此城訓練兵種！');
+                return;
+            }
+            
+            // 扣除費用，增加兵種
+            gameState.player.kasBalance -= cost;
+            city.garrison[troopType] += 1;
+            
+            // 更新面板顯示
+            openCityPanel(cityId);
+            
+            // 儲存遊戲
+            saveGameState();
+            
+            console.log(`✅ 訓練了1個${troopType}，剩餘 ${gameState.player.kasBalance} tKAS`);
+        }
+
+        // 開啟行軍面板
+        function openMarchPanel() {
+            const selectedCityId = gameState.selectedCity;
+            const selectedCity = gameState.cities[selectedCityId];
+            
+            if (!selectedCity) return;
+            
+            if (selectedCity.owner === 'player') {
+                // 從玩家城池出兵，選擇目標
+                gameState.marchFrom = selectedCityId;
+                gameState.marchTo = null;
+                
+                document.getElementById('marchTarget').textContent = '選擇目標';
+                document.getElementById('availableInfantry').textContent = selectedCity.garrison.infantry;
+                document.getElementById('availableCavalry').textContent = selectedCity.garrison.cavalry;
+                document.getElementById('marchInfantry').max = selectedCity.garrison.infantry;
+                document.getElementById('marchCavalry').max = selectedCity.garrison.cavalry;
+                
+                alert('請點擊地圖上的目標城池');
+                closeCityPanel();
+                
+                // 設置選擇目標模式
+                setupTargetSelection();
+                
+            } else {
+                // 攻打敵方城池，找玩家最近的城
+                const playerCities = gameState.player.cities;
+                if (playerCities.length === 0) {
+                    alert('你沒有城池可以出兵！');
+                    return;
+                }
+                
+                // 簡單選擇第一個城池作為出發點
+                gameState.marchFrom = playerCities[0];
+                gameState.marchTo = selectedCityId;
+                
+                showMarchPanel();
+            }
+        }
+
+        // 設置目標選擇模式
+        function setupTargetSelection() {
+            // 重新設置點擊事件來選擇目標
+            const originalHandler = handleCanvasClick;
+            
+            canvas.onclick = function(event) {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                // 檢查是否點擊了城池
+                for (const [cityId, city] of Object.entries(gameState.cities)) {
+                    const distance = Math.sqrt(
+                        Math.pow(x - city.position.x, 2) + 
+                        Math.pow(y - city.position.y, 2)
+                    );
+                    
+                    if (distance <= getTierRadius(city.tier)) {
+                        if (cityId !== gameState.marchFrom) {
+                            gameState.marchTo = cityId;
+                            showMarchPanel();
+                            // 恢復原始點擊處理
+                            canvas.onclick = originalHandler;
+                            return;
+                        }
+                    }
+                }
+            };
+        }
+
+        // 顯示行軍面板
+        function showMarchPanel() {
+            const fromCity = gameState.cities[gameState.marchFrom];
+            const toCity = gameState.cities[gameState.marchTo];
+            
+            if (!fromCity || !toCity) return;
+            
+            document.getElementById('marchTarget').textContent = toCity.name;
+            document.getElementById('availableInfantry').textContent = fromCity.garrison.infantry;
+            document.getElementById('availableCavalry').textContent = fromCity.garrison.cavalry;
+            document.getElementById('marchInfantry').max = fromCity.garrison.infantry;
+            document.getElementById('marchCavalry').max = fromCity.garrison.cavalry;
+            document.getElementById('marchInfantry').value = 0;
+            document.getElementById('marchCavalry').value = 0;
+            
+            // 計算行軍時間（簡化版，MVP 用固定時間）
+            const distance = Math.sqrt(
+                Math.pow(toCity.position.x - fromCity.position.x, 2) + 
+                Math.pow(toCity.position.y - fromCity.position.y, 2)
+            );
+            const marchTimeMinutes = Math.max(1, Math.floor(distance / 100)); // 1-3分鐘
+            document.getElementById('marchTime').textContent = `${marchTimeMinutes}分鐘`;
+            
+            // 更新行軍事件監聽器
+            const infantryInput = document.getElementById('marchInfantry');
+            const cavalryInput = document.getElementById('marchCavalry');
+            
+            function updateMarchCost() {
+                const infantry = parseInt(infantryInput.value) || 0;
+                const cavalry = parseInt(cavalryInput.value) || 0;
+                const totalTroops = infantry + cavalry;
+                const cost = Math.ceil(totalTroops * marchTimeMinutes * 0.1);
+                document.getElementById('marchCost').textContent = `${cost} tKAS`;
+            }
+            
+            infantryInput.addEventListener('input', updateMarchCost);
+            cavalryInput.addEventListener('input', updateMarchCost);
+            updateMarchCost();
+            
+            document.getElementById('marchPanel').style.display = 'block';
+            closeCityPanel();
+        }
+
+        // 確認出兵
+        function confirmMarch() {
+            const infantry = parseInt(document.getElementById('marchInfantry').value) || 0;
+            const cavalry = parseInt(document.getElementById('marchCavalry').value) || 0;
+            const totalTroops = infantry + cavalry;
+            
+            if (totalTroops === 0) {
+                alert('請選擇要出兵的數量！');
+                return;
+            }
+            
+            const fromCity = gameState.cities[gameState.marchFrom];
+            if (fromCity.garrison.infantry < infantry || fromCity.garrison.cavalry < cavalry) {
+                alert('兵力不足！');
+                return;
+            }
+            
+            const toCity = gameState.cities[gameState.marchTo];
+            const distance = Math.sqrt(
+                Math.pow(toCity.position.x - fromCity.position.x, 2) + 
+                Math.pow(toCity.position.y - fromCity.position.y, 2)
+            );
+            const marchTimeMinutes = Math.max(1, Math.floor(distance / 100));
+            const cost = Math.ceil(totalTroops * marchTimeMinutes * 0.1);
+            
+            if (gameState.player.kasBalance < cost) {
+                alert('tKAS 不足支付糧草！');
+                return;
+            }
+            
+            // 創建行軍
+            const march = {
+                id: Date.now().toString(),
+                from: gameState.marchFrom,
+                to: gameState.marchTo,
+                troops: { infantry, cavalry },
+                startTime: Date.now(),
+                duration: marchTimeMinutes * 60 * 1000, // 轉換為毫秒
+                status: 'marching'
+            };
+            
+            // 扣除兵力和費用
+            fromCity.garrison.infantry -= infantry;
+            fromCity.garrison.cavalry -= cavalry;
+            gameState.player.kasBalance -= cost;
+            
+            // 添加到行軍列表
+            gameState.marches.push(march);
+            
+            closeMarchPanel();
+            saveGameState();
+            
+            console.log(`🚀 出兵前往 ${toCity.name}，預計 ${marchTimeMinutes} 分鐘到達`);
+        }
+
+        // 關閉行軍面板
+        function closeMarchPanel() {
+            document.getElementById('marchPanel').style.display = 'none';
+            gameState.marchFrom = null;
+            gameState.marchTo = null;
+        }
+
+        // 處理行軍狀態
+        function processMarches() {
+            const currentTime = Date.now();
+            
+            gameState.marches.forEach((march, index) => {
+                if (march.status !== 'marching') return;
+                
+                // 檢查是否到達
+                if (currentTime >= march.startTime + march.duration) {
+                    // 到達目標城池，開始戰鬥
+                    processBattle(march);
+                    march.status = 'completed';
+                }
+            });
+            
+            // 移除已完成的行軍
+            gameState.marches = gameState.marches.filter(march => march.status !== 'completed');
+        }
+
+        // 處理戰鬥
+        function processBattle(march) {
+            const attackerTroops = march.troops;
+            const defenderCity = gameState.cities[march.to];
+            const defenderTroops = defenderCity.garrison;
+            
+            // 計算戰鬥力
+            const attackerPower = 
+                attackerTroops.infantry * GAME_CONFIG.TROOP_STATS.infantry.attack +
+                attackerTroops.cavalry * GAME_CONFIG.TROOP_STATS.cavalry.attack;
+                
+            const defenderPower = 
+                (defenderTroops.infantry * GAME_CONFIG.TROOP_STATS.infantry.defense +
+                defenderTroops.cavalry * GAME_CONFIG.TROOP_STATS.cavalry.defense) * 1.2; // 守城加成
+            
+            let battleResult = {
+                victory: false,
+                attackerLosses: { infantry: 0, cavalry: 0 },
+                defenderLosses: { infantry: 0, cavalry: 0 },
+                cityName: defenderCity.name
+            };
+            
+            if (attackerPower > defenderPower) {
+                // 攻方勝利
+                battleResult.victory = true;
+                
+                // 攻方損失
+                const attackerLossRate = (defenderPower / attackerPower) * 0.6;
+                battleResult.attackerLosses.infantry = Math.floor(attackerTroops.infantry * attackerLossRate);
+                battleResult.attackerLosses.cavalry = Math.floor(attackerTroops.cavalry * attackerLossRate);
+                
+                // 守方全滅
+                battleResult.defenderLosses = { ...defenderTroops };
+                
+                // 佔領城池
+                defenderCity.owner = 'player';
+                defenderCity.garrison.infantry = attackerTroops.infantry - battleResult.attackerLosses.infantry;
+                defenderCity.garrison.cavalry = attackerTroops.cavalry - battleResult.attackerLosses.cavalry;
+                
+                // 添加到玩家城池列表
+                if (!gameState.player.cities.includes(march.to)) {
+                    gameState.player.cities.push(march.to);
+                }
+                
+                // 獲得戰利品
+                const loot = Math.floor(defenderCity.production * 2); // 簡化戰利品計算
+                gameState.player.kasBalance += loot;
+                
+            } else {
+                // 守方勝利
+                battleResult.victory = false;
+                
+                // 守方損失
+                const defenderLossRate = (attackerPower / defenderPower) * 0.4;
+                battleResult.defenderLosses.infantry = Math.floor(defenderTroops.infantry * defenderLossRate);
+                battleResult.defenderLosses.cavalry = Math.floor(defenderTroops.cavalry * defenderLossRate);
+                
+                // 攻方重大損失
+                battleResult.attackerLosses.infantry = Math.floor(attackerTroops.infantry * 0.7);
+                battleResult.attackerLosses.cavalry = Math.floor(attackerTroops.cavalry * 0.7);
+                
+                // 更新守軍
+                defenderCity.garrison.infantry -= battleResult.defenderLosses.infantry;
+                defenderCity.garrison.cavalry -= battleResult.defenderLosses.cavalry;
+            }
+            
+            // 顯示戰報
+            showBattleReport(battleResult);
+            saveGameState();
+        }
+
+        // 顯示戰報
+        function showBattleReport(result) {
+            const resultClass = result.victory ? 'victory' : 'defeat';
+            const resultText = result.victory ? '勝利' : '戰敗';
+            
+            const reportContent = `
+                <div class="battle-result ${resultClass}">
+                    ${result.cityName} - ${resultText}
+                </div>
+                <div class="city-info">
+                    <div class="info-item">
+                        <span>攻方損失</span>
+                        <span>步兵 ${result.attackerLosses.infantry}, 騎兵 ${result.attackerLosses.cavalry}</span>
+                    </div>
+                    <div class="info-item">
+                        <span>守方損失</span>
+                        <span>步兵 ${result.defenderLosses.infantry}, 騎兵 ${result.defenderLosses.cavalry}</span>
+                    </div>
+                    ${result.victory ? '<div class="info-item victory"><span>城池已佔領！</span></div>' : ''}
+                </div>
+            `;
+            
+            document.getElementById('battleReportContent').innerHTML = reportContent;
+            document.getElementById('battleReportModal').style.display = 'block';
+        }
+
+        // 關閉戰報
+        function closeBattleReport() {
+            document.getElementById('battleReportModal').style.display = 'none';
+        }
+
+        // 處理產出
+        function processProduction() {
+            let totalProduction = 0;
+            
+            gameState.player.cities.forEach(cityId => {
+                const city = gameState.cities[cityId];
+                if (city) {
+                    totalProduction += city.production;
+                }
+            });
+            
+            gameState.player.kasBalance += totalProduction;
+            
+            console.log(`💰 產出 ${totalProduction} tKAS，總餘額: ${Math.floor(gameState.player.kasBalance)}`);
+            saveGameState();
+        }
+
+        // 儲存遊戲狀態
+        function saveGameState() {
+            try {
+                localStorage.setItem('kas-sanguo-save', JSON.stringify(gameState));
+            } catch (e) {
+                console.warn('❌ 儲存遊戲失敗:', e);
+            }
+        }
+
+        // 載入遊戲狀態
+        function loadGameState() {
+            try {
+                const saved = localStorage.getItem('kas-sanguo-save');
+                if (saved) {
+                    const loadedState = JSON.parse(saved);
+                    // 合併遊戲狀態，保留新版本的結構
+                    gameState = { ...gameState, ...loadedState };
+                    console.log('📂 載入存檔成功');
+                }
+            } catch (e) {
+                console.warn('❌ 載入存檔失敗:', e);
+            }
+        }
+
+        // 重置遊戲（調試用）
+        function resetGame() {
+            if (confirm('確定要重置遊戲嗎？所有進度將會丟失！')) {
+                localStorage.removeItem('kas-sanguo-save');
+                location.reload();
+            }
+        }
+
+        // 在瀏覽器控制台公開重置函數，方便測試
+        window.resetGame = resetGame;
+
+        // 頁面載入完成後初始化遊戲
+        document.addEventListener('DOMContentLoaded', initGame);
+
+        // 頁面卸載時儲存遊戲
+        window.addEventListener('beforeunload', saveGameState);
+
+        console.log('🎮 KAS 三國志 載入完成！');
+        console.log('💡 輸入 resetGame() 可重置遊戲');
+    </script>
+</body>
 </html>
-
