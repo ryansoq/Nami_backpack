@@ -938,6 +938,29 @@ function setupLogin(){
   myId=id;
   myColor=world.players[id].color;
   syncFromWorld();
+
+  // === 離線收益 ===
+  const now=Date.now()/1000;
+  const lastOn=world.players[id].lastOnline||now;
+  const offlineSec=Math.max(0,now-lastOn);
+  if(offlineSec>60){
+   // 計算離線期間的產出
+   let prod=0;
+   for(const[cid,wc]of Object.entries(world.cities)){
+    if(wc.o===id&&C[cid]) prod+=C[cid].p;
+   }
+   // 產出/時 → 產出/秒，乘以離線秒數
+   const offlineGain=Math.floor(prod*offlineSec/3600);
+   if(offlineGain>0){
+    P.tk+=offlineGain;
+    const hrs=Math.floor(offlineSec/3600);
+    const mins=Math.floor((offlineSec%3600)/60);
+    const timeStr=hrs>0?`${hrs}時${mins}分`:`${mins}分鐘`;
+    setTimeout(()=>toast(`💰 離線 ${timeStr}，收穫 ${offlineGain} tKAS！`),500);
+   }
+  }
+  world.players[id].lastOnline=now;
+
   syncToWorld(); // 存檔！讓其他玩家能讀到
 
   document.getElementById('loginModal').style.display='none';
@@ -1006,8 +1029,14 @@ function startGameTimers(){
  },1000);
 }
 
-// Periodic sync (pick up other player's changes)
-setInterval(()=>{if(myId){loadW();syncFromWorld();hud()}},5000);
+// Periodic sync (pick up other player's changes + update lastOnline)
+setInterval(()=>{
+ if(myId){
+  loadW();syncFromWorld();
+  if(world.players[myId]) world.players[myId].lastOnline=Date.now()/1000;
+  syncToWorld();hud();
+ }
+},5000);
 
 // ====== INIT ======
 setupLogin();
