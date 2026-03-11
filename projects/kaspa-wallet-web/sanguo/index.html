@@ -771,7 +771,7 @@ function battle(m){
  if(c.o===owner){
   c.g.i+=m.tr.i;c.g.c+=m.tr.c;
   if(owner===myId) toast(`📦 ${c.n} 輸送完成 +🗡️${m.tr.i} 🐴${m.tr.c}`);
-  syncToWorld();hud();return;
+  hud();return;
  }
  let ap=m.tr.i*TP.i.a+m.tr.c*TP.c.a;
  let dp=(c.g.i*TP.i.df+c.g.c*TP.c.df)*(1+c.d*0.1);
@@ -798,7 +798,7 @@ function battle(m){
   c.g.i-=defLostI;c.g.c-=defLostC;
   if(owner===myId) toast(`❌ 攻打 ${c.n} 失敗！殘兵🗡️${retI} 🐴${retC}退回${frCity?frCity.n:''}`);
  }
- syncToWorld();hud();
+ hud();
 }
 
 // ====== PANELS ======
@@ -1000,6 +1000,25 @@ function setupLogin(){
    }
   }
   world.players[id].lastOnline=now;
+
+  // === 離線行軍結算 ===
+  // 所有已到達的行軍立即結算（不管是誰的）
+  const pendingMarches=marches.slice();
+  let marchResolved=0;
+  for(let i=pendingMarches.length-1;i>=0;i--){
+   const m=pendingMarches[i];
+   if(m.settled)continue;
+   if(now>=m.at){
+    m.settled=true;
+    battle(m);
+    marchResolved++;
+   }
+  }
+  // 清除已結算的行軍
+  marches=marches.filter(m=>!m.settled);
+  if(marchResolved>0){
+   setTimeout(()=>toast(`⚔️ 離線期間 ${marchResolved} 支部隊已到達！`),800);
+  }
 
   syncToWorld(); // 存檔！讓其他玩家能讀到
 
