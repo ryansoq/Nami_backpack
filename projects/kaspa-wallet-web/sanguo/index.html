@@ -66,6 +66,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0f0f1a;font-family:
  <div class="hs gold">💰<span id="h-tk">100</span></div>
  <div class="hs blue">🏯<span id="h-ct">1</span></div>
  <div class="hs green">⚔️<span id="h-ar">50</span></div>
+ <div class="hs" style="color:#ffa"><span>📈</span><span id="h-pr">0</span><span>/h</span></div>
  <div class="hs" style="margin-left:auto;color:#666;font-size:10px">KAS 三國志</div>
 </div>
 
@@ -630,6 +631,7 @@ function draw(){
   const mx=f.x+(t.x-f.x)*pr,my=f.y+(t.y-f.y)*pr;
   const s=w2s(mx,my);
   cx.font=`${18*cam.z}px sans-serif`;cx.textAlign='center';cx.fillText('⚔️',s.x,s.y);
+  if(m.owner===myId){const rem=Math.max(0,Math.ceil(m.at-now));cx.fillStyle='#ffd700';cx.font=`bold ${Math.max(8,10*cam.z)}px sans-serif`;cx.fillText(rem+'s',s.x,s.y-14*cam.z)}
  }
 
  // Cities (with fog of war)
@@ -739,9 +741,11 @@ function drawMinimap(){
 function hud(){
  let ct=0,ar=0;
  for(const c of Object.values(C))if(c.o===myId){ct++;ar+=(c.g.i||0)+(c.g.c||0)}
+ let pr=0;for(const c of Object.values(C))if(c.o===myId)pr+=c.p;
  document.getElementById('h-tk').textContent=P.tk;
  document.getElementById('h-ct').textContent=ct;
  document.getElementById('h-ar').textContent=ar;
+ document.getElementById('h-pr').textContent=pr;
 }
 
 // (Production/March/Scout timers moved to startGameTimers())
@@ -772,11 +776,27 @@ function battle(m){
  let ap=m.tr.i*TP.i.a+m.tr.c*TP.c.a;
  let dp=(c.g.i*TP.i.df+c.g.c*TP.c.df)*(1+c.d*0.1);
  if(ap>dp){
-  c.o=owner;c.g={i:m.tr.i,c:m.tr.c};
+  // 攻城成功，攻方也有損失
+  const lossRatio=Math.min(0.9,dp/ap*0.6);
+  const surI=Math.max(0,Math.round(m.tr.i*(1-lossRatio)));
+  const surC=Math.max(0,Math.round(m.tr.c*(1-lossRatio)));
+  c.o=owner;c.g={i:surI,c:surC};
   const l=c.p*2;
-  if(owner===myId){P.tk+=l;toast(`✅ 佔領 ${c.n}！+${l} tKAS`)}
+  const lostI=m.tr.i-surI,lostC=m.tr.c-surC;
+  if(owner===myId){P.tk+=l;toast(`✅ 佔領 ${c.n}！+${l} tKAS（損失🗡️${lostI} 🐴${lostC}）`)}
  }else{
-  if(owner===myId) toast(`❌ 攻打 ${c.n} 失敗！`);
+  // 攻城失敗：30%殘兵退回，守方按比例損失
+  const retRate=0.3;
+  const retI=Math.floor(m.tr.i*retRate);
+  const retC=Math.floor(m.tr.c*retRate);
+  const frCity=C[m.fr];
+  if(frCity){frCity.g.i+=retI;frCity.g.c+=retC}
+  // 守方損失（按攻守戰力比）
+  const defLossRate=Math.min(0.8,ap/dp);
+  const defLostI=Math.floor(c.g.i*defLossRate);
+  const defLostC=Math.floor(c.g.c*defLossRate);
+  c.g.i-=defLostI;c.g.c-=defLostC;
+  if(owner===myId) toast(`❌ 攻打 ${c.n} 失敗！殘兵🗡️${retI} 🐴${retC}退回${frCity?frCity.n:''}`);
  }
  syncToWorld();hud();
 }
