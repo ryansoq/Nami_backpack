@@ -1039,10 +1039,18 @@ function startGameTimers(){
  // March
  setInterval(()=>{
   if(!myId)return;
-  const now=Date.now()/1000;const done=[];
-  for(let i=0;i<marches.length;i++)if(now>=marches[i].at){done.push(i);battle(marches[i])}
-  for(let i=done.length-1;i>=0;i--)marches.splice(done[i],1);
-  if(done.length>0)syncToWorld();
+  const now=Date.now()/1000;let changed=false;
+  for(let i=marches.length-1;i>=0;i--){
+   const m=marches[i];
+   if(m.settled){marches.splice(i,1);changed=true;continue}
+   if(now>=m.at){
+    m.settled=true; // 防止重複結算
+    battle(m);
+    marches.splice(i,1);
+    changed=true;
+   }
+  }
+  if(changed)syncToWorld();
  },1000);
 
  // Scouts
