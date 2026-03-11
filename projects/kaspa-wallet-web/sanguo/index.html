@@ -342,14 +342,34 @@ function ownerColor(ownerId){
 // Simple hash
 function sHash(s){let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h+s.charCodeAt(i))|0;return h.toString(36)}
 
-function loadW(){
+const API_URL='/sanguo/api/world';
+let _saving=false;
+
+async function loadW(){
   try{
-    const s=localStorage.getItem('kas-sanguo-mp');
-    if(s){const p=JSON.parse(s);if(p&&p.version>=1){world=p;return true}}
-  }catch(e){}
+    const r=await fetch(API_URL);
+    const d=await r.json();
+    if(d&&d.version>=1){world=d;return true}
+  }catch(e){
+    // fallback to localStorage
+    try{const s=localStorage.getItem('kas-sanguo-mp');if(s){const p=JSON.parse(s);if(p&&p.version>=1){world=p;return true}}}catch(e2){}
+  }
   return false;
 }
-function saveW(){if(world){world.version=1;try{localStorage.setItem('kas-sanguo-mp',JSON.stringify(world))}catch(e){}}}
+async function saveW(){
+  if(!world||_saving)return;
+  world.version=1;
+  _saving=true;
+  try{
+    await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(world)});
+    // also save to localStorage as cache
+    try{localStorage.setItem('kas-sanguo-mp',JSON.stringify(world))}catch(e){}
+  }catch(e){
+    // fallback: at least save locally
+    try{localStorage.setItem('kas-sanguo-mp',JSON.stringify(world))}catch(e2){}
+  }
+  _saving=false;
+}
 function initWorld(){
   world={version:1,players:{},marches:[],scouts:[],scoutIntel:{},cities:{}};
   // Deep copy cities from C template
@@ -397,7 +417,7 @@ function syncToWorld(){
     if(!world.cities[id])world.cities[id]={};
     world.cities[id].o=c.o;world.cities[id].g={...c.g};world.cities[id].d=c.d;
   }
-  saveW();
+  saveW(); // async, fire and forget
 }
 
 // ====== FOG OF WAR ======
@@ -905,14 +925,14 @@ function setupLogin(){
 
  function showErr(m){errDiv.textContent=m;errDiv.style.display='block'}
 
- function doLogin(){
+ async function doLogin(){
   const id=idIn.value.trim();
   const pw=pwIn.value.trim();
   if(!id){showErr('請輸入 ID');return}
   if(!pw||pw.length<4||pw.length>8||!/^\d+$/.test(pw)){showErr('密碼需為 4-8 位數字');return}
   const pwHash=sHash(id+':'+pw);
 
-  if(!loadW()){initWorld()}
+  if(!await loadW()){initWorld()}
 
   if(world.players[id]){
    // 驗證密碼
@@ -989,9 +1009,9 @@ function doLogout(){
 // 產出和行軍改為 sync
 function startGameTimers(){
  // Production
- setInterval(()=>{
+ setInterval(async()=>{
   if(!myId)return;
-  loadW();syncFromWorld();
+  await loadW();syncFromWorld();
   let pr=0;for(const c of Object.values(C))if(c.o===myId)pr+=c.p;
   if(pr>0){const g=Math.max(1,Math.round(pr/60));P.tk+=g;toast(`💰 +${g} tKAS`);syncToWorld();hud()}
  },60000);
@@ -1030,9 +1050,9 @@ function startGameTimers(){
 }
 
 // Periodic sync (pick up other player's changes + update lastOnline)
-setInterval(()=>{
+setInterval(async()=>{
  if(myId){
-  loadW();syncFromWorld();
+  await loadW();syncFromWorld();
   if(world.players[myId]) world.players[myId].lastOnline=Date.now()/1000;
   syncToWorld();hud();
  }

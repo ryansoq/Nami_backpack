@@ -32,6 +32,37 @@ const server = http.createServer((req, res) => {
     }
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
+    // === 三國志 世界狀態 API ===
+    const SANGUO_WORLD_FILE = path.join(DIR, 'sanguo', '.world.json');
+    if (req.url === '/sanguo/api/world' && req.method === 'GET') {
+        fs.readFile(SANGUO_WORLD_FILE, 'utf8', (err, data) => {
+            if (err) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end('null');
+            } else {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(data);
+            }
+        });
+        return;
+    }
+    if (req.url === '/sanguo/api/world' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            try {
+                JSON.parse(body); // validate
+                fs.writeFileSync(SANGUO_WORLD_FILE, body);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end('{"ok":true}');
+            } catch(e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end('{"error":"invalid json"}');
+            }
+        });
+        return;
+    }
+
     // Proxy /api/* to kaspa-api (port 18806)
     if (req.url.startsWith('/api/') || req.url.startsWith('/kaspa/api/')) {
         const proxyPath = req.url.replace(/^\/kaspa\/api\//, '/api/').replace(/^\/api\//, '');
