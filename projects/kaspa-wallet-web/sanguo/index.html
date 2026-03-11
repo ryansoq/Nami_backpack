@@ -617,15 +617,24 @@ function draw(){
   const s=w2s(c.x,c.y),r=TR[c.t]*cam.z;
   if(s.x<-50||s.x>W+50||s.y<-50||s.y>H+50)continue;
   const v=vis[id]||0;
+  const isOtherPlayer=c.o&&c.o!=='npc'&&c.o!==myId; // 其他玩家的城
+  const isMyCity=c.o===myId;
+  // 其他玩家的城：永遠可見（顏色+名稱），但兵力未知
+  const cityVisible=v>0||isOtherPlayer||isMyCity;
 
   // Selection glow
   if(id===selCity){cx.beginPath();cx.arc(s.x,s.y,r+5*cam.z,0,Math.PI*2);cx.fillStyle='rgba(255,215,0,0.25)';cx.fill()}
 
-  // City dot - dimmed in fog
+  // City dot
   cx.beginPath();cx.arc(s.x,s.y,r,0,Math.PI*2);
-  if(v===0){
+  if(!cityVisible){
+   // 完全迷霧中的 NPC 城
    cx.fillStyle='rgba(40,40,50,0.6)';cx.fill();
    cx.strokeStyle='rgba(100,100,100,0.3)';cx.lineWidth=1*cam.z;cx.stroke();
+  }else if(isOtherPlayer&&v===0){
+   // 迷霧中的其他玩家城 — 顯示顏色但稍暗
+   cx.fillStyle=ownerColor(c.o);cx.globalAlpha=0.6;cx.fill();cx.globalAlpha=1;
+   cx.strokeStyle=TC[c.t];cx.globalAlpha=0.4;cx.lineWidth=1.5*cam.z;cx.stroke();cx.globalAlpha=1;
   }else if(v===1){
    cx.fillStyle=ownerColor(c.o)||'#555';cx.globalAlpha=0.7;cx.fill();cx.globalAlpha=1;
    cx.strokeStyle=TC[c.t];cx.globalAlpha=0.6;cx.lineWidth=1.5*cam.z;cx.stroke();cx.globalAlpha=1;
@@ -636,9 +645,20 @@ function draw(){
 
   // Name
   if(cam.z>0.4){
-   cx.fillStyle=v===0?'rgba(255,255,255,0.2)':v===1?'rgba(255,255,255,0.7)':'#fff';
+   if(!cityVisible){
+    cx.fillStyle='rgba(255,255,255,0.2)';
+   }else if(isOtherPlayer&&v===0){
+    cx.fillStyle='rgba(255,255,255,0.6)';
+   }else{
+    cx.fillStyle=v===0?'rgba(255,255,255,0.2)':v===1?'rgba(255,255,255,0.7)':'#fff';
+   }
    cx.font=`bold ${Math.max(8,11*cam.z)}px sans-serif`;cx.textAlign='center';
    cx.fillText(c.n,s.x,s.y+3*cam.z);
+   // 其他玩家城顯示擁有者名稱
+   if(isOtherPlayer&&cam.z>0.5){
+    cx.fillStyle=ownerColor(c.o);cx.font=`${8*cam.z}px sans-serif`;
+    cx.fillText(c.o,s.x,s.y-r-12*cam.z);
+   }
    if(cam.z>0.9&&v>=2){
     cx.fillStyle='rgba(255,255,255,0.3)';cx.font=`${7*cam.z}px sans-serif`;
     cx.fillText(`(${c.gx},${c.gy})`,s.x,s.y+r+20*cam.z);
@@ -647,9 +667,17 @@ function draw(){
 
   // Tier + garrison (fog-aware)
   if(cam.z>0.55){
-   if(v>=1){cx.fillStyle=TC[c.t];cx.globalAlpha=v===1?0.4:1;cx.font=`bold ${9*cam.z}px sans-serif`;cx.textAlign='center';cx.fillText(c.t,s.x,s.y-r-3*cam.z);cx.globalAlpha=1}
+   if(cityVisible&&(v>=1||isOtherPlayer)){cx.fillStyle=TC[c.t];cx.globalAlpha=(v<=1&&!isMyCity)?0.4:1;cx.font=`bold ${9*cam.z}px sans-serif`;cx.textAlign='center';cx.fillText(c.t,s.x,s.y-r-3*cam.z);cx.globalAlpha=1}
    cx.font=`${8*cam.z}px sans-serif`;cx.textAlign='center';
-   if(v===2){
+   if(isMyCity&&v>=2){
+    // 自己城：顯示完整兵力
+    const tot=(c.g.i||0)+(c.g.c||0);
+    cx.fillStyle='rgba(255,255,255,0.5)';cx.fillText(tot,s.x,s.y+r+10*cam.z);
+   }else if(isOtherPlayer){
+    // 其他玩家城：永遠顯示 ?
+    cx.fillStyle='rgba(255,255,255,0.3)';cx.fillText('？',s.x,s.y+r+10*cam.z);
+   }else if(v===2){
+    // NPC 城在完全視野
     const tot=(c.g.i||0)+(c.g.c||0);
     cx.fillStyle='rgba(255,255,255,0.5)';cx.fillText(tot,s.x,s.y+r+10*cam.z);
    }else if(v===1){
