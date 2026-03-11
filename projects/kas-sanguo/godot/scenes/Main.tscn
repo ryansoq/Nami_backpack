@@ -1,111 +1,95 @@
-[gd_scene load_steps=4 format=3 uid="uid://bwnxrrcuwyb1v"]
+[gd_scene load_steps=3 format=3 uid="uid://bwnxrrcuwyb1v"]
 
-[ext_resource type="Script" path="res://scripts/Main.gd" id="1_0h2xp"]
-[ext_resource type="Script" path="res://scripts/CityButton.gd" id="2_1fxn8"]
-[ext_resource type="Script" path="res://scripts/UI/HUD.gd" id="3_2gyl9"]
+[ext_resource type="Script" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/UI/HUD.gd" id="2_hud"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-script = ExtResource("1_0h2xp")
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="BG" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0.101961, 0.101961, 0.180392, 1)
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.12, 0.08, 1)
 
-[node name="HUD" type="Control" parent="."]
+[node name="HUD" type="HBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 80.0
-script = ExtResource("3_2gyl9")
-
-[node name="Background" type="ColorRect" parent="HUD"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_bottom = 80.0
-color = Color(0.2, 0.2, 0.3, 0.8)
+offset_top = 5.0
+offset_bottom = 45.0
+grow_horizontal = 2
+script = ExtResource("2_hud")
 
 [node name="PlayerName" type="Label" parent="HUD"]
-layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 20.0
-offset_top = -20.0
-offset_right = 120.0
-offset_bottom = -5.0
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.843, 0, 1)
 theme_override_font_sizes/font_size = 14
-text = "玩家"
+text = "主公"
+
+[node name="Sep1" type="VSeparator" parent="HUD"]
+layout_mode = 2
 
 [node name="tKAS" type="Label" parent="HUD"]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = -50.0
-offset_top = -20.0
-offset_right = 50.0
-offset_bottom = -5.0
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 1, 0.3, 1)
 theme_override_font_sizes/font_size = 14
 text = "tKAS: 100"
-horizontal_alignment = 1
+
+[node name="Sep2" type="VSeparator" parent="HUD"]
+layout_mode = 2
 
 [node name="Cities" type="Label" parent="HUD"]
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = -20.0
-offset_right = -20.0
-offset_bottom = -5.0
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
+layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "城池: 1"
-horizontal_alignment = 1
+
+[node name="Sep3" type="VSeparator" parent="HUD"]
+layout_mode = 2
 
 [node name="Army" type="Label" parent="HUD"]
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = 5.0
-offset_right = -20.0
-offset_bottom = 20.0
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
-theme_override_font_sizes/font_size = 12
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
 text = "兵力: 50"
-horizontal_alignment = 1
 
-[node name="MapContainer" type="ScrollContainer" parent="."]
+[node name="MapContainer" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = 80.0
-follow_focus = true
-horizontal_scroll_mode = 2
-vertical_scroll_mode = 2
+offset_top = 50.0
+offset_bottom = -60.0
+grow_horizontal = 2
+grow_vertical = 2
+clip_contents = true
 
 [node name="MapView" type="Control" parent="MapContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(800, 600)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(187, 376)
+
+[node name="MapTitle" type="Label" parent="MapContainer/MapView"]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 5.0
+offset_right = 200.0
+offset_bottom = 25.0
+theme_override_colors/font_color = Color(1, 0.843, 0, 0.5)
+theme_override_font_sizes/font_size = 11
+text = "⚔️ KAS 三國志 天下大勢"
 
 [node name="Roads" type="Control" parent="MapContainer/MapView"]
 layout_mode = 1
@@ -120,184 +104,94 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="City_LuoYang" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -30.0
-offset_top = -30.0
-offset_right = 30.0
-offset_bottom = 30.0
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
+layout_mode = 0
+offset_left = 130.0
+offset_top = 120.0
+offset_right = 210.0
+offset_bottom = 160.0
 theme_override_font_sizes/font_size = 12
-text = "洛陽
-S級"
-script = ExtResource("2_1fxn8")
+text = "🏯洛陽"
 
 [node name="City_XuChang" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = 50.0
-offset_top = 50.0
-offset_right = 110.0
-offset_bottom = 110.0
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
+layout_mode = 0
+offset_left = 200.0
+offset_top = 200.0
+offset_right = 280.0
+offset_bottom = 240.0
 theme_override_font_sizes/font_size = 12
-text = "許昌
-A級"
-script = ExtResource("2_1fxn8")
+text = "🏰許昌"
 
 [node name="City_XiangYang" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = 30.0
-offset_top = 120.0
-offset_right = 90.0
-offset_bottom = 180.0
-theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
+layout_mode = 0
+offset_left = 140.0
+offset_top = 320.0
+offset_right = 220.0
+offset_bottom = 360.0
 theme_override_font_sizes/font_size = 12
-text = "襄陽
-B級"
-script = ExtResource("2_1fxn8")
+text = "🏰襄陽"
 
 [node name="City_HanZhong" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = 80.0
-offset_right = -90.0
-offset_bottom = 140.0
-theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
+layout_mode = 0
+offset_left = 20.0
+offset_top = 250.0
+offset_right = 100.0
+offset_bottom = 290.0
 theme_override_font_sizes/font_size = 12
-text = "漢中
-B級"
-script = ExtResource("2_1fxn8")
+text = "🏰漢中"
 
 [node name="City_RuNan" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = 80.0
-offset_top = 100.0
-offset_right = 140.0
-offset_bottom = 160.0
-theme_override_colors/font_color = Color(0.392, 0.584, 1, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
+layout_mode = 0
+offset_left = 260.0
+offset_top = 280.0
+offset_right = 340.0
+offset_bottom = 320.0
 theme_override_font_sizes/font_size = 12
-text = "汝南
-C級"
-script = ExtResource("2_1fxn8")
+text = "🏘汝南"
 
 [node name="City_WanCheng" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -30.0
-offset_top = 80.0
-offset_right = 30.0
-offset_bottom = 140.0
-theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
+layout_mode = 0
+offset_left = 120.0
+offset_top = 230.0
+offset_right = 200.0
+offset_bottom = 270.0
 theme_override_font_sizes/font_size = 12
-text = "宛城
-C級"
-script = ExtResource("2_1fxn8")
+text = "🏘宛城"
 
 [node name="City_ChenLiu" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = 50.0
-offset_top = -80.0
-offset_right = 110.0
-offset_bottom = -20.0
-theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
+layout_mode = 0
+offset_left = 220.0
+offset_top = 100.0
+offset_right = 300.0
+offset_bottom = 140.0
 theme_override_font_sizes/font_size = 12
-text = "陳留
-D級"
-script = ExtResource("2_1fxn8")
+text = "🏘陳留"
 
 [node name="City_XiaoPei" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = 150.0
-offset_top = -50.0
-offset_right = 210.0
-offset_bottom = 10.0
-theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 12
-text = "小沛
-D級"
-script = ExtResource("2_1fxn8")
+layout_mode = 0
+offset_left = 300.0
+offset_top = 160.0
+offset_right = 370.0
+offset_bottom = 200.0
+theme_override_font_sizes/font_size = 11
+text = "🏠小沛"
 
 [node name="City_XinYe" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = 50.0
-offset_top = 180.0
-offset_right = 110.0
-offset_bottom = 240.0
-theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 12
-text = "新野
-D級"
-script = ExtResource("2_1fxn8")
+layout_mode = 0
+offset_left = 180.0
+offset_top = 400.0
+offset_right = 250.0
+offset_bottom = 440.0
+theme_override_font_sizes/font_size = 11
+text = "🏠新野"
 
 [node name="City_ShangYong" type="Button" parent="MapContainer/MapView/Cities"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -80.0
-offset_top = 150.0
-offset_right = -20.0
-offset_bottom = 210.0
-theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
-theme_override_colors/font_color_hover = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 12
-text = "上庸
-D級"
-script = ExtResource("2_1fxn8")
+layout_mode = 0
+offset_left = 50.0
+offset_top = 360.0
+offset_right = 120.0
+offset_bottom = 400.0
+theme_override_font_sizes/font_size = 11
+text = "🏠上庸"
 
 [node name="Armies" type="Control" parent="MapContainer/MapView"]
 layout_mode = 1
@@ -305,133 +199,188 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
+[node name="ZoomControls" type="HBoxContainer" parent="MapContainer"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -110.0
+offset_top = -50.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="ZoomOut" type="Button" parent="MapContainer/ZoomControls"]
+layout_mode = 2
+custom_minimum_size = Vector2(45, 40)
+theme_override_font_sizes/font_size = 20
+text = "🔍-"
+
+[node name="ZoomIn" type="Button" parent="MapContainer/ZoomControls"]
+layout_mode = 2
+custom_minimum_size = Vector2(45, 40)
+theme_override_font_sizes/font_size = 20
+text = "🔍+"
+
+[node name="BottomBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -55.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
+
+[node name="StatusLabel" type="Label" parent="BottomBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
+theme_override_font_sizes/font_size = 11
+text = "Powered by Kaspa BlockDAG ⛓️"
+
 [node name="CityPanel" type="Control" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-visible = false
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="Background" type="ColorRect" parent="CityPanel"]
+[node name="Overlay" type="ColorRect" parent="CityPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.5)
 
-[node name="Panel" type="Panel" parent="CityPanel"]
+[node name="Panel" type="PanelContainer" parent="CityPanel"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -200.0
-offset_right = 150.0
-offset_bottom = 200.0
+offset_left = -160.0
+offset_top = -180.0
+offset_right = 160.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CityPanel/Panel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = -20.0
+layout_mode = 2
 
 [node name="Title" type="Label" parent="CityPanel/Panel/VBoxContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
+theme_override_colors/font_color = Color(1, 0.843, 0, 1)
 theme_override_font_sizes/font_size = 18
-text = "城池名稱"
+text = "🏯 城池名 (S級)"
 horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="CityPanel/Panel/VBoxContainer"]
+layout_mode = 2
 
 [node name="Info" type="VBoxContainer" parent="CityPanel/Panel/VBoxContainer"]
 layout_mode = 2
 
 [node name="Owner" type="Label" parent="CityPanel/Panel/VBoxContainer/Info"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 14
 text = "擁有者: NPC"
 
 [node name="Garrison" type="Label" parent="CityPanel/Panel/VBoxContainer/Info"]
 layout_mode = 2
-text = "駐軍: 步兵 100"
+theme_override_font_sizes/font_size = 14
+text = "駐軍: 步兵 500"
 
 [node name="Production" type="Label" parent="CityPanel/Panel/VBoxContainer/Info"]
 layout_mode = 2
-text = "產出: 15 tKAS/時"
+theme_override_font_sizes/font_size = 14
+text = "產出: 100 tKAS/時"
 
 [node name="Defense" type="Label" parent="CityPanel/Panel/VBoxContainer/Info"]
 layout_mode = 2
-text = "城防: 等級 1"
+theme_override_font_sizes/font_size = 14
+text = "城防: 等級 3"
+
+[node name="HSeparator2" type="HSeparator" parent="CityPanel/Panel/VBoxContainer"]
+layout_mode = 2
 
 [node name="Actions" type="VBoxContainer" parent="CityPanel/Panel/VBoxContainer"]
 layout_mode = 2
 
 [node name="TrainTroops" type="Button" parent="CityPanel/Panel/VBoxContainer/Actions"]
 layout_mode = 2
-text = "練兵"
+theme_override_font_sizes/font_size = 14
+text = "⚔️ 訓練部隊"
 
 [node name="UpgradeDefense" type="Button" parent="CityPanel/Panel/VBoxContainer/Actions"]
 layout_mode = 2
-text = "升級城防"
+theme_override_font_sizes/font_size = 14
+text = "🛡️ 升級城防"
 
 [node name="SendArmy" type="Button" parent="CityPanel/Panel/VBoxContainer/Actions"]
 layout_mode = 2
-text = "出兵"
+theme_override_font_sizes/font_size = 14
+text = "🐴 出兵"
 
-[node name="CloseButton" type="Button" parent="CityPanel/Panel/VBoxContainer/Actions"]
+[node name="CloseButton" type="Button" parent="CityPanel/Panel/VBoxContainer"]
 layout_mode = 2
-text = "關閉"
+theme_override_font_sizes/font_size = 14
+text = "✕ 關閉"
 
 [node name="MarchPanel" type="Control" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-visible = false
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="Background" type="ColorRect" parent="MarchPanel"]
+[node name="Overlay" type="ColorRect" parent="MarchPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.5)
 
-[node name="Panel" type="Panel" parent="MarchPanel"]
+[node name="Panel" type="PanelContainer" parent="MarchPanel"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -250.0
-offset_right = 150.0
-offset_bottom = 250.0
+offset_left = -160.0
+offset_top = -200.0
+offset_right = 160.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MarchPanel/Panel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = -20.0
+layout_mode = 2
 
 [node name="Title" type="Label" parent="MarchPanel/Panel/VBoxContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.843137, 0, 1)
+theme_override_colors/font_color = Color(1, 0.843, 0, 1)
 theme_override_font_sizes/font_size = 18
-text = "出兵"
+text = "🐴 出兵"
 horizontal_alignment = 1
 
 [node name="FromCity" type="Label" parent="MarchPanel/Panel/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 14
 text = "從: 汝南"
+
+[node name="HSeparator" type="HSeparator" parent="MarchPanel/Panel/VBoxContainer"]
+layout_mode = 2
 
 [node name="TroopSelection" type="VBoxContainer" parent="MarchPanel/Panel/VBoxContainer"]
 layout_mode = 2
@@ -442,11 +391,11 @@ layout_mode = 2
 [node name="InfantryLabel" type="Label" parent="MarchPanel/Panel/VBoxContainer/TroopSelection/InfantryContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
 text = "步兵:"
 
 [node name="InfantrySpinBox" type="SpinBox" parent="MarchPanel/Panel/VBoxContainer/TroopSelection/InfantryContainer"]
 layout_mode = 2
-max_value = 1000.0
 
 [node name="CavalryContainer" type="HBoxContainer" parent="MarchPanel/Panel/VBoxContainer/TroopSelection"]
 layout_mode = 2
@@ -454,49 +403,56 @@ layout_mode = 2
 [node name="CavalryLabel" type="Label" parent="MarchPanel/Panel/VBoxContainer/TroopSelection/CavalryContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
 text = "騎兵:"
 
 [node name="CavalrySpinBox" type="SpinBox" parent="MarchPanel/Panel/VBoxContainer/TroopSelection/CavalryContainer"]
 layout_mode = 2
-max_value = 1000.0
 
-[node name="TargetSelection" type="VBoxContainer" parent="MarchPanel/Panel/VBoxContainer"]
+[node name="TargetSelection" type="HBoxContainer" parent="MarchPanel/Panel/VBoxContainer"]
 layout_mode = 2
 
 [node name="TargetLabel" type="Label" parent="MarchPanel/Panel/VBoxContainer/TargetSelection"]
 layout_mode = 2
-text = "目標城池:"
+theme_override_font_sizes/font_size = 14
+text = "目標:"
 
 [node name="TargetDropdown" type="OptionButton" parent="MarchPanel/Panel/VBoxContainer/TargetSelection"]
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="MarchInfo" type="VBoxContainer" parent="MarchPanel/Panel/VBoxContainer"]
 layout_mode = 2
 
 [node name="MarchTime" type="Label" parent="MarchPanel/Panel/VBoxContainer/MarchInfo"]
 layout_mode = 2
-text = "行軍時間: 45 分鐘"
+theme_override_font_sizes/font_size = 12
+text = "行軍時間: -- 分鐘"
 
 [node name="SupplyCost" type="Label" parent="MarchPanel/Panel/VBoxContainer/MarchInfo"]
 layout_mode = 2
-text = "糧草消耗: 3 tKAS"
+theme_override_font_sizes/font_size = 12
+text = "糧草消耗: -- tKAS"
 
-[node name="Actions" type="HBoxContainer" parent="MarchPanel/Panel/VBoxContainer"]
+[node name="MarchActions" type="HBoxContainer" parent="MarchPanel/Panel/VBoxContainer"]
 layout_mode = 2
+alignment = 1
 
-[node name="ConfirmButton" type="Button" parent="MarchPanel/Panel/VBoxContainer/Actions"]
+[node name="ConfirmMarch" type="Button" parent="MarchPanel/Panel/VBoxContainer/MarchActions"]
 layout_mode = 2
-size_flags_horizontal = 3
-text = "確認出兵"
+theme_override_font_sizes/font_size = 14
+text = "⚔️ 出征！"
 
-[node name="CancelButton" type="Button" parent="MarchPanel/Panel/VBoxContainer/Actions"]
+[node name="CancelMarch" type="Button" parent="MarchPanel/Panel/VBoxContainer/MarchActions"]
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
 text = "取消"
 
+[connection signal="pressed" from="MapContainer/ZoomControls/ZoomOut" to="." method="_on_zoom_out"]
+[connection signal="pressed" from="MapContainer/ZoomControls/ZoomIn" to="." method="_on_zoom_in"]
 [connection signal="pressed" from="CityPanel/Panel/VBoxContainer/Actions/TrainTroops" to="." method="_on_train_troops_pressed"]
 [connection signal="pressed" from="CityPanel/Panel/VBoxContainer/Actions/UpgradeDefense" to="." method="_on_upgrade_defense_pressed"]
 [connection signal="pressed" from="CityPanel/Panel/VBoxContainer/Actions/SendArmy" to="." method="_on_send_army_pressed"]
-[connection signal="pressed" from="CityPanel/Panel/VBoxContainer/Actions/CloseButton" to="." method="_on_close_city_panel"]
-[connection signal="pressed" from="MarchPanel/Panel/VBoxContainer/Actions/ConfirmButton" to="." method="_on_confirm_march"]
-[connection signal="pressed" from="MarchPanel/Panel/VBoxContainer/Actions/CancelButton" to="." method="_on_cancel_march"]
+[connection signal="pressed" from="CityPanel/Panel/VBoxContainer/CloseButton" to="." method="_on_close_city_panel"]
+[connection signal="pressed" from="MarchPanel/Panel/VBoxContainer/MarchActions/ConfirmMarch" to="." method="_on_confirm_march"]
+[connection signal="pressed" from="MarchPanel/Panel/VBoxContainer/MarchActions/CancelMarch" to="." method="_on_cancel_march"]

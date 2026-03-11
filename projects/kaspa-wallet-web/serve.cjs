@@ -28,6 +28,7 @@ const server = http.createServer((req, res) => {
     if (req.url.startsWith('/sanguo/')) {
         res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
         res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+        res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws: wss:; worker-src 'self' blob:");
     }
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 

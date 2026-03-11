@@ -23,6 +23,13 @@ extends Control
 var selected_city_id = ""
 var march_source_city = ""
 
+# 縮放
+var current_zoom = 1.0
+var zoom_min = 0.5
+var zoom_max = 2.5
+var zoom_step = 0.25
+@onready var map_view = $MapContainer/MapView
+
 func _ready():
 	# 連接 GameManager 訊號
 	GameManager.city_captured.connect(_on_city_captured)
@@ -310,3 +317,15 @@ func _remove_march_arrow(march_id: String):
 
 func _on_tkas_changed(new_amount: int):
 	_update_hud()
+
+# === 縮放功能 ===
+func _on_zoom_in():
+	current_zoom = min(current_zoom + zoom_step, zoom_max)
+	_apply_zoom()
+
+func _on_zoom_out():
+	current_zoom = max(current_zoom - zoom_step, zoom_min)
+	_apply_zoom()
+
+func _apply_zoom():
+	map_view.scale = Vector2(current_zoom, current_zoom)

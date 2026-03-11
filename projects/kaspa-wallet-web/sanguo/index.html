@@ -1,1151 +1,989 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>KAS 三國志 - 策略Web遊戲</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            touch-action: manipulation;
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            background: #0a0a1a;
-            color: #ffd700;
-            overflow: hidden;
-            user-select: none;
-        }
-
-        #gameContainer {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
-        }
-
-        #gameCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            cursor: pointer;
-            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0a1a 100%);
-        }
-
-        /* 頂部 HUD */
-        #hud {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            background: rgba(10, 10, 26, 0.85);
-            backdrop-filter: blur(10px);
-            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            z-index: 100;
-        }
-
-        .hud-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        .hud-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .hud-value {
-            color: #4a90d9;
-        }
-
-        /* 城池面板 */
-        #cityPanel {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(10, 10, 26, 0.95);
-            backdrop-filter: blur(15px);
-            border: 2px solid rgba(255, 215, 0, 0.5);
-            border-radius: 15px;
-            padding: 20px;
-            min-width: 300px;
-            max-width: 90vw;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-            display: none;
-            z-index: 200;
-        }
-
-        #cityPanel h2 {
-            color: #ffd700;
-            margin-bottom: 15px;
-            text-align: center;
-            font-size: 18px;
-        }
-
-        .city-info {
-            margin-bottom: 15px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        .info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px;
-            background: rgba(74, 144, 217, 0.1);
-            border-radius: 5px;
-        }
-
-        .panel-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #4a90d9, #357abd);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex: 1;
-            min-width: 120px;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(74, 144, 217, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .btn-close {
-            background: linear-gradient(135deg, #666, #444);
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        .btn-attack {
-            background: linear-gradient(135deg, #d94a4a, #bd3535);
-        }
-
-        .btn-attack:hover {
-            box-shadow: 0 5px 15px rgba(217, 74, 74, 0.4);
-        }
-
-        /* 行軍面板 */
-        #marchPanel {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(10, 10, 26, 0.95);
-            backdrop-filter: blur(15px);
-            border: 2px solid rgba(255, 215, 0, 0.5);
-            border-radius: 15px;
-            padding: 20px;
-            min-width: 320px;
-            max-width: 90vw;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-            display: none;
-            z-index: 200;
-        }
-
-        .troop-selector {
-            margin: 15px 0;
-        }
-
-        .troop-type {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 10px 0;
-            padding: 10px;
-            background: rgba(74, 144, 217, 0.1);
-            border-radius: 8px;
-        }
-
-        .troop-input {
-            width: 80px;
-            padding: 5px;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            border-radius: 5px;
-            background: rgba(10, 10, 26, 0.8);
-            color: #ffd700;
-            text-align: center;
-        }
-
-        /* 戰報面板 */
-        #battleReportModal {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(10, 10, 26, 0.95);
-            backdrop-filter: blur(15px);
-            border: 2px solid rgba(255, 215, 0, 0.5);
-            border-radius: 15px;
-            padding: 20px;
-            min-width: 300px;
-            max-width: 90vw;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-            display: none;
-            z-index: 300;
-        }
-
-        .battle-result {
-            text-align: center;
-            margin: 15px 0;
-            font-size: 16px;
-            font-weight: bold;
-        }
-
-        .victory {
-            color: #4a90d9;
-        }
-
-        .defeat {
-            color: #d94a4a;
-        }
-
-        /* 響應式設計 */
-        @media (max-width: 768px) {
-            #hud {
-                height: 50px;
-                padding: 0 10px;
-            }
-
-            .hud-section {
-                font-size: 12px;
-                gap: 10px;
-            }
-
-            #cityPanel, #marchPanel {
-                min-width: 280px;
-                padding: 15px;
-            }
-
-            .btn {
-                padding: 8px 12px;
-                font-size: 12px;
-                min-width: 100px;
-            }
-        }
-
-        /* 載入動畫 */
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #ffd700;
-            font-size: 18px;
-            z-index: 1000;
-        }
-
-        .fade-in {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* 城池光暈效果 */
-        .city-glow {
-            filter: drop-shadow(0 0 10px rgba(74, 144, 217, 0.6));
-        }
-
-        .enemy-city-glow {
-            filter: drop-shadow(0 0 8px rgba(102, 102, 102, 0.4));
-        }
-
-        /* 禁用文字選取和拖拽 */
-        canvas {
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>⚔️ KAS 三國志</title><meta name="version" content="v4-mp">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0f0f1a;font-family:'Noto Sans TC','PingFang TC',sans-serif;color:#eee;touch-action:none;-webkit-user-select:none;user-select:none}
+#gc{display:block;width:100%;height:100%}
+#hud{position:fixed;top:0;left:0;right:0;height:40px;background:rgba(10,10,20,0.9);display:flex;align-items:center;padding:0 8px;gap:10px;font-size:12px;z-index:10;border-bottom:1px solid #333}
+.hs{display:flex;align-items:center;gap:3px}
+.gold{color:#ffd700}.blue{color:#6af}.green{color:#8f8}
+#ctrl{position:fixed;bottom:56px;right:8px;display:flex;flex-direction:column;gap:5px;z-index:10}
+#ctrl button{width:40px;height:40px;border:1px solid #444;border-radius:8px;background:rgba(0,0,0,0.75);color:#fff;font-size:18px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#ctrl button:active{background:rgba(255,255,255,0.15)}
+#bb{position:fixed;bottom:0;left:0;right:0;height:44px;background:rgba(10,10,20,0.9);display:flex;align-items:center;justify-content:center;font-size:10px;color:#555;z-index:10;border-top:1px solid #222}
+.po{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:20;display:none;justify-content:center;align-items:center}
+.po.act{display:flex}
+.pn{background:#16213e;border:1px solid #e94560;border-radius:12px;padding:16px;width:310px;max-width:92vw;max-height:80vh;overflow-y:auto}
+.pn h2{color:#ffd700;text-align:center;margin-bottom:10px;font-size:16px}
+.ir{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #282840;font-size:13px}
+.pn .act-btns{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+.pn button{padding:9px;border:1px solid #444;border-radius:8px;background:#0f3460;color:#fff;font-size:13px;cursor:pointer}
+.pn button:active{background:#e94560}
+.pn .cls{background:#333;margin-top:6px}
+.tr{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+.tr input{width:65px;padding:3px;border:1px solid #444;border-radius:4px;background:#1a1a2e;color:#fff;text-align:center;font-size:13px}
+.pn select{width:100%;padding:7px;border:1px solid #444;border-radius:4px;background:#1a1a2e;color:#fff;font-size:13px;margin:6px 0}
+#toast{position:fixed;top:46px;left:50%;transform:translateX(-50%);background:#e94560;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:30;display:none;text-align:center;max-width:90vw;white-space:nowrap}
+#minimap{position:fixed;bottom:50px;left:8px;width:100px;height:75px;border:1px solid #444;border-radius:6px;background:rgba(10,10,20,0.85);z-index:10;overflow:hidden}
+#minimap canvas{width:100%;height:100%}
+/* Login Modal */
+#loginModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;z-index:500}
+#loginModal .lb{background:#16213e;border:2px solid #e94560;border-radius:15px;padding:28px;width:300px;text-align:center}
+#loginModal h1{color:#ffd700;margin-bottom:8px;font-size:22px}
+#loginModal p{color:#888;margin-bottom:16px;font-size:13px}
+#loginModal input{width:100%;padding:10px;margin-bottom:8px;border:1px solid #444;border-radius:8px;background:#1a1a2e;color:#ffd700;font-size:15px;text-align:center}
+#loginModal input::placeholder{color:#555}
+#loginModal .bl{width:100%;padding:11px;background:linear-gradient(135deg,#e94560,#c73050);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:4px}
+#loginModal .bl:active{background:#c73050}
+.login-err{color:#e94560;font-size:12px;margin-top:6px;display:none}
+/* Player tag in HUD */
+.hud-player{display:flex;align-items:center;gap:5px;margin-right:8px}
+.pdot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.pname{color:#ccc;font-size:11px;max-width:60px;overflow:hidden;text-overflow:ellipsis}
+.btn-lo{background:none;border:1px solid #444;color:#666;padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer}
+</style>
 </head>
 <body>
-    <div id="gameContainer">
-        <div class="loading" id="loadingScreen">載入中...</div>
-        
-        <!-- 頂部 HUD -->
-        <div id="hud">
-            <div class="hud-section">
-                <div class="hud-item">
-                    <span>👤</span>
-                    <span id="playerName">玩家</span>
-                </div>
-            </div>
-            <div class="hud-section">
-                <div class="hud-item">
-                    <span>💰</span>
-                    <span class="hud-value" id="kasBalance">100</span>
-                    <span>tKAS</span>
-                </div>
-                <div class="hud-item">
-                    <span>🏰</span>
-                    <span class="hud-value" id="cityCount">1</span>
-                </div>
-                <div class="hud-item">
-                    <span>⚔️</span>
-                    <span class="hud-value" id="totalTroops">50</span>
-                </div>
-            </div>
-        </div>
+<div id="loginModal">
+ <div class="lb">
+  <h1>🏯 KAS 三國志</h1>
+  <p>輸入 ID 和數字密碼開始</p>
+  <input type="text" id="li-id" placeholder="玩家 ID" autocomplete="off">
+  <input type="password" id="li-pw" placeholder="數字密碼（4-8位）" autocomplete="off">
+  <button class="bl" id="li-btn">進入亂世</button>
+  <div class="login-err" id="li-err"></div>
+ </div>
+</div>
 
-        <!-- 遊戲畫布 -->
-        <canvas id="gameCanvas"></canvas>
+<canvas id="gc"></canvas>
 
-        <!-- 城池面板 -->
-        <div id="cityPanel">
-            <h2 id="cityName">城池名稱</h2>
-            <div class="city-info">
-                <div class="info-item">
-                    <span>等級</span>
-                    <span id="cityLevel">C</span>
-                </div>
-                <div class="info-item">
-                    <span>產出</span>
-                    <span id="cityProduction">15/時</span>
-                </div>
-                <div class="info-item">
-                    <span>步兵</span>
-                    <span id="cityInfantry">0</span>
-                </div>
-                <div class="info-item">
-                    <span>騎兵</span>
-                    <span id="cityCavalry">0</span>
-                </div>
-            </div>
-            
-            <div class="panel-buttons" id="cityActions">
-                <!-- 動態生成按鈕 -->
-            </div>
-            
-            <button class="btn btn-close" onclick="closeCityPanel()">關閉</button>
-        </div>
+<div id="hud" style="display:none">
+ <div class="hud-player"><span class="pdot" id="p-dot"></span><span class="pname" id="p-name"></span><button class="btn-lo" onclick="doLogout()">🚪</button></div>
+ <div class="hs gold">💰<span id="h-tk">100</span></div>
+ <div class="hs blue">🏯<span id="h-ct">1</span></div>
+ <div class="hs green">⚔️<span id="h-ar">50</span></div>
+ <div class="hs" style="margin-left:auto;color:#666;font-size:10px">KAS 三國志</div>
+</div>
 
-        <!-- 行軍面板 -->
-        <div id="marchPanel">
-            <h2>出兵 - <span id="marchTarget"></span></h2>
-            
-            <div class="troop-selector">
-                <div class="troop-type">
-                    <span>步兵 (可用: <span id="availableInfantry">0</span>)</span>
-                    <input type="number" class="troop-input" id="marchInfantry" min="0" max="0" value="0">
-                </div>
-                <div class="troop-type">
-                    <span>騎兵 (可用: <span id="availableCavalry">0</span>)</span>
-                    <input type="number" class="troop-input" id="marchCavalry" min="0" max="0" value="0">
-                </div>
-            </div>
-            
-            <div class="city-info">
-                <div class="info-item">
-                    <span>行軍時間</span>
-                    <span id="marchTime">1分鐘</span>
-                </div>
-                <div class="info-item">
-                    <span>糧草消耗</span>
-                    <span id="marchCost">5 tKAS</span>
-                </div>
-            </div>
-            
-            <div class="panel-buttons">
-                <button class="btn btn-attack" onclick="confirmMarch()">確認出兵</button>
-                <button class="btn btn-close" onclick="closeMarchPanel()">取消</button>
-            </div>
-        </div>
+<div id="ctrl">
+ <button onclick="G.zi()">＋</button>
+ <button onclick="G.zo()">－</button>
+ <button onclick="G.home()">🏠</button>
+ <button onclick="G.find()">🔍</button>
+</div>
 
-        <!-- 戰報面板 -->
-        <div id="battleReportModal">
-            <h2>戰報</h2>
-            <div id="battleReportContent">
-                <!-- 動態生成戰報內容 -->
-            </div>
-            <button class="btn btn-close" onclick="closeBattleReport()">確定</button>
-        </div>
-    </div>
+<div id="minimap"><canvas id="mc" width="200" height="150"></canvas></div>
 
-    <script>
-        // 遊戲常數
-        const GAME_CONFIG = {
-            PRODUCTION_INTERVAL: 30000, // 30秒產出一次（MVP加速）
-            MARCH_SPEED: {
-                infantry: 1.0,
-                cavalry: 1.5
-            },
-            TROOP_COST: {
-                infantry: 1.5,
-                cavalry: 3
-            },
-            TROOP_STATS: {
-                infantry: { attack: 5, defense: 6 },
-                cavalry: { attack: 8, defense: 3 }
-            }
-        };
+<div id="bb">⛓️ Powered by Kaspa BlockDAG</div>
 
-        // 城池資料（根據 GDD）
-        const CITIES_DATA = {
-            'runnan': { name: '汝南', tier: 'C', production: 15, position: { x: 400, y: 350 }, owner: 'player', garrison: { infantry: 50, cavalry: 0 } },
-            'chenliu': { name: '陳留', tier: 'D', production: 5, position: { x: 350, y: 200 }, owner: null, garrison: { infantry: 30, cavalry: 0 } },
-            'xiaopei': { name: '小沛', tier: 'D', production: 5, position: { x: 500, y: 180 }, owner: null, garrison: { infantry: 30, cavalry: 0 } },
-            'xinye': { name: '新野', tier: 'D', production: 5, position: { x: 320, y: 400 }, owner: null, garrison: { infantry: 20, cavalry: 0 } },
-            'shangyong': { name: '上庸', tier: 'D', production: 5, position: { x: 250, y: 450 }, owner: null, garrison: { infantry: 20, cavalry: 0 } },
-            'wancheng': { name: '宛城', tier: 'C', production: 15, position: { x: 300, y: 320 }, owner: null, garrison: { infantry: 80, cavalry: 0 } },
-            'xiangyang': { name: '襄陽', tier: 'B', production: 30, position: { x: 280, y: 380 }, owner: null, garrison: { infantry: 200, cavalry: 0 } },
-            'hanzhong': { name: '漢中', tier: 'B', production: 30, position: { x: 180, y: 400 }, owner: null, garrison: { infantry: 200, cavalry: 0 } },
-            'xuchang': { name: '許昌', tier: 'A', production: 60, position: { x: 380, y: 280 }, owner: null, garrison: { infantry: 300, cavalry: 100 } },
-            'luoyang': { name: '洛陽', tier: 'S', production: 100, position: { x: 350, y: 250 }, owner: null, garrison: { infantry: 500, cavalry: 300 } }
-        };
+<div id="city-panel" class="po" onclick="if(event.target===this)cpClose()">
+ <div class="pn">
+  <h2 id="cp-t">🏯</h2>
+  <div id="cp-i"></div>
+  <div class="act-btns" id="cp-a"></div>
+  <button class="cls" onclick="cpClose()">✕ 關閉</button>
+ </div>
+</div>
 
-        // 城池連接（道路）
-        const CITY_CONNECTIONS = {
-            'runnan': ['chenliu', 'wancheng', 'xinye', 'xuchang'],
-            'chenliu': ['runnan', 'xiaopei', 'xuchang'],
-            'xiaopei': ['chenliu', 'xuchang'],
-            'xinye': ['runnan', 'wancheng', 'xiangyang'],
-            'shangyong': ['xinye', 'hanzhong'],
-            'wancheng': ['runnan', 'xinye', 'xiangyang', 'xuchang'],
-            'xiangyang': ['xinye', 'wancheng', 'hanzhong'],
-            'hanzhong': ['xiangyang', 'shangyong'],
-            'xuchang': ['runnan', 'chenliu', 'xiaopei', 'wancheng', 'luoyang'],
-            'luoyang': ['xuchang']
-        };
+<div id="train-panel" class="po" onclick="if(event.target===this)tpClose()">
+ <div class="pn">
+  <h2>⚔️ 訓練部隊</h2>
+  <div class="tr"><span>🗡️步兵(1.5)</span><input type="number" id="ti" value="10" min="0" max="999" oninput="tpCost()"></div>
+  <div class="tr"><span>🐴騎兵(3.0)</span><input type="number" id="tc" value="5" min="0" max="999" oninput="tpCost()"></div>
+  <div id="t-cost" style="text-align:center;color:#ffd700;padding:6px;font-size:13px">費用: 30 tKAS</div>
+  <div class="act-btns">
+   <button onclick="tpOk()">✅ 訓練</button>
+   <button class="cls" onclick="tpClose()">取消</button>
+  </div>
+ </div>
+</div>
 
-        // 遊戲狀態
-        let gameState = {
-            player: {
-                name: '玩家',
-                kasBalance: 100,
-                cities: ['runnan'],
-                totalTroops: 50
-            },
-            cities: JSON.parse(JSON.stringify(CITIES_DATA)), // 深複製
-            marches: [],
-            selectedCity: null,
-            marchFrom: null,
-            marchTo: null,
-            lastProduction: Date.now()
-        };
+<div id="march-panel" class="po" onclick="if(event.target===this)mpClose()">
+ <div class="pn">
+  <h2>🐴 出兵</h2>
+  <div id="m-from" style="text-align:center;padding:3px;color:#6af;font-size:13px"></div>
+  <div class="tr"><span>🗡️步兵</span><input type="number" id="mi" value="0" min="0"></div>
+  <div class="tr"><span>🐴騎兵</span><input type="number" id="mc2" value="0" min="0"></div>
+  <label style="font-size:13px">🎯 目標:</label>
+  <select id="m-tgt"></select>
+  <div id="m-info" style="text-align:center;color:#777;padding:3px;font-size:11px"></div>
+  <div class="act-btns">
+   <button onclick="mpOk()">⚔️ 出征！</button>
+   <button class="cls" onclick="mpClose()">取消</button>
+  </div>
+ </div>
+</div>
 
-        // Canvas 和渲染
-        let canvas, ctx, animationId;
+<div id="find-panel" class="po" onclick="if(event.target===this)fpClose()">
+ <div class="pn">
+  <h2>🔍 定位</h2>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+   <label style="font-size:13px">X:</label><input type="number" id="fp-x" min="0" max="60" style="width:50px;padding:5px;border:1px solid #444;border-radius:4px;background:#1a1a2e;color:#fff;text-align:center;font-size:14px">
+   <label style="font-size:13px">Y:</label><input type="number" id="fp-y" min="0" max="45" style="width:50px;padding:5px;border:1px solid #444;border-radius:4px;background:#1a1a2e;color:#fff;text-align:center;font-size:14px">
+   <button onclick="fpGo()" style="padding:6px 12px">前往</button>
+  </div>
+  <div style="font-size:11px;color:#666;margin-bottom:8px">地圖範圍: (0,0)~(60,45) | 點擊城池名跳轉</div>
+  <div id="fp-list" style="max-height:40vh;overflow-y:auto"></div>
+  <button class="cls" onclick="fpClose()">✕ 關閉</button>
+ </div>
+</div>
 
-        // 初始化遊戲
-        function initGame() {
-            console.log('🎮 初始化 KAS 三國志...');
-            
-            // 載入存檔
-            loadGameState();
-            
-            // 設置 Canvas
-            setupCanvas();
-            
-            // 開始遊戲循環
-            gameLoop();
-            
-            // 開始產出計時器
-            setInterval(processProduction, GAME_CONFIG.PRODUCTION_INTERVAL);
-            
-            // 隱藏載入畫面
-            document.getElementById('loadingScreen').style.display = 'none';
-            
-            console.log('✅ 遊戲初始化完成');
-        }
+<div id="toast"></div>
 
-        // 設置 Canvas
-        function setupCanvas() {
-            canvas = document.getElementById('gameCanvas');
-            ctx = canvas.getContext('2d');
-            
-            // 設置 Canvas 尺寸
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            
-            // 添加觸控事件
-            canvas.addEventListener('click', handleCanvasClick);
-            canvas.addEventListener('touchstart', handleTouch, { passive: false });
-        }
+<script>
+// ====== MAP DATA ======
+const MW=1300, MH=900;
 
-        // 調整 Canvas 尺寸
-        function resizeCanvas() {
-            const container = document.getElementById('gameContainer');
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-        }
+const GS=40; // grid size
+const C={
+ // 司隸·中原
+ luoyang:{n:'洛陽',t:'S',x:600,y:300,p:100,o:'npc',g:{i:500,c:100},d:3,r:'中原'},
+ changan:{n:'長安',t:'S',x:420,y:290,p:90,o:'npc',g:{i:450,c:150},d:3,r:'關中'},
+ xuchang:{n:'許昌',t:'A',x:700,y:350,p:60,o:'npc',g:{i:300,c:100},d:2,r:'中原'},
+ yecheng:{n:'鄴城',t:'A',x:680,y:220,p:60,o:'npc',g:{i:350,c:80},d:2,r:'河北'},
+ // 河北
+ jicheng:{n:'薊城',t:'A',x:760,y:90,p:55,o:'npc',g:{i:300,c:120},d:2,r:'幽州'},
+ nanpi:{n:'南皮',t:'C',x:780,y:160,p:15,o:'npc',g:{i:100,c:20},d:1,r:'冀州'},
+ pingyuan:{n:'平原',t:'D',x:790,y:230,p:8,o:'npc',g:{i:40,c:0},d:1,r:'冀州'},
+ zhongshan:{n:'中山',t:'C',x:710,y:150,p:15,o:'npc',g:{i:80,c:30},d:1,r:'冀州'},
+ // 關中·西北
+ tianshui:{n:'天水',t:'B',x:280,y:310,p:25,o:'npc',g:{i:200,c:60},d:2,r:'雍州'},
+ anding:{n:'安定',t:'C',x:310,y:250,p:12,o:'npc',g:{i:100,c:30},d:1,r:'雍州'},
+ wuwei:{n:'武威',t:'C',x:180,y:200,p:10,o:'npc',g:{i:80,c:40},d:1,r:'涼州'},
+ jincheng:{n:'金城',t:'D',x:220,y:280,p:5,o:'npc',g:{i:50,c:20},d:1,r:'涼州'},
+ // 中原
+ chenliu:{n:'陳留',t:'B',x:730,y:300,p:30,o:'npc',g:{i:200,c:50},d:2,r:'兗州'},
+ puyang:{n:'濮陽',t:'C',x:720,y:260,p:15,o:'npc',g:{i:100,c:30},d:1,r:'兗州'},
+ runan:{n:'汝南',t:'C',x:730,y:420,p:15,o:'npc',g:{i:50,c:0},d:1,r:'豫州'},
+ wancheng:{n:'宛城',t:'B',x:620,y:420,p:25,o:'npc',g:{i:150,c:30},d:2,r:'荊州'},
+ // 徐州
+ xiaopei:{n:'小沛',t:'D',x:830,y:310,p:8,o:'npc',g:{i:30,c:0},d:1,r:'徐州'},
+ xiapi:{n:'下邳',t:'B',x:850,y:360,p:25,o:'npc',g:{i:150,c:40},d:2,r:'徐州'},
+ langya:{n:'琅琊',t:'C',x:880,y:270,p:12,o:'npc',g:{i:80,c:10},d:1,r:'徐州'},
+ guangling:{n:'廣陵',t:'C',x:890,y:410,p:15,o:'npc',g:{i:100,c:20},d:1,r:'徐州'},
+ // 荊州
+ xiangyang:{n:'襄陽',t:'A',x:600,y:470,p:50,o:'npc',g:{i:250,c:50},d:2,r:'荊州'},
+ xinye:{n:'新野',t:'D',x:650,y:430,p:5,o:'npc',g:{i:30,c:0},d:1,r:'荊州'},
+ jiangling:{n:'江陵',t:'A',x:560,y:540,p:45,o:'npc',g:{i:220,c:40},d:2,r:'荊州'},
+ changsha:{n:'長沙',t:'B',x:650,y:620,p:30,o:'npc',g:{i:150,c:20},d:2,r:'荊州'},
+ wuling:{n:'武陵',t:'C',x:540,y:590,p:12,o:'npc',g:{i:60,c:0},d:1,r:'荊州'},
+ lingling:{n:'零陵',t:'C',x:590,y:680,p:10,o:'npc',g:{i:50,c:0},d:1,r:'荊州'},
+ guiyang:{n:'桂陽',t:'D',x:700,y:660,p:8,o:'npc',g:{i:40,c:0},d:1,r:'荊州'},
+ shangyong:{n:'上庸',t:'D',x:510,y:410,p:5,o:'npc',g:{i:30,c:0},d:1,r:'荊州'},
+ // 揚州·江東
+ jianye:{n:'建業',t:'S',x:920,y:470,p:80,o:'npc',g:{i:400,c:80},d:3,r:'揚州'},
+ shouchun:{n:'壽春',t:'B',x:820,y:400,p:25,o:'npc',g:{i:150,c:30},d:2,r:'揚州'},
+ lujiang:{n:'廬江',t:'C',x:850,y:470,p:12,o:'npc',g:{i:80,c:10},d:1,r:'揚州'},
+ chaisang:{n:'柴桑',t:'C',x:780,y:510,p:15,o:'npc',g:{i:100,c:20},d:1,r:'揚州'},
+ wuchang:{n:'武昌',t:'B',x:700,y:520,p:30,o:'npc',g:{i:180,c:30},d:2,r:'揚州'},
+ kuaiji:{n:'會稽',t:'B',x:1010,y:520,p:30,o:'npc',g:{i:150,c:20},d:2,r:'揚州'},
+ wujun:{n:'吳郡',t:'B',x:980,y:470,p:30,o:'npc',g:{i:140,c:20},d:2,r:'揚州'},
+ // 益州·蜀
+ chengdu:{n:'成都',t:'S',x:330,y:540,p:80,o:'npc',g:{i:400,c:60},d:3,r:'益州'},
+ hanzhong:{n:'漢中',t:'A',x:420,y:400,p:40,o:'npc',g:{i:250,c:50},d:2,r:'益州'},
+ jiameng:{n:'葭萌',t:'D',x:360,y:460,p:5,o:'npc',g:{i:40,c:0},d:1,r:'益州'},
+ mianzhu:{n:'綿竹',t:'C',x:340,y:500,p:12,o:'npc',g:{i:80,c:10},d:1,r:'益州'},
+ jiangzhou:{n:'江州',t:'C',x:430,y:560,p:15,o:'npc',g:{i:100,c:20},d:1,r:'益州'},
+ jianwei:{n:'犍為',t:'D',x:300,y:590,p:5,o:'npc',g:{i:30,c:0},d:1,r:'益州'},
+ nanzhong:{n:'南中',t:'C',x:280,y:670,p:10,o:'npc',g:{i:80,c:20},d:1,r:'益州'},
+ yongchang:{n:'永昌',t:'D',x:180,y:660,p:5,o:'npc',g:{i:40,c:10},d:1,r:'益州'},
+ // 交州
+ panyu:{n:'番禺',t:'B',x:700,y:760,p:20,o:'npc',g:{i:120,c:10},d:1,r:'交州'},
+ jiaozhi:{n:'交趾',t:'C',x:450,y:780,p:8,o:'npc',g:{i:60,c:0},d:1,r:'交州'},
+ // 遼東
+ liaodong:{n:'遼東',t:'C',x:920,y:60,p:12,o:'npc',g:{i:100,c:40},d:1,r:'幽州'},
+};
+// Auto-calculate grid coords
+for(const[id,c]of Object.entries(C)){c.gx=Math.round(c.x/GS);c.gy=Math.round(c.y/GS)}
 
-        // 主遊戲循環
-        function gameLoop() {
-            // 清除畫布
-            ctx.fillStyle = '#0a0a1a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // 繪製地圖
-            drawMap();
-            
-            // 繪製城池
-            drawCities();
-            
-            // 繪製行軍箭頭
-            drawMarches();
-            
-            // 更新 HUD
-            updateHUD();
-            
-            // 處理行軍
-            processMarches();
-            
-            // 請求下一幀
-            animationId = requestAnimationFrame(gameLoop);
-        }
+// === 道路系統（參考光榮三國志11/13/14 路線圖）===
+// 城池之間有固定道路，軍隊沿道路行軍
+const R=[
+ // ── 司隸·中原核心 ──
+ ['luoyang','changan'],   // 崤函道（函谷關）
+ ['luoyang','xuchang'],   // 洛陽→許昌（潁川）
+ ['luoyang','chenliu'],   // 洛陽→陳留（開封）
+ ['xuchang','chenliu'],   // 許昌↔陳留
+ ['xuchang','runan'],     // 許昌→汝南（穎水南下）
+ ['xuchang','wancheng'],  // 許昌→宛城（經潁川南陽）
+ ['chenliu','puyang'],    // 陳留↔濮陽
 
-        // 繪製地圖背景和道路
-        function drawMap() {
-            // 繪製道路連接
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            
-            for (const [cityId, connections] of Object.entries(CITY_CONNECTIONS)) {
-                const city = gameState.cities[cityId];
-                if (!city) continue;
-                
-                connections.forEach(connectedCityId => {
-                    const connectedCity = gameState.cities[connectedCityId];
-                    if (!connectedCity) return;
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(city.position.x, city.position.y);
-                    ctx.lineTo(connectedCity.position.x, connectedCity.position.y);
-                    ctx.stroke();
-                });
-            }
-            
-            ctx.setLineDash([]);
-        }
+ // ── 河北 ──
+ ['puyang','yecheng'],    // 濮陽→鄴城（渡河北上）
+ ['puyang','pingyuan'],   // 濮陽→平原
+ ['yecheng','zhongshan'], // 鄴城↔中山（太行東麓）
+ ['yecheng','pingyuan'],  // 鄴城↔平原
+ ['zhongshan','nanpi'],   // 中山↔南皮
+ ['zhongshan','jicheng'], // 中山↔薊城（北上幽州）
+ ['nanpi','jicheng'],     // 南皮↔薊城
+ ['jicheng','liaodong'],  // 薊城→遼東（遼西走廊）
 
-        // 繪製城池
-        function drawCities() {
-            for (const [cityId, city] of Object.entries(gameState.cities)) {
-                const x = city.position.x;
-                const y = city.position.y;
-                
-                // 城池圓圈大小根據等級
-                const radius = getTierRadius(city.tier);
-                
-                // 城池顏色
-                const isPlayerCity = city.owner === 'player';
-                const cityColor = isPlayerCity ? '#4a90d9' : '#666666';
-                
-                // 繪製光暈效果
-                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 1.5);
-                gradient.addColorStop(0, cityColor + '40');
-                gradient.addColorStop(1, 'transparent');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(x - radius * 1.5, y - radius * 1.5, radius * 3, radius * 3);
-                
-                // 繪製城池圓圈
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = cityColor;
-                ctx.fill();
-                ctx.strokeStyle = '#ffd700';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // 繪製城池名稱
-                ctx.fillStyle = '#ffd700';
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(city.name, x, y - radius - 15);
-                
-                // 繪製兵力資訊
-                const totalGarrison = city.garrison.infantry + city.garrison.cavalry;
-                if (totalGarrison > 0) {
-                    ctx.font = '10px Arial';
-                    ctx.fillStyle = isPlayerCity ? '#87ceeb' : '#cccccc';
-                    ctx.fillText(`🛡️${totalGarrison}`, x, y + radius + 20);
-                }
-            }
-        }
+ // ── 徐州 ──
+ ['chenliu','xiaopei'],   // 陳留→小沛（東出徐州）
+ ['xiaopei','xiapi'],     // 小沛↔下邳（泗水沿線）
+ ['xiapi','guangling'],   // 下邳→廣陵（南下淮河）
+ ['xiapi','langya'],      // 下邳→琅琊（東北沂水）
+ ['langya','pingyuan'],   // 琅琊→平原（經青州）
 
-        // 根據等級獲取城池半徑
-        function getTierRadius(tier) {
-            const radii = { 'S': 25, 'A': 22, 'B': 18, 'C': 15, 'D': 12 };
-            return radii[tier] || 12;
-        }
+ // ── 關中·西北 ──
+ ['changan','anding'],    // 長安→安定（北出蕭關）
+ ['changan','tianshui'],  // 長安→天水（隴關道）
+ ['changan','hanzhong'],  // 長安→漢中（褒斜道，翻秦嶺）
+ ['changan','wancheng'],  // 長安→宛城（武關道）
+ ['tianshui','anding'],   // 天水↔安定
+ ['tianshui','jincheng'], // 天水→金城
+ ['tianshui','hanzhong'], // 天水→漢中（祁山道，諸葛亮北伐）
+ ['anding','jincheng'],   // 安定↔金城
+ ['jincheng','wuwei'],    // 金城→武威（河西走廊）
 
-        // 繪製行軍箭頭
-        function drawMarches() {
-            const currentTime = Date.now();
-            
-            gameState.marches.forEach(march => {
-                if (march.status !== 'marching') return;
-                
-                const fromCity = gameState.cities[march.from];
-                const toCity = gameState.cities[march.to];
-                if (!fromCity || !toCity) return;
-                
-                // 計算行軍進度
-                const progress = Math.min(1, (currentTime - march.startTime) / march.duration);
-                
-                // 計算當前位置
-                const currentX = fromCity.position.x + (toCity.position.x - fromCity.position.x) * progress;
-                const currentY = fromCity.position.y + (toCity.position.y - fromCity.position.y) * progress;
-                
-                // 繪製行軍箭頭
-                ctx.save();
-                ctx.translate(currentX, currentY);
-                
-                // 計算箭頭角度
-                const angle = Math.atan2(toCity.position.y - fromCity.position.y, toCity.position.x - fromCity.position.x);
-                ctx.rotate(angle);
-                
-                // 繪製箭頭
-                ctx.fillStyle = '#ff6b6b';
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(-15, -5);
-                ctx.lineTo(-10, 0);
-                ctx.lineTo(-15, 5);
-                ctx.closePath();
-                ctx.fill();
-                
-                // 繪製兵力數量
-                ctx.rotate(-angle);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 10px Arial';
-                ctx.textAlign = 'center';
-                const totalTroops = march.troops.infantry + march.troops.cavalry;
-                ctx.fillText(`⚔️${totalTroops}`, 0, -15);
-                
-                ctx.restore();
-            });
-        }
+ // ── 蜀道 ──
+ ['hanzhong','shangyong'], // 漢中↔上庸
+ ['hanzhong','jiameng'],  // 漢中→葭萌（金牛道北段）
+ ['jiameng','mianzhu'],   // 葭萌→綿竹
+ ['mianzhu','chengdu'],   // 綿竹→成都
 
-        // 更新 HUD
-        function updateHUD() {
-            document.getElementById('kasBalance').textContent = Math.floor(gameState.player.kasBalance);
-            document.getElementById('cityCount').textContent = gameState.player.cities.length;
-            
-            // 計算總兵力
-            let totalTroops = 0;
-            gameState.player.cities.forEach(cityId => {
-                const city = gameState.cities[cityId];
-                if (city) {
-                    totalTroops += city.garrison.infantry + city.garrison.cavalry;
-                }
-            });
-            document.getElementById('totalTroops').textContent = totalTroops;
-        }
+ // ── 荊州（荊襄道）──
+ ['wancheng','xinye'],    // 宛城→新野
+ ['wancheng','runan'],    // 宛城↔汝南（南陽→豫州）
+ ['xinye','xiangyang'],   // 新野→襄陽（隔漢水）
+ ['xiangyang','jiangling'],// 襄陽→江陵
+ ['xiangyang','shangyong'],// 襄陽→上庸（西出房陵）
+ ['jiangling','wuling'],  // 江陵→武陵
+ ['jiangling','changsha'], // 江陵→長沙（經洞庭湖）
+ ['changsha','guiyang'],  // 長沙→桂陽
+ ['changsha','lingling'], // 長沙→零陵（湘水上游）
+ ['wuling','lingling'],   // 武陵↔零陵
 
-        // 處理 Canvas 點擊
-        function handleCanvasClick(event) {
-            const rect = canvas.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            
-            // 檢查是否點擊了城池
-            for (const [cityId, city] of Object.entries(gameState.cities)) {
-                const distance = Math.sqrt(
-                    Math.pow(x - city.position.x, 2) + 
-                    Math.pow(y - city.position.y, 2)
-                );
-                
-                if (distance <= getTierRadius(city.tier)) {
-                    openCityPanel(cityId);
-                    return;
-                }
-            }
-        }
+ // ── 淮河流域 ──
+ ['runan','shouchun'],    // 汝南→壽春（淮河東行）
+ ['shouchun','lujiang'],  // 壽春→廬江
+ ['shouchun','guangling'], // 壽春→廣陵
+ ['runan','xinye'],       // 汝南→新野（經義陽）
 
-        // 處理觸控事件
-        function handleTouch(event) {
-            event.preventDefault();
-            const touch = event.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            
-            // 檢查是否觸控了城池
-            for (const [cityId, city] of Object.entries(gameState.cities)) {
-                const distance = Math.sqrt(
-                    Math.pow(x - city.position.x, 2) + 
-                    Math.pow(y - city.position.y, 2)
-                );
-                
-                if (distance <= getTierRadius(city.tier) + 10) { // 觸控區域稍大一些
-                    openCityPanel(cityId);
-                    return;
-                }
-            }
-        }
+ // ── 長江水路（東吳命脈）──
+ ['jiangling','wuchang'],  // 江陵→武昌（長江水路）
+ ['wuchang','chaisang'],  // 武昌→柴桑
+ ['chaisang','lujiang'],  // 柴桑→廬江
+ ['lujiang','jianye'],    // 廬江→建業
+ ['jianye','guangling'],  // 建業↔廣陵（隔江相望）
+ ['jianye','wujun'],      // 建業→吳郡
+ ['wujun','kuaiji'],      // 吳郡→會稽
 
-        // 開啟城池面板
-        function openCityPanel(cityId) {
-            const city = gameState.cities[cityId];
-            if (!city) return;
-            
-            gameState.selectedCity = cityId;
-            
-            // 更新面板資訊
-            document.getElementById('cityName').textContent = city.name;
-            document.getElementById('cityLevel').textContent = city.tier;
-            document.getElementById('cityProduction').textContent = `${city.production}/時`;
-            document.getElementById('cityInfantry').textContent = city.garrison.infantry;
-            document.getElementById('cityCavalry').textContent = city.garrison.cavalry;
-            
-            // 生成按鈕
-            const actionsDiv = document.getElementById('cityActions');
-            actionsDiv.innerHTML = '';
-            
-            if (city.owner === 'player') {
-                // 玩家城池按鈕
-                actionsDiv.innerHTML = `
-                    <button class="btn" onclick="trainTroops('infantry')">練兵 - 步兵 (${GAME_CONFIG.TROOP_COST.infantry} tKAS)</button>
-                    <button class="btn" onclick="trainTroops('cavalry')">練兵 - 騎兵 (${GAME_CONFIG.TROOP_COST.cavalry} tKAS)</button>
-                    <button class="btn" onclick="openMarchPanel()">出兵</button>
-                `;
-            } else {
-                // 敵方城池按鈕
-                actionsDiv.innerHTML = `
-                    <button class="btn btn-attack" onclick="openMarchPanel()">攻打此城</button>
-                `;
-            }
-            
-            // 顯示面板
-            document.getElementById('cityPanel').style.display = 'block';
-            document.getElementById('cityPanel').classList.add('fade-in');
-        }
+ // ── 益州內部 ──
+ ['chengdu','jiangzhou'],  // 成都→江州（沿長江）
+ ['chengdu','jianwei'],   // 成都→犍為
+ ['jiangzhou','jiangling'],// 江州→江陵（三峽水路！）
+ ['jianwei','nanzhong'],  // 犍為→南中
+ ['nanzhong','yongchang'], // 南中→永昌
 
-        // 關閉城池面板
-        function closeCityPanel() {
-            document.getElementById('cityPanel').style.display = 'none';
-            gameState.selectedCity = null;
-        }
+ // ── 嶺南·交州 ──
+ ['guiyang','panyu'],     // 桂陽→番禺（翻南嶺）
+ ['lingling','panyu'],    // 零陵→番禺（靈渠水路）
+ ['panyu','jiaozhi'],     // 番禺→交趾
+ ['nanzhong','jiaozhi'],  // 南中→交趾
+];
 
-        // 訓練兵種
-        function trainTroops(troopType) {
-            const cost = GAME_CONFIG.TROOP_COST[troopType];
-            
-            if (gameState.player.kasBalance < cost) {
-                alert('tKAS 不足！');
-                return;
-            }
-            
-            const cityId = gameState.selectedCity;
-            const city = gameState.cities[cityId];
-            
-            if (!city || city.owner !== 'player') {
-                alert('無法在此城訓練兵種！');
-                return;
-            }
-            
-            // 扣除費用，增加兵種
-            gameState.player.kasBalance -= cost;
-            city.garrison[troopType] += 1;
-            
-            // 更新面板顯示
-            openCityPanel(cityId);
-            
-            // 儲存遊戲
-            saveGameState();
-            
-            console.log(`✅ 訓練了1個${troopType}，剩餘 ${gameState.player.kasBalance} tKAS`);
-        }
+// 距離計算
+function cityDist(a,b){
+  const ca=C[a],cb=C[b];
+  return Math.sqrt((ca.x-cb.x)**2+(ca.y-cb.y)**2);
+}
 
-        // 開啟行軍面板
-        function openMarchPanel() {
-            const selectedCityId = gameState.selectedCity;
-            const selectedCity = gameState.cities[selectedCityId];
-            
-            if (!selectedCity) return;
-            
-            if (selectedCity.owner === 'player') {
-                // 從玩家城池出兵，選擇目標
-                gameState.marchFrom = selectedCityId;
-                gameState.marchTo = null;
-                
-                document.getElementById('marchTarget').textContent = '選擇目標';
-                document.getElementById('availableInfantry').textContent = selectedCity.garrison.infantry;
-                document.getElementById('availableCavalry').textContent = selectedCity.garrison.cavalry;
-                document.getElementById('marchInfantry').max = selectedCity.garrison.infantry;
-                document.getElementById('marchCavalry').max = selectedCity.garrison.cavalry;
-                
-                alert('請點擊地圖上的目標城池');
-                closeCityPanel();
-                
-                // 設置選擇目標模式
-                setupTargetSelection();
-                
-            } else {
-                // 攻打敵方城池，找玩家最近的城
-                const playerCities = gameState.player.cities;
-                if (playerCities.length === 0) {
-                    alert('你沒有城池可以出兵！');
-                    return;
-                }
-                
-                // 簡單選擇第一個城池作為出發點
-                gameState.marchFrom = playerCities[0];
-                gameState.marchTo = selectedCityId;
-                
-                showMarchPanel();
-            }
-        }
+// 行軍時間（秒）= 距離/速度
+function calcMarchTime(fromId,toId,troops){
+  const dist=cityDist(fromId,toId);
+  let speed=0.8;
+  if(troops.c>0&&troops.i===0) speed=1.2; // 純騎兵
+  return dist/speed;
+}
 
-        // 設置目標選擇模式
-        function setupTargetSelection() {
-            // 重新設置點擊事件來選擇目標
-            const originalHandler = handleCanvasClick;
-            
-            canvas.onclick = function(event) {
-                const rect = canvas.getBoundingClientRect();
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-                
-                // 檢查是否點擊了城池
-                for (const [cityId, city] of Object.entries(gameState.cities)) {
-                    const distance = Math.sqrt(
-                        Math.pow(x - city.position.x, 2) + 
-                        Math.pow(y - city.position.y, 2)
-                    );
-                    
-                    if (distance <= getTierRadius(city.tier)) {
-                        if (cityId !== gameState.marchFrom) {
-                            gameState.marchTo = cityId;
-                            showMarchPanel();
-                            // 恢復原始點擊處理
-                            canvas.onclick = originalHandler;
-                            return;
-                        }
-                    }
-                }
-            };
-        }
+// 取得鄰接城池
+function conn(id){
+  const r=[];
+  for(const[a,b]of R){if(a===id)r.push(b);if(b===id)r.push(a)}
+  return r;
+}
+function getReachable(id){
+  return conn(id).map(tid=>({id:tid,dist:cityDist(id,tid)}));
+}
 
-        // 顯示行軍面板
-        function showMarchPanel() {
-            const fromCity = gameState.cities[gameState.marchFrom];
-            const toCity = gameState.cities[gameState.marchTo];
-            
-            if (!fromCity || !toCity) return;
-            
-            document.getElementById('marchTarget').textContent = toCity.name;
-            document.getElementById('availableInfantry').textContent = fromCity.garrison.infantry;
-            document.getElementById('availableCavalry').textContent = fromCity.garrison.cavalry;
-            document.getElementById('marchInfantry').max = fromCity.garrison.infantry;
-            document.getElementById('marchCavalry').max = fromCity.garrison.cavalry;
-            document.getElementById('marchInfantry').value = 0;
-            document.getElementById('marchCavalry').value = 0;
-            
-            // 計算行軍時間（簡化版，MVP 用固定時間）
-            const distance = Math.sqrt(
-                Math.pow(toCity.position.x - fromCity.position.x, 2) + 
-                Math.pow(toCity.position.y - fromCity.position.y, 2)
-            );
-            const marchTimeMinutes = Math.max(1, Math.floor(distance / 100)); // 1-3分鐘
-            document.getElementById('marchTime').textContent = `${marchTimeMinutes}分鐘`;
-            
-            // 更新行軍事件監聽器
-            const infantryInput = document.getElementById('marchInfantry');
-            const cavalryInput = document.getElementById('marchCavalry');
-            
-            function updateMarchCost() {
-                const infantry = parseInt(infantryInput.value) || 0;
-                const cavalry = parseInt(cavalryInput.value) || 0;
-                const totalTroops = infantry + cavalry;
-                const cost = Math.ceil(totalTroops * marchTimeMinutes * 0.1);
-                document.getElementById('marchCost').textContent = `${cost} tKAS`;
-            }
-            
-            infantryInput.addEventListener('input', updateMarchCost);
-            cavalryInput.addEventListener('input', updateMarchCost);
-            updateMarchCost();
-            
-            document.getElementById('marchPanel').style.display = 'block';
-            closeCityPanel();
-        }
+// 山脈區域（視覺用）
+const MTN_ZONES = [
+  {x:440,y:350,r:60,n:'秦嶺'},
+  {x:400,y:430,r:35,n:'大巴山'},
+  {x:670,y:190,r:40,n:'太行山'},
+  {x:740,y:110,r:30,n:'燕山'},
+  {x:310,y:480,r:30,n:'岷山'},
+  {x:650,y:710,r:40,n:'南嶺'},
+];
 
-        // 確認出兵
-        function confirmMarch() {
-            const infantry = parseInt(document.getElementById('marchInfantry').value) || 0;
-            const cavalry = parseInt(document.getElementById('marchCavalry').value) || 0;
-            const totalTroops = infantry + cavalry;
-            
-            if (totalTroops === 0) {
-                alert('請選擇要出兵的數量！');
-                return;
-            }
-            
-            const fromCity = gameState.cities[gameState.marchFrom];
-            if (fromCity.garrison.infantry < infantry || fromCity.garrison.cavalry < cavalry) {
-                alert('兵力不足！');
-                return;
-            }
-            
-            const toCity = gameState.cities[gameState.marchTo];
-            const distance = Math.sqrt(
-                Math.pow(toCity.position.x - fromCity.position.x, 2) + 
-                Math.pow(toCity.position.y - fromCity.position.y, 2)
-            );
-            const marchTimeMinutes = Math.max(1, Math.floor(distance / 100));
-            const cost = Math.ceil(totalTroops * marchTimeMinutes * 0.1);
-            
-            if (gameState.player.kasBalance < cost) {
-                alert('tKAS 不足支付糧草！');
-                return;
-            }
-            
-            // 創建行軍
-            const march = {
-                id: Date.now().toString(),
-                from: gameState.marchFrom,
-                to: gameState.marchTo,
-                troops: { infantry, cavalry },
-                startTime: Date.now(),
-                duration: marchTimeMinutes * 60 * 1000, // 轉換為毫秒
-                status: 'marching'
-            };
-            
-            // 扣除兵力和費用
-            fromCity.garrison.infantry -= infantry;
-            fromCity.garrison.cavalry -= cavalry;
-            gameState.player.kasBalance -= cost;
-            
-            // 添加到行軍列表
-            gameState.marches.push(march);
-            
-            closeMarchPanel();
-            saveGameState();
-            
-            console.log(`🚀 出兵前往 ${toCity.name}，預計 ${marchTimeMinutes} 分鐘到達`);
-        }
+const TP={i:{n:'步兵',a:5,df:6,s:1.0,c:1.5},c:{n:'騎兵',a:8,df:3,s:1.5,c:3.0}};
+const TC={S:'#ffd700',A:'#e94560',B:'#6af',C:'#8c8',D:'#777'};
+const TR={S:22,A:18,B:15,C:12,D:10};
 
-        // 關閉行軍面板
-        function closeMarchPanel() {
-            document.getElementById('marchPanel').style.display = 'none';
-            gameState.marchFrom = null;
-            gameState.marchTo = null;
-        }
+// === 多人色盤 ===
+const PCOLORS=['#4488ff','#ff4444','#44cc44','#dddd44','#dd44dd','#44dddd','#dd8844','#8844dd','#ff8888','#88ccff','#88ff88','#ffdd88'];
+const OC_NPC='#555';
 
-        // 處理行軍狀態
-        function processMarches() {
-            const currentTime = Date.now();
-            
-            gameState.marches.forEach((march, index) => {
-                if (march.status !== 'marching') return;
-                
-                // 檢查是否到達
-                if (currentTime >= march.startTime + march.duration) {
-                    // 到達目標城池，開始戰鬥
-                    processBattle(march);
-                    march.status = 'completed';
-                }
-            });
-            
-            // 移除已完成的行軍
-            gameState.marches = gameState.marches.filter(march => march.status !== 'completed');
-        }
+// === 多人狀態 ===
+let myId=null, myColor='#4488ff';
+let world=null; // {players:{id:{color,tk,pwHash}}, cities:{...with owner=playerId|'npc'|null}, marches:[], scouts:[], scoutIntel:{}, version:1}
 
-        // 處理戰鬥
-        function processBattle(march) {
-            const attackerTroops = march.troops;
-            const defenderCity = gameState.cities[march.to];
-            const defenderTroops = defenderCity.garrison;
-            
-            // 計算戰鬥力
-            const attackerPower = 
-                attackerTroops.infantry * GAME_CONFIG.TROOP_STATS.infantry.attack +
-                attackerTroops.cavalry * GAME_CONFIG.TROOP_STATS.cavalry.attack;
-                
-            const defenderPower = 
-                (defenderTroops.infantry * GAME_CONFIG.TROOP_STATS.infantry.defense +
-                defenderTroops.cavalry * GAME_CONFIG.TROOP_STATS.cavalry.defense) * 1.2; // 守城加成
-            
-            let battleResult = {
-                victory: false,
-                attackerLosses: { infantry: 0, cavalry: 0 },
-                defenderLosses: { infantry: 0, cavalry: 0 },
-                cityName: defenderCity.name
-            };
-            
-            if (attackerPower > defenderPower) {
-                // 攻方勝利
-                battleResult.victory = true;
-                
-                // 攻方損失
-                const attackerLossRate = (defenderPower / attackerPower) * 0.6;
-                battleResult.attackerLosses.infantry = Math.floor(attackerTroops.infantry * attackerLossRate);
-                battleResult.attackerLosses.cavalry = Math.floor(attackerTroops.cavalry * attackerLossRate);
-                
-                // 守方全滅
-                battleResult.defenderLosses = { ...defenderTroops };
-                
-                // 佔領城池
-                defenderCity.owner = 'player';
-                defenderCity.garrison.infantry = attackerTroops.infantry - battleResult.attackerLosses.infantry;
-                defenderCity.garrison.cavalry = attackerTroops.cavalry - battleResult.attackerLosses.cavalry;
-                
-                // 添加到玩家城池列表
-                if (!gameState.player.cities.includes(march.to)) {
-                    gameState.player.cities.push(march.to);
-                }
-                
-                // 獲得戰利品
-                const loot = Math.floor(defenderCity.production * 2); // 簡化戰利品計算
-                gameState.player.kasBalance += loot;
-                
-            } else {
-                // 守方勝利
-                battleResult.victory = false;
-                
-                // 守方損失
-                const defenderLossRate = (attackerPower / defenderPower) * 0.4;
-                battleResult.defenderLosses.infantry = Math.floor(defenderTroops.infantry * defenderLossRate);
-                battleResult.defenderLosses.cavalry = Math.floor(defenderTroops.cavalry * defenderLossRate);
-                
-                // 攻方重大損失
-                battleResult.attackerLosses.infantry = Math.floor(attackerTroops.infantry * 0.7);
-                battleResult.attackerLosses.cavalry = Math.floor(attackerTroops.cavalry * 0.7);
-                
-                // 更新守軍
-                defenderCity.garrison.infantry -= battleResult.defenderLosses.infantry;
-                defenderCity.garrison.cavalry -= battleResult.defenderLosses.cavalry;
-            }
-            
-            // 顯示戰報
-            showBattleReport(battleResult);
-            saveGameState();
-        }
+function ownerColor(ownerId){
+  if(!ownerId||ownerId==='npc') return OC_NPC;
+  if(world&&world.players[ownerId]) return world.players[ownerId].color;
+  return OC_NPC;
+}
 
-        // 顯示戰報
-        function showBattleReport(result) {
-            const resultClass = result.victory ? 'victory' : 'defeat';
-            const resultText = result.victory ? '勝利' : '戰敗';
-            
-            const reportContent = `
-                <div class="battle-result ${resultClass}">
-                    ${result.cityName} - ${resultText}
-                </div>
-                <div class="city-info">
-                    <div class="info-item">
-                        <span>攻方損失</span>
-                        <span>步兵 ${result.attackerLosses.infantry}, 騎兵 ${result.attackerLosses.cavalry}</span>
-                    </div>
-                    <div class="info-item">
-                        <span>守方損失</span>
-                        <span>步兵 ${result.defenderLosses.infantry}, 騎兵 ${result.defenderLosses.cavalry}</span>
-                    </div>
-                    ${result.victory ? '<div class="info-item victory"><span>城池已佔領！</span></div>' : ''}
-                </div>
-            `;
-            
-            document.getElementById('battleReportContent').innerHTML = reportContent;
-            document.getElementById('battleReportModal').style.display = 'block';
-        }
+// Simple hash
+function sHash(s){let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h+s.charCodeAt(i))|0;return h.toString(36)}
 
-        // 關閉戰報
-        function closeBattleReport() {
-            document.getElementById('battleReportModal').style.display = 'none';
-        }
+function loadW(){
+  try{
+    const s=localStorage.getItem('kas-sanguo-mp');
+    if(s){const p=JSON.parse(s);if(p&&p.version>=1){world=p;return true}}
+  }catch(e){}
+  return false;
+}
+function saveW(){if(world){world.version=1;try{localStorage.setItem('kas-sanguo-mp',JSON.stringify(world))}catch(e){}}}
+function initWorld(){
+  world={version:1,players:{},marches:[],scouts:[],scoutIntel:{},cities:{}};
+  // Deep copy cities from C template
+  for(const[id,c]of Object.entries(C)){
+    world.cities[id]={o:c.o,g:{i:c.g.i,c:c.g.c},d:c.d};
+  }
+}
+function getCity(id){
+  const w=world.cities[id]||{};
+  const t=C[id]||{};
+  return{...t,...w,g:w.g||t.g,d:w.d!==undefined?w.d:t.d};
+}
+function setCity(id,props){if(!world.cities[id])world.cities[id]={};Object.assign(world.cities[id],props)}
 
-        // 處理產出
-        function processProduction() {
-            let totalProduction = 0;
-            
-            gameState.player.cities.forEach(cityId => {
-                const city = gameState.cities[cityId];
-                if (city) {
-                    totalProduction += city.production;
-                }
-            });
-            
-            gameState.player.kasBalance += totalProduction;
-            
-            console.log(`💰 產出 ${totalProduction} tKAS，總餘額: ${Math.floor(gameState.player.kasBalance)}`);
-            saveGameState();
-        }
+let P={tk:100},marches=[],selCity=null,marchSrc=null;
+// 斥候
+let scouts=[];
+let scoutIntel={};
+const SCOUT_COST=5;
+const SCOUT_SPEED=2.0;
+const SCOUT_INTEL_DURATION=1800;
 
-        // 儲存遊戲狀態
-        function saveGameState() {
-            try {
-                localStorage.setItem('kas-sanguo-save', JSON.stringify(gameState));
-            } catch (e) {
-                console.warn('❌ 儲存遊戲失敗:', e);
-            }
-        }
+// Sync from world state
+function syncFromWorld(){
+  if(!world||!myId)return;
+  const pd=world.players[myId];
+  if(pd) P.tk=pd.tk||0;
+  marches=world.marches||[];
+  scouts=world.scouts||[];
+  scoutIntel=world.scoutIntel||{};
+  // Sync city ownership from world
+  for(const[id,wc]of Object.entries(world.cities)){
+    if(C[id]){C[id].o=wc.o;C[id].g=wc.g;C[id].d=wc.d!==undefined?wc.d:C[id].d}
+  }
+}
+function syncToWorld(){
+  if(!world||!myId)return;
+  if(!world.players[myId])world.players[myId]={};
+  world.players[myId].tk=P.tk;
+  world.marches=marches;
+  world.scouts=scouts;
+  world.scoutIntel=scoutIntel;
+  // Sync cities
+  for(const[id,c]of Object.entries(C)){
+    if(!world.cities[id])world.cities[id]={};
+    world.cities[id].o=c.o;world.cities[id].g={...c.g};world.cities[id].d=c.d;
+  }
+  saveW();
+}
 
-        // 載入遊戲狀態
-        function loadGameState() {
-            try {
-                const saved = localStorage.getItem('kas-sanguo-save');
-                if (saved) {
-                    const loadedState = JSON.parse(saved);
-                    // 合併遊戲狀態，保留新版本的結構
-                    gameState = { ...gameState, ...loadedState };
-                    console.log('📂 載入存檔成功');
-                }
-            } catch (e) {
-                console.warn('❌ 載入存檔失敗:', e);
-            }
-        }
+// ====== FOG OF WAR ======
+// visibility: 0=fog, 1=partial(2 steps), 2=full(adjacent+own)
+function calcVis(){
+ const vis={};
+ // Step 1: own cities = full visibility
+ for(const[id,c]of Object.entries(C)){
+  if(c.o===myId) vis[id]=2;
+ }
+ // Step 2: directly connected to own city = partial (scouts/斥候)
+ for(const[id,c]of Object.entries(C)){
+  if(c.o===myId){
+   for(const nb of conn(id)){
+    if(!vis[nb]) vis[nb]=1;
+   }
+  }
+ }
+ // Step 3: scout intel (full visibility, time-limited)
+ const now=Date.now()/1000;
+ for(const[cid,exp]of Object.entries(scoutIntel)){
+  if(now<exp){if(!vis[cid]||vis[cid]<2) vis[cid]=2}
+  else delete scoutIntel[cid];
+ }
+ return vis;
+}
+// Recalc every frame (scouts change over time)
+function getVis(){ return calcVis(); }
+// Fuzzy number display
+function fuzzy(n){
+ if(n===0)return '0';
+ if(n<50)return '少量';
+ if(n<150)return '約百';
+ if(n<300)return '數百';
+ return '大軍';
+}
+// Is a march visible? (either endpoint or current pos near player vision)
+function marchVisible(m){
+ const vis=getVis();
+ if(vis[m.fr]>=1||vis[m.to]>=1) return true;
+ // Check if current position is near any visible city
+ const now=Date.now()/1000;
+ const pr=Math.min(1,(now-m.st)/(m.at-m.st));
+ const f=C[m.fr],t=C[m.to];
+ const mx=f.x+(t.x-f.x)*pr,my=f.y+(t.y-f.y)*pr;
+ for(const[id,c]of Object.entries(C)){
+  if(vis[id]>=2){
+   const dx=mx-c.x,dy=my-c.y;
+   if(dx*dx+dy*dy<160*160) return true; // within ~4 grid cells
+  }
+ }
+ return false;
+}
 
-        // 重置遊戲（調試用）
-        function resetGame() {
-            if (confirm('確定要重置遊戲嗎？所有進度將會丟失！')) {
-                localStorage.removeItem('kas-sanguo-save');
-                location.reload();
-            }
-        }
+// ====== CANVAS ======
+const cv=document.getElementById('gc'),cx=cv.getContext('2d');
+const mcv=document.getElementById('mc'),mcx=mcv.getContext('2d');
+let W,H;
+function rsz(){W=cv.width=innerWidth;H=cv.height=innerHeight}
+addEventListener('resize',rsz);rsz();
 
-        // 在瀏覽器控制台公開重置函數，方便測試
-        window.resetGame = resetGame;
+// Camera
+let cam={x:0,y:0,z:0.65};
+const ZN=0.3,ZX=2.5,ZS=0.12;
+function s2w(sx,sy){return{x:(sx-W/2)/cam.z+cam.x,y:(sy-H/2)/cam.z+cam.y}}
+function w2s(wx,wy){return{x:(wx-cam.x)*cam.z+W/2,y:(wy-cam.y)*cam.z+H/2}}
 
-        // 頁面載入完成後初始化遊戲
-        document.addEventListener('DOMContentLoaded', initGame);
+function goHome(){
+ for(const c of Object.values(C))if(c.o===myId){cam.x=c.x;cam.y=c.y;return}
+}
+// goHome() called after login
 
-        // 頁面卸載時儲存遊戲
-        window.addEventListener('beforeunload', saveGameState);
+// Input
+let drag=0,ds=null,cs=null,dd=0,pd=null,zs=null;
+cv.addEventListener('pointerdown',e=>{drag=1;ds={x:e.clientX,y:e.clientY};cs={x:cam.x,y:cam.y};dd=0;cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-ds.x,dy=e.clientY-ds.y;dd=Math.sqrt(dx*dx+dy*dy);cam.x=cs.x-dx/cam.z;cam.y=cs.y-dy/cam.z});
+cv.addEventListener('pointerup',e=>{if(drag&&dd<12){const w=s2w(e.clientX,e.clientY);tap(w.x,w.y)}drag=0});
+cv.addEventListener('touchstart',e=>{if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;pd=Math.sqrt(dx*dx+dy*dy);zs=cam.z}},{passive:1});
+cv.addEventListener('touchmove',e=>{if(e.touches.length===2&&pd){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;cam.z=Math.max(ZN,Math.min(ZX,zs*Math.sqrt(dx*dx+dy*dy)/pd))}},{passive:1});
+cv.addEventListener('touchend',()=>{pd=null});
+cv.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(ZN,Math.min(ZX,cam.z-e.deltaY*0.001))},{passive:0});
 
-        console.log('🎮 KAS 三國志 載入完成！');
-        console.log('💡 輸入 resetGame() 可重置遊戲');
-    </script>
+function tap(wx,wy){
+ for(const[id,c]of Object.entries(C)){
+  const r=TR[c.t]+8,dx=wx-c.x,dy=wy-c.y;
+  if(dx*dx+dy*dy<r*r){selCity=id;cpShow(id);return}
+ }
+}
+
+// (terrain data now in MTN_ZONES + RIVERS + REGIONS)
+// 河流（折線）
+const RIVERS=[
+ // 黃河
+ {pts:[[480,320],[540,300],[600,310],[660,340],[720,350],[780,360],[840,370],[900,380],[960,390],[1020,400],[1060,380],[1100,350],[1140,330],[1180,340]],n:'黃河',w:3},
+ // 長江
+ {pts:[[700,650],[750,640],[800,640],[850,630],[900,620],[960,630],[1010,620],[1060,600],[1100,580],[1140,560],[1180,540],[1220,540],[1260,550]],n:'長江',w:3},
+ // 漢水
+ {pts:[[810,500],[860,510],[910,530],[950,550],[980,570],[960,600]],n:'漢水',w:2},
+ // 渭水
+ {pts:[[620,390],[680,385],[740,380],[790,385]],n:'渭水',w:1.5},
+ // 淮河
+ {pts:[[940,490],[980,500],[1040,510],[1100,510],[1150,500],[1200,490]],n:'淮河',w:2},
+ // 湘水
+ {pts:[[980,640],[990,680],[1000,720],[1000,760]],n:'',w:1.5},
+];
+// 區域標籤
+const REGIONS=[
+ {x:760,y:70,n:'幽州'},
+ {x:720,y:180,n:'冀州'},
+ {x:730,y:280,n:'兗州'},
+ {x:440,y:270,n:'關中'},
+ {x:200,y:240,n:'涼州'},
+ {x:710,y:390,n:'豫州'},
+ {x:860,y:330,n:'徐州'},
+ {x:580,y:560,n:'荊州'},
+ {x:900,y:490,n:'揚州'},
+ {x:320,y:580,n:'益州'},
+ {x:580,y:760,n:'交州'},
+];
+
+// ====== RENDER ======
+function draw(){
+ cx.clearRect(0,0,W,H);
+ cx.fillStyle='#0f0f1a';cx.fillRect(0,0,W,H);
+
+ // Grid (aligned to GS=40)
+ const tl=s2w(0,0),br=s2w(W,H);
+ // Major grid lines (every 5 cells = 200px)
+ cx.strokeStyle='rgba(255,255,255,0.03)';cx.lineWidth=1;
+ const mgs=GS*5;
+ for(let gx=Math.floor(tl.x/mgs)*mgs;gx<=br.x;gx+=mgs){const s=w2s(gx,0);cx.beginPath();cx.moveTo(s.x,0);cx.lineTo(s.x,H);cx.stroke()}
+ for(let gy=Math.floor(tl.y/mgs)*mgs;gy<=br.y;gy+=mgs){const s=w2s(0,gy);cx.beginPath();cx.moveTo(0,s.y);cx.lineTo(W,s.y);cx.stroke()}
+ // Minor grid (every cell, only when zoomed in)
+ if(cam.z>0.8){
+  cx.strokeStyle='rgba(255,255,255,0.015)';
+  for(let gx=Math.floor(tl.x/GS)*GS;gx<=br.x;gx+=GS){const s=w2s(gx,0);cx.beginPath();cx.moveTo(s.x,0);cx.lineTo(s.x,H);cx.stroke()}
+  for(let gy=Math.floor(tl.y/GS)*GS;gy<=br.y;gy+=GS){const s=w2s(0,gy);cx.beginPath();cx.moveTo(0,s.y);cx.lineTo(W,s.y);cx.stroke()}
+ }
+ // Grid coord labels on major lines (when zoomed)
+ if(cam.z>0.6){
+  cx.fillStyle='rgba(255,255,255,0.08)';cx.font='9px sans-serif';cx.textAlign='left';
+  for(let gx=Math.floor(tl.x/mgs)*mgs;gx<=br.x;gx+=mgs){
+   const s=w2s(gx,Math.max(tl.y,0));
+   cx.fillText(Math.round(gx/GS),s.x+2,Math.max(s.y+12,54));
+  }
+ }
+
+ // Region labels (text only, no circles)
+ if(cam.z>0.35){
+  for(const rg of REGIONS){
+   const s=w2s(rg.x,rg.y);
+   cx.fillStyle='rgba(255,255,255,0.08)';
+   cx.font=`bold ${Math.max(10,16*cam.z)}px sans-serif`;cx.textAlign='center';
+   cx.fillText(rg.n,s.x,s.y+5*cam.z);
+  }
+ }
+
+ // (Mountains now rendered via MTN_ZONES in fog section)
+
+ // (Rivers hidden for cleaner map)
+
+ // === FOG OF WAR ===
+ const vis=getVis();
+
+ // Mountain labels (text only, no circles)
+ if(cam.z>0.5){
+  cx.fillStyle='rgba(160,130,80,0.25)';cx.textAlign='center';
+  cx.font=`${9*cam.z}px sans-serif`;
+  for(const mtn of MTN_ZONES){
+   const s=w2s(mtn.x,mtn.y);
+   if(s.x<-50||s.x>W+50||s.y<-50||s.y>H+50)continue;
+   cx.fillText('⛰️'+mtn.n,s.x,s.y);
+  }
+ }
+
+ // Roads
+ for(const[a,b]of R){
+  const ca=C[a],cb=C[b];if(!ca||!cb)continue;
+  const sa=w2s(ca.x,ca.y),sb=w2s(cb.x,cb.y);
+  const va=vis[a]||0,vb=vis[b]||0;
+  const maxV=Math.max(va,vb);
+  if(maxV===0){cx.strokeStyle='rgba(255,255,255,0.08)'}
+  else if(maxV===1){cx.strokeStyle='rgba(255,255,255,0.25)'}
+  else{cx.strokeStyle='rgba(255,255,255,0.4)'}
+  cx.lineWidth=2*cam.z;
+  cx.beginPath();cx.moveTo(sa.x,sa.y);cx.lineTo(sb.x,sb.y);cx.stroke();
+ }
+
+ // Scouts on map
+ const now=Date.now()/1000;
+ for(const sc of scouts){
+  const pr=Math.min(1,(now-sc.st)/(sc.at-sc.st));
+  const from=C[sc.phase==='go'?sc.fr:sc.to],to=C[sc.phase==='go'?sc.to:sc.fr];
+  const sx2=from.x+(to.x-from.x)*pr,sy2=from.y+(to.y-from.y)*pr;
+  const s=w2s(sx2,sy2);
+  const goingRight=to.x>from.x;
+  cx.save();
+  cx.translate(s.x,s.y);
+  if(!goingRight) cx.scale(-1,1); // 🏇 預設朝右，往左時翻轉
+  cx.font=`${14*cam.z}px sans-serif`;cx.textAlign='center';
+  cx.fillText('🏇',0,0);
+  cx.restore();
+ }
+
+ // Marches (only visible ones)
+ for(const m of marches){
+  if(!marchVisible(m))continue;
+  const pr=Math.min(1,(now-m.st)/(m.at-m.st));
+  const f=C[m.fr],t=C[m.to];
+  const mx=f.x+(t.x-f.x)*pr,my=f.y+(t.y-f.y)*pr;
+  const s=w2s(mx,my);
+  cx.font=`${18*cam.z}px sans-serif`;cx.textAlign='center';cx.fillText('⚔️',s.x,s.y);
+ }
+
+ // Cities (with fog of war)
+ for(const[id,c]of Object.entries(C)){
+  const s=w2s(c.x,c.y),r=TR[c.t]*cam.z;
+  if(s.x<-50||s.x>W+50||s.y<-50||s.y>H+50)continue;
+  const v=vis[id]||0;
+
+  // Selection glow
+  if(id===selCity){cx.beginPath();cx.arc(s.x,s.y,r+5*cam.z,0,Math.PI*2);cx.fillStyle='rgba(255,215,0,0.25)';cx.fill()}
+
+  // City dot - dimmed in fog
+  cx.beginPath();cx.arc(s.x,s.y,r,0,Math.PI*2);
+  if(v===0){
+   cx.fillStyle='rgba(40,40,50,0.6)';cx.fill();
+   cx.strokeStyle='rgba(100,100,100,0.3)';cx.lineWidth=1*cam.z;cx.stroke();
+  }else if(v===1){
+   cx.fillStyle=ownerColor(c.o)||'#555';cx.globalAlpha=0.7;cx.fill();cx.globalAlpha=1;
+   cx.strokeStyle=TC[c.t];cx.globalAlpha=0.6;cx.lineWidth=1.5*cam.z;cx.stroke();cx.globalAlpha=1;
+  }else{
+   cx.fillStyle=ownerColor(c.o)||'#555';cx.fill();
+   cx.strokeStyle=TC[c.t];cx.lineWidth=1.5*cam.z;cx.stroke();
+  }
+
+  // Name
+  if(cam.z>0.4){
+   cx.fillStyle=v===0?'rgba(255,255,255,0.2)':v===1?'rgba(255,255,255,0.7)':'#fff';
+   cx.font=`bold ${Math.max(8,11*cam.z)}px sans-serif`;cx.textAlign='center';
+   cx.fillText(c.n,s.x,s.y+3*cam.z);
+   if(cam.z>0.9&&v>=2){
+    cx.fillStyle='rgba(255,255,255,0.3)';cx.font=`${7*cam.z}px sans-serif`;
+    cx.fillText(`(${c.gx},${c.gy})`,s.x,s.y+r+20*cam.z);
+   }
+  }
+
+  // Tier + garrison (fog-aware)
+  if(cam.z>0.55){
+   if(v>=1){cx.fillStyle=TC[c.t];cx.globalAlpha=v===1?0.4:1;cx.font=`bold ${9*cam.z}px sans-serif`;cx.textAlign='center';cx.fillText(c.t,s.x,s.y-r-3*cam.z);cx.globalAlpha=1}
+   cx.font=`${8*cam.z}px sans-serif`;cx.textAlign='center';
+   if(v===2){
+    const tot=(c.g.i||0)+(c.g.c||0);
+    cx.fillStyle='rgba(255,255,255,0.5)';cx.fillText(tot,s.x,s.y+r+10*cam.z);
+   }else if(v===1){
+    const tot=(c.g.i||0)+(c.g.c||0);
+    cx.fillStyle='rgba(255,255,255,0.3)';cx.fillText(fuzzy(tot),s.x,s.y+r+10*cam.z);
+   }else{
+    cx.fillStyle='rgba(255,255,255,0.15)';cx.fillText('？',s.x,s.y+r+10*cam.z);
+   }
+  }
+ }
+
+ // Minimap
+ drawMinimap();
+ requestAnimationFrame(draw);
+}
+
+function drawMinimap(){
+ mcx.fillStyle='#0a0a15';mcx.fillRect(0,0,200,150);
+ const sx=200/MW,sy=150/MH;
+ // Rivers on minimap
+ mcx.strokeStyle='rgba(60,120,200,0.3)';mcx.lineWidth=1;
+ // (rivers hidden)
+ // (mountains: text only, no minimap circles)
+ // Roads on minimap
+ mcx.strokeStyle='rgba(255,255,255,0.1)';mcx.lineWidth=0.5;
+ for(const[a,b]of R){const ca=C[a],cb=C[b];if(!ca||!cb)continue;mcx.beginPath();mcx.moveTo(ca.x*sx,ca.y*sy);mcx.lineTo(cb.x*sx,cb.y*sy);mcx.stroke()}
+ // Cities
+ for(const c of Object.values(C)){
+  mcx.fillStyle=ownerColor(c.o)||'#555';
+  mcx.beginPath();mcx.arc(c.x*sx,c.y*sy,c.t==='S'?3:c.t==='A'?2.5:1.5,0,Math.PI*2);mcx.fill();
+ }
+ // Viewport rect
+ const tl=s2w(0,0),br=s2w(W,H);
+ mcx.strokeStyle='#ffd700';mcx.lineWidth=1;
+ mcx.strokeRect(tl.x*sx,tl.y*sy,(br.x-tl.x)*sx,(br.y-tl.y)*sy);
+}
+
+// ====== GAME LOGIC ======
+function hud(){
+ let ct=0,ar=0;
+ for(const c of Object.values(C))if(c.o===myId){ct++;ar+=(c.g.i||0)+(c.g.c||0)}
+ document.getElementById('h-tk').textContent=P.tk;
+ document.getElementById('h-ct').textContent=ct;
+ document.getElementById('h-ar').textContent=ar;
+}
+
+// (Production/March/Scout timers moved to startGameTimers())
+
+// 派遣斥候
+function sendScout(fromId,toId){
+ if(P.tk<SCOUT_COST){toast('❌ tKAS 不足（需要 '+SCOUT_COST+'）');return}
+ P.tk-=SCOUT_COST;
+ const dist=cityDist(fromId,toId);
+ const travelTime=dist/SCOUT_SPEED;
+ const now=Date.now()/1000;
+ scouts.push({fr:fromId,to:toId,st:now,at:now+travelTime,phase:'go'});
+ const secs=Math.round(travelTime);
+ toast(`🏇 斥候出發 → ${C[toId].n}（${secs}秒後到達，回程再${secs}秒）`);
+ syncToWorld();hud();cpClose();
+}
+window.sendScout=sendScout;
+
+function battle(m){
+ const c=C[m.to];
+ const owner=m.owner||myId;
+ // 自己城池 = 輸送
+ if(c.o===owner){
+  c.g.i+=m.tr.i;c.g.c+=m.tr.c;
+  if(owner===myId) toast(`📦 ${c.n} 輸送完成 +🗡️${m.tr.i} 🐴${m.tr.c}`);
+  syncToWorld();hud();return;
+ }
+ let ap=m.tr.i*TP.i.a+m.tr.c*TP.c.a;
+ let dp=(c.g.i*TP.i.df+c.g.c*TP.c.df)*(1+c.d*0.1);
+ if(ap>dp){
+  c.o=owner;c.g={i:m.tr.i,c:m.tr.c};
+  const l=c.p*2;
+  if(owner===myId){P.tk+=l;toast(`✅ 佔領 ${c.n}！+${l} tKAS`)}
+ }else{
+  if(owner===myId) toast(`❌ 攻打 ${c.n} 失敗！`);
+ }
+ syncToWorld();hud();
+}
+
+// ====== PANELS ======
+function cpShow(id){
+ const c=C[id];
+ const icon=c.t==='S'?'🏯':c.t<='B'?'🏰':'🏘';
+ document.getElementById('cp-t').textContent=`${icon} ${c.n} (${c.t}級)`;
+ const tot=(c.g.i||0)+(c.g.c||0);
+ const v=(getVis())[id]||0;
+ const garText=v===2?`🗡️${c.g.i} 🐴${c.g.c} (${tot})`:v===1?`${fuzzy(tot)} (情報不明)`:'❓ 未知';
+ const defText=v>=2?`🛡️Lv.${c.d}`:v===1?'🛡️ 不明':'❓';
+ document.getElementById('cp-i').innerHTML=`
+  <div class="ir"><span>座標</span><span style="color:#888">(${c.gx},${c.gy})</span></div>
+  <div class="ir"><span>所屬</span><span style="color:${ownerColor(c.o)}">${c.o===myId?'👑 己方':c.o==='npc'?c.r:'⚔️ '+c.o}</span></div>
+  <div class="ir"><span>駐軍</span><span>${garText}</span></div>
+  <div class="ir"><span>產出</span><span>💰${v>=1?c.p+'':' ？'}/時</span></div>
+  <div class="ir"><span>城防</span><span>${defText}</span></div>
+  ${v<2?'<div style="text-align:center;color:#e94560;font-size:11px;padding:4px">🌫️ 情報有限 — 派斥候偵查或佔領鄰城</div>':''}`;
+ let a='';
+ if(c.o===myId){
+  a=`<button onclick="tpOpen('${id}')">⚔️ 訓練</button>
+  <button onclick="upDef('${id}')">🛡️ 升城防(${10*(c.d+1)})</button>
+  <button onclick="mpOpen('${id}')">🐴 出兵</button>`;
+ }else{
+  const canAtk=conn(id).some(cid=>C[cid]&&C[cid].o===myId);
+  if(canAtk)a=`<button onclick="mpOpenTo('${id}')">⚔️ 攻打</button>`;
+  // 斥候：己方城池鄰接的非己方城池可派斥候
+  const myCity=conn(id).find(cid=>C[cid]&&C[cid].o===myId);
+  if(myCity&&v<2)a+=`<button onclick="sendScout('${myCity}','${id}')">🏇 派斥候 (${SCOUT_COST}💰)</button>`;
+ }
+ document.getElementById('cp-a').innerHTML=a;
+ document.getElementById('city-panel').classList.add('act');
+}
+function cpClose(){document.getElementById('city-panel').classList.remove('act')}
+
+let trainCity=null;
+function tpOpen(id){trainCity=id;cpClose();document.getElementById('ti').value=10;document.getElementById('tc').value=5;tpCost();document.getElementById('train-panel').classList.add('act')}
+function tpClose(){document.getElementById('train-panel').classList.remove('act')}
+function tpCost(){const i=+(document.getElementById('ti').value)||0,c=+(document.getElementById('tc').value)||0;document.getElementById('t-cost').textContent=`費用: ${Math.ceil(i*1.5+c*3)} tKAS`}
+function tpOk(){
+ const i=+(document.getElementById('ti').value)||0,cv2=+(document.getElementById('tc').value)||0;
+ const cost=Math.ceil(i*1.5+cv2*3);
+ if(cost>P.tk){toast('❌ tKAS 不足');return}
+ const c=C[trainCity];P.tk-=cost;c.g.i+=i;c.g.c+=cv2;
+ toast(`✅ 🗡️${i} 🐴${cv2} 訓練完成`);syncToWorld();hud();tpClose();
+}
+function upDef(id){
+ const c=C[id],cost=10*(c.d+1);
+ if(c.d>=10){toast('已滿級');return}
+ if(P.tk<cost){toast('❌ tKAS 不足');return}
+ P.tk-=cost;c.d++;toast(`🛡️ ${c.n} Lv.${c.d}`);syncToWorld();hud();cpShow(id);
+}
+function mpOpen(fid){
+ marchSrc=fid;cpClose();const c=C[fid];
+ document.getElementById('m-from').textContent=`從: ${c.n}`;
+ document.getElementById('mi').value=0;document.getElementById('mi').max=c.g.i;
+ document.getElementById('mc2').value=0;document.getElementById('mc2').max=c.g.c;
+ const sel=document.getElementById('m-tgt');sel.innerHTML='';
+ const targets=getReachable(fid);
+ const v=getVis();
+ for(const{id:tid,dist}of targets){
+  const t=C[tid];if(!t)continue;
+  const tv=v[tid]||0;
+  const o=document.createElement('option');o.value=tid;
+  const garInfo=tv>=2?` 兵${(t.g.i||0)+(t.g.c||0)}`:tv===1?` ${fuzzy((t.g.i||0)+(t.g.c||0))}`:'';
+  o.textContent=`${t.n}${t.o===myId?' (己方)':''}${garInfo}`;
+  sel.appendChild(o);
+ }
+ document.getElementById('march-panel').classList.add('act');
+}
+function mpOpenTo(tid){
+ cpClose();
+ const pc=conn(tid).find(cid=>C[cid]&&C[cid].o===myId);
+ if(!pc){toast('❌ 無鄰近己城');return}
+ mpOpen(pc);document.getElementById('m-tgt').value=tid;
+}
+function mpClose(){document.getElementById('march-panel').classList.remove('act')}
+function mpOk(){
+ const i=+(document.getElementById('mi').value)||0,cv2=+(document.getElementById('mc2').value)||0;
+ const tid=document.getElementById('m-tgt').value;
+ if(i+cv2===0){toast('❌ 請派兵');return}
+ if(!tid){toast('❌ 選目標');return}
+ const c=C[marchSrc];
+ if(i>c.g.i||cv2>c.g.c){toast('❌ 兵力不足');return}
+ const sc=Math.max(1,Math.round((i+cv2)*0.05));
+ if(P.tk<sc){toast('❌ 糧草不足');return}
+ c.g.i-=i;c.g.c-=cv2;P.tk-=sc;
+ const mt=calcMarchTime(marchSrc,tid,{i,c:cv2});
+ const now=Date.now()/1000;
+ marches.push({fr:marchSrc,to:tid,tr:{i,c:cv2},st:now,at:now+mt,owner:myId});
+ const mins=Math.round(mt/60);
+ toast(`🐴 → ${C[tid].n}！${mins>0?mins+'分':Math.round(mt)+'秒'}`);syncToWorld();hud();mpClose();
+}
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000)}
+
+// Find panel
+function fpOpen(){
+ const list=document.getElementById('fp-list');
+ // Group by region
+ const groups={};
+ for(const[id,c]of Object.entries(C)){
+  if(!groups[c.r])groups[c.r]=[];
+  groups[c.r].push({id,...c});
+ }
+ let html='';
+ for(const[region,cities]of Object.entries(groups)){
+  html+=`<div style="color:#ffd700;font-size:12px;padding:6px 0 2px;border-bottom:1px solid #333">${region}</div>`;
+  for(const c of cities.sort((a,b)=>a.t.localeCompare(b.t))){
+   const clr=ownerColor(c.o)||'#555';
+   html+=`<div onclick="fpJump('${c.id}')" style="display:flex;justify-content:space-between;padding:5px 4px;cursor:pointer;font-size:12px;border-bottom:1px solid #1a1a2e">
+    <span style="color:${clr}">${TC[c.t]?'<span style=color:'+TC[c.t]+'>'+c.t+'</span> ':''} ${c.n}</span>
+    <span style="color:#666">(${c.gx},${c.gy})</span>
+   </div>`;
+  }
+ }
+ list.innerHTML=html;
+ document.getElementById('find-panel').classList.add('act');
+}
+function fpClose(){document.getElementById('find-panel').classList.remove('act')}
+function fpGo(){
+ const gx=+(document.getElementById('fp-x').value)||0;
+ const gy=+(document.getElementById('fp-y').value)||0;
+ cam.x=gx*GS;cam.y=gy*GS;cam.z=1.2;
+ fpClose();
+ // Check if city at this coord
+ for(const[id,c]of Object.entries(C)){
+  if(c.gx===gx&&c.gy===gy){selCity=id;toast(`📍 ${c.n} (${gx},${gy})`);return}
+ }
+ toast(`📍 前往 (${gx},${gy})`);
+}
+function fpJump(id){
+ const c=C[id];cam.x=c.x;cam.y=c.y;cam.z=1.2;selCity=id;fpClose();toast(`📍 ${c.n} (${c.gx},${c.gy})`);
+}
+
+const G={zi(){cam.z=Math.min(ZX,cam.z+ZS)},zo(){cam.z=Math.max(ZN,cam.z-ZS)},home(){goHome()},find(){fpOpen()}};
+
+// ====== 登入系統 ======
+function setupLogin(){
+ const btn=document.getElementById('li-btn');
+ const idIn=document.getElementById('li-id');
+ const pwIn=document.getElementById('li-pw');
+ const errDiv=document.getElementById('li-err');
+
+ function showErr(m){errDiv.textContent=m;errDiv.style.display='block'}
+
+ function doLogin(){
+  const id=idIn.value.trim();
+  const pw=pwIn.value.trim();
+  if(!id){showErr('請輸入 ID');return}
+  if(!pw||pw.length<4||pw.length>8||!/^\d+$/.test(pw)){showErr('密碼需為 4-8 位數字');return}
+  const pwHash=sHash(id+':'+pw);
+
+  if(!loadW()){initWorld()}
+
+  if(world.players[id]){
+   // 驗證密碼
+   if(world.players[id].pwHash!==pwHash){showErr('密碼錯誤！');return}
+  }else{
+   // 新玩家
+   const usedColors=Object.values(world.players).map(p=>p.color);
+   const color=PCOLORS.find(c=>!usedColors.includes(c))||PCOLORS[Math.floor(Math.random()*PCOLORS.length)];
+
+   // 隨機出生在 C/D 無主城
+   const candidates=Object.entries(C).filter(([cid])=>{
+    const wc=world.cities[cid];
+    const ow=wc?wc.o:C[cid].o;
+    return (ow==='npc'||!ow)&&(C[cid].t==='C'||C[cid].t==='D');
+   });
+   if(candidates.length===0){showErr('沒有可用的出生城池！');return}
+   const[spawnId]=candidates[Math.floor(Math.random()*candidates.length)];
+
+   world.players[id]={color,tk:100,pwHash};
+   world.cities[spawnId]={o:id,g:{i:50,c:0},d:world.cities[spawnId]?world.cities[spawnId].d:1};
+  }
+
+  myId=id;
+  myColor=world.players[id].color;
+  syncFromWorld();
+
+  document.getElementById('loginModal').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('p-dot').style.background=myColor;
+  document.getElementById('p-name').textContent=id;
+  errDiv.style.display='none';
+
+  goHome();hud();draw();
+ }
+
+ btn.addEventListener('click',doLogin);
+ idIn.addEventListener('keydown',e=>{if(e.key==='Enter')pwIn.focus()});
+ pwIn.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+}
+
+function doLogout(){
+ syncToWorld();
+ myId=null;
+ document.getElementById('hud').style.display='none';
+ document.getElementById('loginModal').style.display='flex';
+ document.getElementById('li-id').value='';
+ document.getElementById('li-pw').value='';
+}
+
+// 產出和行軍改為 sync
+function startGameTimers(){
+ // Production
+ setInterval(()=>{
+  if(!myId)return;
+  loadW();syncFromWorld();
+  let pr=0;for(const c of Object.values(C))if(c.o===myId)pr+=c.p;
+  if(pr>0){const g=Math.max(1,Math.round(pr/60));P.tk+=g;toast(`💰 +${g} tKAS`);syncToWorld();hud()}
+ },60000);
+
+ // March
+ setInterval(()=>{
+  if(!myId)return;
+  const now=Date.now()/1000;const done=[];
+  for(let i=0;i<marches.length;i++)if(now>=marches[i].at){done.push(i);battle(marches[i])}
+  for(let i=done.length-1;i>=0;i--)marches.splice(done[i],1);
+  if(done.length>0)syncToWorld();
+ },1000);
+
+ // Scouts
+ setInterval(()=>{
+  if(!myId)return;
+  const now=Date.now()/1000;const done=[];
+  for(let i=0;i<scouts.length;i++){
+   const sc=scouts[i];
+   if(now>=sc.at){
+    if(sc.phase==='go'){
+     const dist=cityDist(sc.fr,sc.to);
+     sc.phase='back';sc.st=now;sc.at=now+dist/SCOUT_SPEED;
+    }else{
+     done.push(i);
+     scoutIntel[sc.to]=now+SCOUT_INTEL_DURATION;
+     const t=C[sc.to];
+     const tot=(t.g.i||0)+(t.g.c||0);
+     toast(`🏇 斥候回報：${t.n} — 🗡️${t.g.i} 🐴${t.g.c}（共${tot}）城防Lv.${t.d}`);
+    }
+   }
+  }
+  for(let i=done.length-1;i>=0;i--)scouts.splice(done[i],1);
+  if(done.length>0)syncToWorld();
+ },1000);
+}
+
+// Periodic sync (pick up other player's changes)
+setInterval(()=>{if(myId){loadW();syncFromWorld();hud()}},5000);
+
+// ====== INIT ======
+setupLogin();
+startGameTimers();
+window.addEventListener('beforeunload',()=>{if(myId)syncToWorld()});
+</script>
 </body>
 </html>
