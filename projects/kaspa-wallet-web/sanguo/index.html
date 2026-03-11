@@ -910,6 +910,7 @@ function setupLogin(){
   myId=id;
   myColor=world.players[id].color;
   syncFromWorld();
+  syncToWorld(); // 存檔！讓其他玩家能讀到
 
   document.getElementById('loginModal').style.display='none';
   document.getElementById('hud').style.display='flex';
