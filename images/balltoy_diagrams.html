@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>BallToy - 程式架構圖</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 30px; }
+h1 { color: #00CED1; text-align: center; }
+h2 { color: #FFD700; margin-top: 40px; }
+.diagram { background: #16213e; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+.note { background: #0f3460; padding: 15px; border-radius: 8px; border-left: 4px solid #00CED1; margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<h1>🎮 BallToy — 轉珠解題器架構圖</h1>
+<p style="text-align:center; color:#aaa;">By Ryan | Analyzed by Nami 🌊</p>
+
+<h2>📋 程式流程圖</h2>
+<div class="diagram">
+<pre class="mermaid">
+flowchart TD
+    START([🎮 程式啟動]) --> MENU[/"📋 顯示選單<br/>r:計算 s:設定 p:印出 e:離開"/]
+    
+    MENU -->|r 執行計算| INIT["🔧 initNode()<br/>初始化盤面 & 狀態"]
+    MENU -->|s 設定| INPUT["⌨️ inputData()<br/>玩家輸入 5×6 盤面"]
+    MENU -->|p 印出| PRINT["🖨️ nodePrint()<br/>印出當前盤面 + combo"]
+    MENU -->|e 離開| EXIT([🚪 結束])
+    
+    INPUT --> MENU
+    PRINT --> MENU
+    
+    INIT --> CALC["🧠 calculateSolution()<br/>BFS 搜尋最佳路徑<br/>━━━━━━━━━━━━<br/>核心演算法！"]
+    
+    CALC --> SHOW["🎬 showPath()<br/>動畫展示移珠過程"]
+    SHOW --> RESULT["📊 顯示最佳結果<br/>起點座標 + combo 數"]
+    RESULT --> MENU
+
+    style START fill:#00CED1,color:#000
+    style CALC fill:#FF6B6B,color:#fff,stroke:#FF6B6B,stroke-width:3px
+    style EXIT fill:#666,color:#fff
+    style MENU fill:#4ECDC4,color:#000
+</pre>
+</div>
+
+<h2>🔗 函式呼叫關係圖</h2>
+<div class="diagram">
+<pre class="mermaid">
+flowchart TD
+    MAIN["🏠 main()"] --> initNode
+    MAIN --> nodePrint
+    MAIN --> calculateSolution
+    MAIN --> showPath
+    MAIN --> inputData
+    MAIN --> setNodeStar
+
+    subgraph CORE ["🧠 核心演算法"]
+        calculateSolution["calculateSolution()<br/>BFS 搜尋引擎"] --> moveBead["moveBead()<br/>移動珠子(上下左右)"]
+        calculateSolution --> calculateCombo["calculateCombo()<br/>計算 combo 數"]
+        calculateCombo --> nodeTag["nodeTag()<br/>三消標記 + 天降"]
+    end
+
+    subgraph DISPLAY ["🖥️ 顯示系統"]
+        showPath["showPath()<br/>動畫播放"] --> maskPrint["maskPrint()<br/>高亮當前珠子"]
+        showPath --> nodePrint["nodePrint()<br/>印出盤面"]
+        nodePrint --> calculateCombo
+        nodePrint --> setColor["setColor()<br/>終端機顏色"]
+        maskPrint --> setColor
+    end
+
+    subgraph INPUT ["⌨️ 輸入系統"]
+        inputData["inputData()<br/>讀取盤面"]
+    end
+
+    subgraph INIT ["🔧 初始化"]
+        initNode["initNode()<br/>重設狀態"]
+        setNodeStar["setNodeStar()<br/>設定起點"]
+    end
+
+    style CORE fill:#2d1b69,stroke:#FF6B6B,stroke-width:2px
+    style DISPLAY fill:#1b3a4b,stroke:#4ECDC4,stroke-width:2px
+    style INPUT fill:#1b4b3a,stroke:#FFD700,stroke-width:2px
+    style INIT fill:#3a1b4b,stroke:#BB86FC,stroke-width:2px
+</pre>
+</div>
+
+<h2>🧠 BFS 搜尋演算法流程</h2>
+<div class="diagram">
+<pre class="mermaid">
+flowchart TD
+    S([開始搜尋]) --> PUSH["將起始 node 放入 Queue"]
+    PUSH --> CHECK{Queue 空了?}
+    
+    CHECK -->|否| POP["取出 Queue 前端 node"]
+    CHECK -->|是| DONE([🏆 回傳最佳解])
+    
+    POP --> COMBO["calculateCombo()<br/>計算當前 combo"]
+    COMBO --> SCORE["計算加權分數<br/>= Σ(各色combo × 權重)"]
+    
+    SCORE --> BETTER{分數 > 目前最高?}
+    BETTER -->|是| UPDATE["✨ 更新最佳解"]
+    BETTER -->|否| CUT{"🔪 剪枝判斷<br/>剩餘步數 + 分數<br/>< 最高分?"}
+    
+    UPDATE --> DEPTH
+    CUT -->|是| SKIP["✂️ 跳過（剪枝）"]
+    CUT -->|否| DEPTH
+    
+    SKIP --> CHECK
+    
+    DEPTH{步數 < 上限?}
+    DEPTH -->|否| CHECK
+    DEPTH -->|是| EXPAND["展開子節點<br/>（避免回頭路）"]
+    
+    EXPAND --> M1["→ moveBead(右)"]
+    EXPAND --> M2["← moveBead(左)"]
+    EXPAND --> M3["↓ moveBead(下)"]
+    EXPAND --> M4["↑ moveBead(上)"]
+    
+    M1 --> CHECK
+    M2 --> CHECK
+    M3 --> CHECK
+    M4 --> CHECK
+
+    style S fill:#00CED1,color:#000
+    style DONE fill:#FFD700,color:#000
+    style UPDATE fill:#4CAF50,color:#fff
+    style SKIP fill:#FF5252,color:#fff
+</pre>
+</div>
+
+<h2>🎯 三消判定流程 (nodeTag)</h2>
+<div class="diagram">
+<pre class="mermaid">
+flowchart TD
+    A([輸入盤面]) --> B["🏷️ Tag 階段<br/>掃描所有格子"]
+    B --> C{"水平三連?<br/>map[i][j-1]==map[i][j]==map[i][j+1]"}
+    C -->|是| D["標記為 tag+7<br/>（原色+numberOfbeads）"]
+    C -->|否| E{"垂直三連?<br/>map[i-1][j]==map[i][j]==map[i+1][j]"}
+    E -->|是| D
+    E -->|否| F[保持原樣]
+    
+    D --> G["🎭 Mask 階段<br/>分離消除珠 vs 保留珠"]
+    F --> G
+    
+    G --> H["⬇️ 天降處理<br/>上方珠子往下掉填空"]
+    
+    H --> I["📊 Combo 計數<br/>Flood Fill 計算連通區域"]
+    I --> J["每個連通區域 = 1 combo<br/>記錄各色 combo 數"]
+    
+    J --> K([回傳結果])
+
+    style A fill:#00CED1,color:#000
+    style D fill:#FF6B6B,color:#fff
+    style H fill:#4ECDC4,color:#000
+    style K fill:#FFD700,color:#000
+</pre>
+</div>
+
+<h2>📊 資料結構</h2>
+<div class="note">
+<pre style="color:#e0e0e0; font-size:14px;">
+struct node {
+    byte currentMap[5][6];     // 🎮 5×6 盤面（光暗水火木心 = 1-6）
+    byte path[30];             // 🗺️ 移動路徑（方向: 2↓ 4← 6→ 8↑）
+    byte step;                 // 👣 已走步數
+    point startPos;            // 📍 起始位置
+    point currentPos;          // 📍 當前位置
+    byte brightCombo;          // ✨ 光 combo 數
+    byte darkCombo;            // 🌑 暗 combo 數
+    byte waterCombo;           // 💧 水 combo 數
+    byte fireCombo;            // 🔥 火 combo 數
+    byte woodCombo;            // 🌿 木 combo 數
+    byte heartCombo;           // ❤️ 心 combo 數
+    byte totalCombo;           // 🏆 總 combo 數
+};
+
+// Queue: std::queue&lt;node&gt; NDQueue  →  BFS 廣度優先搜尋
+// 剪枝: artOfCut + valueOfCut     →  加速搜尋
+// 路徑長度: length (預設 20 步)    →  搜尋深度上限
+</pre>
+</div>
+
+</body>
+</html>
