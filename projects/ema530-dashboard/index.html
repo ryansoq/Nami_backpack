@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMA530 量化儀表板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --card: #1a1d2e;
+  --card-border: #2a2d3e;
+  --text: #e4e4e7;
+  --text-dim: #9ca3af;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --accent: #6366f1;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', sans-serif;
+  line-height: 1.6;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 30px 0 20px;
+}
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+.header .subtitle {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  font-style: italic;
+}
+.header .updated {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+/* Section titles */
+.section-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 30px 0 16px;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent);
+}
+
+/* Signal cards grid */
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.signal-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.signal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.card-header .ticker-info h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.card-header .ticker-info .name {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.card-header .price {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.signal-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.signal-badge.green { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.signal-badge.yellow { background: rgba(234,179,8,0.15); color: var(--yellow); border: 1px solid rgba(234,179,8,0.3); }
+.signal-badge.red { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+
+.card-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 0.85rem;
+}
+.metric { padding: 6px 0; }
+.metric .label { color: var(--text-dim); font-size: 0.75rem; }
+.metric .value { font-weight: 600; }
+
+.action-box {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 10px 0;
+  text-align: center;
+}
+.action-box.green { background: rgba(34,197,94,0.1); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.action-box.yellow { background: rgba(234,179,8,0.1); color: var(--yellow); border: 1px solid rgba(234,179,8,0.2); }
+.action-box.red { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+
+.chart-container {
+  height: 120px;
+  margin-top: 10px;
+}
+
+.days-badge {
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* Signal History */
+.history-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+.history-item {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.history-item .left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.history-item .icon { font-size: 1.3rem; }
+.history-item .info .title { font-weight: 600; font-size: 0.9rem; }
+.history-item .info .date { font-size: 0.75rem; color: var(--text-dim); }
+.history-item .pct {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.history-item .pct.up { color: var(--green); }
+.history-item .pct.down { color: var(--red); }
+
+/* Backtest table */
+.backtest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.backtest-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 18px;
+}
+.backtest-card h4 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+.bt-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--card-border);
+}
+.bt-row:last-child { border-bottom: none; }
+.bt-row .bt-label { color: var(--text-dim); }
+.bt-row .bt-value { font-weight: 600; }
+.bt-value.positive { color: var(--green); }
+.bt-value.negative { color: var(--red); }
+
+/* Legend */
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+.legend-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 18px;
+}
+.legend-card h4 {
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+.legend-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.legend-icon {
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 60px;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+}
+.loading .spinner {
+  display: inline-block;
+  width: 40px; height: 40px;
+  border: 3px solid var(--card-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error */
+.error-card {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  color: var(--red);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body { padding: 12px; }
+  .header h1 { font-size: 1.5rem; }
+  .signal-grid { grid-template-columns: 1fr; }
+  .history-list { grid-template-columns: 1fr; }
+  .backtest-grid { grid-template-columns: 1fr; }
+  .card-header .price { font-size: 1.2rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 EMA530 量化儀表板</h1>
+  <div class="subtitle">不要相信這次會不一樣，相信數據</div>
+  <div class="updated" id="updated"></div>
+</div>
+
+<div id="app">
+  <div class="loading">
+    <div class="spinner"></div>
+    <div>載入數據中...</div>
+  </div>
+</div>
+
+<script>
+const SIGNAL_LABELS = {
+  golden_cross: '🚀 黃金交叉',
+  death_cross: '💀 死亡交叉',
+  bullish: '📈 多頭排列',
+  bearish: '📉 空頭排列',
+};
+
+const SIGNAL_ICONS = {
+  golden_cross: '🚀',
+  death_cross: '💀',
+  bullish: '📈',
+  bearish: '📉',
+};
+
+function formatPrice(price, ticker) {
+  if (price === null || price === undefined) return 'N/A';
+  if (ticker && (ticker.includes('BTC') || ticker.includes('KAS'))) {
+    return price >= 1 ? `$${price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
+                      : `$${price.toFixed(6)}`;
+  }
+  if (ticker && ticker.includes('.TW')) {
+    return `NT$${price.toFixed(2)}`;
+  }
+  return `$${price.toFixed(2)}`;
+}
+
+function createSignalCard(t) {
+  if (t.error) {
+    return `<div class="signal-card"><div class="error-card">❌ ${t.ticker}: ${t.error}</div></div>`;
+  }
+
+  const signalLabel = SIGNAL_LABELS[t.signal] || t.signal;
+  const color = t.action_color;
+  const chartId = `chart-${t.ticker.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+  return `
+    <div class="signal-card">
+      <div class="card-header">
+        <div class="ticker-info">
+          <h3>${t.ticker}</h3>
+          <div class="name">${t.name}</div>
+        </div>
+        <div class="price" style="color: var(--${color})">${formatPrice(t.close, t.ticker)}</div>
+      </div>
+      
+      <span class="signal-badge ${color}">${signalLabel}</span>
+      
+      <div class="card-metrics">
+        <div class="metric">
+          <div class="label">EMA5</div>
+          <div class="value">${formatPrice(t.ema5, t.ticker)}</div>
+        </div>
+        <div class="metric">
+          <div class="label">EMA30</div>
+          <div class="value">${formatPrice(t.ema30, t.ticker)}</div>
+        </div>
+        <div class="metric">
+          <div class="label">EMA 差距</div>
+          <div class="value" style="color: var(--${t.gap_pct >= 0 ? 'green' : 'red'})">${t.gap_pct >= 0 ? '+' : ''}${t.gap_pct}%</div>
+        </div>
+        <div class="metric">
+          <div class="label">MA200</div>
+          <div class="value">${t.ma200 ? formatPrice(t.ma200, t.ticker) : 'N/A'} ${t.above_ma200 === true ? '✅' : t.above_ma200 === false ? '⚠️' : ''}</div>
+        </div>
+        ${t.ma200_dist !== null ? `
+        <div class="metric">
+          <div class="label">距MA200</div>
+          <div class="value" style="color: var(--${t.ma200_dist >= 0 ? 'green' : 'red'})">${t.ma200_dist >= 0 ? '+' : ''}${t.ma200_dist}%</div>
+        </div>` : ''}
+        <div class="metric">
+          <div class="label">距ATH</div>
+          <div class="value" style="color: var(--${t.ath_dist >= -5 ? 'green' : 'red'})">${t.ath_dist}%</div>
+        </div>
+        ${t.rsi !== null ? `
+        <div class="metric">
+          <div class="label">RSI(14)</div>
+          <div class="value" style="color: var(--${t.rsi > 70 ? 'red' : t.rsi < 30 ? 'green' : 'text'})">${t.rsi} ${t.rsi > 70 ? '🔴' : t.rsi < 30 ? '🟢' : '⚪'}</div>
+        </div>` : ''}
+        ${t.adx !== null ? `
+        <div class="metric">
+          <div class="label">ADX(14)</div>
+          <div class="value" style="color: var(--${t.adx > 25 ? 'green' : 'text-dim'})">${t.adx} ${t.adx > 25 ? '💪' : t.adx < 15 ? '💤' : '😐'} 多(${t.plus_di || '-'}) 空(${t.minus_di || '-'})</div>
+        </div>` : ''}
+        ${t.vol_ratio !== null ? `
+        <div class="metric">
+          <div class="label">成交量比</div>
+          <div class="value" style="color: var(--${t.vol_ratio > 1.5 ? 'yellow' : 'text'})">${t.vol_ratio}x ${t.vol_ratio > 2 ? '🔥' : t.vol_ratio > 1.5 ? '📈' : ''}</div>
+        </div>` : ''}
+      </div>
+      
+      <div class="action-box ${color}">
+        ${t.action} — ${t.action_detail}
+      </div>
+      
+      <div class="chart-container">
+        <canvas id="${chartId}"></canvas>
+      </div>
+      
+      <div class="days-badge">
+        ${t.days_since_crossover >= 0 ? `距上次交叉 ${t.days_since_crossover} 天` : '近期無交叉'}
+      </div>
+    </div>
+  `;
+}
+
+function createChart(ticker, chart) {
+  const chartId = `chart-${ticker.replace(/[^a-zA-Z0-9]/g, '')}`;
+  const canvas = document.getElementById(chartId);
+  if (!canvas) return;
+
+  new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: chart.dates,
+      datasets: [
+        {
+          label: '收盤價',
+          data: chart.close,
+          borderColor: '#e4e4e7',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: 'EMA5',
+          data: chart.ema5,
+          borderColor: '#22c55e',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.3,
+          borderDash: [4, 2],
+          fill: false,
+        },
+        {
+          label: 'EMA30',
+          data: chart.ema30,
+          borderColor: '#ef4444',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.3,
+          borderDash: [4, 2],
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            color: '#9ca3af',
+            font: { size: 10 },
+            boxWidth: 12,
+            padding: 8,
+          }
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: '#1a1d2e',
+          borderColor: '#2a2d3e',
+          borderWidth: 1,
+          titleColor: '#e4e4e7',
+          bodyColor: '#9ca3af',
+        },
+      },
+      scales: {
+        x: {
+          display: true,
+          ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 6 },
+          grid: { display: false },
+        },
+        y: {
+          display: true,
+          position: 'right',
+          ticks: { color: '#6b7280', font: { size: 9 }, maxTicksLimit: 4 },
+          grid: { color: 'rgba(42,45,62,0.5)' },
+        },
+      },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    },
+  });
+}
+
+function renderHistory(history) {
+  if (!history || history.length === 0) return '<div style="color:var(--text-dim);padding:20px;">近6個月無交叉信號</div>';
+  
+  return history.map(h => {
+    const icon = h.type === 'golden_cross' ? '🚀' : '💀';
+    const label = h.type === 'golden_cross' ? '黃金交叉' : '死亡交叉';
+    const pctClass = h.pct_to_now >= 0 ? 'up' : 'down';
+    const pctSign = h.pct_to_now >= 0 ? '+' : '';
+    
+    return `
+      <div class="history-item">
+        <div class="left">
+          <span class="icon">${icon}</span>
+          <div class="info">
+            <div class="title">${h.name} ${label} ${formatPrice(h.price, h.ticker)}</div>
+            <div class="date">${h.date} · 10日後 ${h.pct_change_10d >= 0 ? '+' : ''}${h.pct_change_10d}%</div>
+          </div>
+        </div>
+        <div class="pct ${pctClass}">至今 ${pctSign}${h.pct_to_now}%</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderBacktest(tickers) {
+  return tickers.filter(t => t.backtest && !t.backtest.error).map(t => {
+    const bt = t.backtest;
+    const cagrClass = bt.cagr >= 0 ? 'positive' : 'negative';
+    const bhClass = bt.buy_hold_return >= 0 ? 'positive' : 'negative';
+    
+    return `
+      <div class="backtest-card">
+        <h4>${t.ticker} ${t.name}</h4>
+        <div class="bt-row">
+          <span class="bt-label">年化報酬 (CAGR)</span>
+          <span class="bt-value ${cagrClass}">${bt.cagr >= 0 ? '+' : ''}${bt.cagr}%</span>
+        </div>
+        <div class="bt-row">
+          <span class="bt-label">最大回撤</span>
+          <span class="bt-value negative">${bt.max_drawdown}%</span>
+        </div>
+        <div class="bt-row">
+          <span class="bt-label">勝率</span>
+          <span class="bt-value">${bt.win_rate}%</span>
+        </div>
+        <div class="bt-row">
+          <span class="bt-label">總交易次數</span>
+          <span class="bt-value">${bt.total_trades}</span>
+        </div>
+        <div class="bt-row">
+          <span class="bt-label">Buy & Hold</span>
+          <span class="bt-value ${bhClass}">${bt.buy_hold_return >= 0 ? '+' : ''}${bt.buy_hold_return}%</span>
+        </div>
+        <div class="bt-row">
+          <span class="bt-label">策略總報酬</span>
+          <span class="bt-value ${bt.total_return >= 0 ? 'positive' : 'negative'}">${bt.total_return >= 0 ? '+' : ''}${bt.total_return}%</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadData() {
+  try {
+    const resp = await fetch('data.json?' + Date.now());
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    document.getElementById('updated').textContent = `最後更新：${data.updated}`;
+
+    let html = '';
+
+    // Signal Overview
+    html += '<div class="section-title">📡 即時信號</div>';
+    html += '<div class="signal-grid">';
+    html += data.tickers.map(t => createSignalCard(t)).join('');
+    html += '</div>';
+
+    // Signal History
+    html += '<div class="section-title">📜 信號歷史（近6個月）</div>';
+    html += '<div class="history-list">';
+    html += renderHistory(data.signal_history);
+    html += '</div>';
+
+    // Backtest
+    html += '<div class="section-title">🧪 回測績效（近3年）</div>';
+    html += '<div class="backtest-grid">';
+    html += renderBacktest(data.tickers);
+    html += '</div>';
+
+    // Signal Legend
+    html += '<div class="section-title">📖 指標說明</div>';
+    html += '<div class="legend-grid">';
+    html += `
+      <div class="legend-card">
+        <h4>🎯 EMA530 交叉（核心信號）</h4>
+        <div class="legend-row"><span class="legend-icon">🚀</span><span>黃金交叉 — EMA5 向上穿越 EMA30，趨勢轉多</span></div>
+        <div class="legend-row"><span class="legend-icon">💀</span><span>死亡交叉 — EMA5 向下穿越 EMA30，趨勢轉空</span></div>
+        <div class="legend-row"><span class="legend-icon">📈</span><span>多頭排列 — EMA5 持續在 EMA30 上方</span></div>
+        <div class="legend-row"><span class="legend-icon">📉</span><span>空頭排列 — EMA5 持續在 EMA30 下方</span></div>
+      </div>
+      <div class="legend-card">
+        <h4>🏔️ MA200（大環境）</h4>
+        <div class="legend-row"><span class="legend-icon">✅</span><span>水上（價格 > MA200）— 長期多頭，相對安全</span></div>
+        <div class="legend-row"><span class="legend-icon">⚠️</span><span>水下（價格 < MA200）— 長期空頭，風險較高</span></div>
+      </div>
+      <div class="legend-card">
+        <h4>💪 RSI(14) — 超買超賣</h4>
+        <div class="legend-row"><span class="legend-icon">🔴</span><span>> 70 超買 — 漲太多了，可能要回頭休息</span></div>
+        <div class="legend-row"><span class="legend-icon">⚪</span><span>30~70 正常 — 多空力道正常範圍</span></div>
+        <div class="legend-row"><span class="legend-icon">🟢</span><span>< 30 超賣 — 跌太慘了，可能有反彈機會</span></div>
+      </div>
+      <div class="legend-card">
+        <h4>📊 ADX(14) — 趨勢強度 + 多空方向</h4>
+        <div class="legend-row"><span class="legend-icon">💪</span><span>> 25 有趨勢 — 方向明確，EMA 信號更可靠</span></div>
+        <div class="legend-row"><span class="legend-icon">😐</span><span>15~25 弱趨勢 — 方向不明，信號可能不準</span></div>
+        <div class="legend-row"><span class="legend-icon">💤</span><span>< 15 無趨勢 — 盤整中，EMA 容易被打臉</span></div>
+        <div class="legend-row"><span class="legend-icon">📈</span><span>多(+DI) — 買方力道，數字越大多方越強</span></div>
+        <div class="legend-row"><span class="legend-icon">📉</span><span>空(-DI) — 賣方力道，數字越大空方越強</span></div>
+        <div class="legend-row"><span class="legend-icon">⚡</span><span>多 > 空 = 買方主導 | 空 > 多 = 賣方主導</span></div>
+      </div>
+      <div class="legend-card">
+        <h4>📦 成交量比（量能）</h4>
+        <div class="legend-row"><span class="legend-icon">🔥</span><span>> 2.0x — 放大量，突破或恐慌可能性高</span></div>
+        <div class="legend-row"><span class="legend-icon">📈</span><span>1.5~2.0x — 量能增加，關注方向</span></div>
+        <div class="legend-row"><span class="legend-icon"></span><span>< 1.5x — 正常量能</span></div>
+      </div>
+    `;
+    html += '</div>';
+
+    document.getElementById('app').innerHTML = html;
+
+    // Render charts after DOM update
+    requestAnimationFrame(() => {
+      data.tickers.forEach(t => {
+        if (t.chart) createChart(t.ticker, t.chart);
+      });
+    });
+
+  } catch (err) {
+    document.getElementById('app').innerHTML = `
+      <div class="error-card">
+        <h3>⚠️ 載入失敗</h3>
+        <p>${err.message}</p>
+        <p style="margin-top:10px;font-size:0.85rem;color:var(--text-dim)">請先執行 python3 generate_data.py 產生 data.json</p>
+      </div>
+    `;
+  }
+}
+
+loadData();
+// Auto-refresh every 5 minutes
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
