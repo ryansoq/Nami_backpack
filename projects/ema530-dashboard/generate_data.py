@@ -4,11 +4,30 @@ EMA530 Dashboard Data Generator
 Fetches market data, calculates signals, runs backtests, outputs data.json
 """
 import json
+import math
 import sys
 from datetime import datetime, timedelta
 import yfinance as yf
 import pandas as pd
 import numpy as np
+
+
+def clean_nan(obj):
+    """Recursively replace NaN/Infinity with None so json.dump emits valid JSON.
+
+    Python's json writes NaN as the literal `NaN`, which violates JSON spec and
+    makes browsers' JSON.parse throw — breaking the dashboard for ALL tickers
+    even if only one has a bad value. Run this before json.dump.
+    """
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: clean_nan(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [clean_nan(v) for v in obj]
+    return obj
 
 TICKERS = ["TQQQ", "QLD", "SSO", "00631L.TW", "BTC-USD", "KAS-USD"]
 
@@ -355,7 +374,7 @@ def main():
     }
 
     with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+        json.dump(clean_nan(output), f, ensure_ascii=False, indent=2, allow_nan=False)
 
     print("✅ data.json generated!", file=sys.stderr)
 
