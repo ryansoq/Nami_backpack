@@ -214,12 +214,73 @@ def run_backtest(close: pd.Series, ema5: pd.Series, ema30: pd.Series, years: int
     }
 
 
+def adjust_for_splits(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """Auto-detect & apply split adjustments that yfinance missed.
+
+    Yahoo's data for some tickers (notably 00631L.TW) does not record splits
+    in the .splits series or auto-adjust them in the price history. We detect
+    a split as any single-day close drop of more than 50% — no legitimate
+    daily move for a listed ETF/stock comes close to this (circuit breakers
+    cap daily moves well below that on every major exchange), so false
+    positives are extremely unlikely.
+
+    For each detected split we divide all strictly-earlier OHLC values by the
+    ratio, and multiply the volume by the same ratio, preserving dollar-
+    volume continuity. Works for multiple splits by processing them in
+    chronological order.
+    """
+    close = df['Close'].squeeze().dropna()
+    if len(close) < 2:
+        return df
+
+    pct = close.pct_change()
+    suspects = pct[pct < -0.5]
+    if suspects.empty:
+        return df
+
+    adjusted = df.copy()
+    # Volume is int64 by default; after multiplying by a float ratio the
+    # values become floats, so promote the column up-front to avoid a
+    # pandas FutureWarning about incompatible dtype assignment.
+    if 'Volume' in adjusted.columns:
+        adjusted['Volume'] = adjusted['Volume'].astype(float)
+    for date in suspects.index:
+        prev = close.loc[:date].iloc[-2]
+        curr = close.loc[date]
+        ratio = prev / curr
+        mask = adjusted.index < date
+        for col in ('Open', 'High', 'Low', 'Close'):
+            if col in adjusted.columns:
+                adjusted.loc[mask, col] = adjusted.loc[mask, col] / ratio
+        if 'Volume' in adjusted.columns:
+            adjusted.loc[mask, 'Volume'] = adjusted.loc[mask, 'Volume'] * ratio
+        print(
+            f"    [split] {ticker} {date.date()}: ratio {ratio:.2f}:1 — "
+            f"adjusted {int(mask.sum())} prior rows",
+            file=sys.stderr,
+        )
+
+    return adjusted
+
+
 def analyze_ticker(ticker: str) -> dict:
     """Full analysis for one ticker"""
     print(f"  Fetching {ticker}...", file=sys.stderr)
-    
+
     # Get 3+ years of data for backtest
     df = yf.download(ticker, period="4y", interval="1d", progress=False)
+    if df.empty:
+        return {"ticker": ticker, "name": TICKER_NAMES.get(ticker, ticker), "error": "NO DATA"}
+
+    # yfinance returns MultiIndex columns ('Close', 'TICKER'); flatten for
+    # plain-string column access in dropna/adjust_for_splits.
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+
+    # Drop rows with NaN Close (e.g. today's bar before the session closes),
+    # then auto-detect and apply any splits yfinance missed.
+    df = df.dropna(subset=['Close'])
+    df = adjust_for_splits(df, ticker)
     if df.empty:
         return {"ticker": ticker, "name": TICKER_NAMES.get(ticker, ticker), "error": "NO DATA"}
 

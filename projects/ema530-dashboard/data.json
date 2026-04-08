@@ -1,29 +1,29 @@
 {
-  "updated": "2026-04-09 02:01:41",
+  "updated": "2026-04-09 02:04:54",
   "tickers": [
     {
       "ticker": "TQQQ",
       "name": "TQQQ 納指3倍",
-      "close": 48.13,
-      "ema5": 44.9,
+      "close": 48.2,
+      "ema5": 44.93,
       "ema30": 45.64,
-      "gap_pct": -1.6,
+      "gap_pct": -1.56,
       "signal": "bearish",
       "ma200": 49.22,
       "above_ma200": false,
-      "ma200_dist": -2.21,
+      "ma200_dist": -2.08,
       "action": "空手觀望",
       "action_color": "red",
       "action_detail": "空頭 + MA200下方",
       "ath": 60.11,
-      "ath_dist": -19.92,
-      "rsi": 57.0,
+      "ath_dist": -19.82,
+      "rsi": 57.1,
       "adx": 35.9,
       "plus_di": 39.4,
       "minus_di": 31.1,
-      "vol_today": 77062301.0,
-      "vol_avg20": 110990600.05,
-      "vol_ratio": 0.69,
+      "vol_today": 77394712.0,
+      "vol_avg20": 111007220.6,
+      "vol_ratio": 0.7,
       "days_since_crossover": 65,
       "chart": {
         "dates": [
@@ -148,7 +148,7 @@
           43.33,
           44.1,
           44.15,
-          48.13
+          48.2
         ],
         "ema5": [
           55.06,
@@ -210,7 +210,7 @@
           42.24,
           42.86,
           43.29,
-          44.9
+          44.93
         ],
         "ema30": [
           53.97,
@@ -281,63 +281,63 @@
           "type": "death_cross",
           "price": 52.20181655883789,
           "pct_change_10d": 3.21,
-          "pct_to_now": -7.79
+          "pct_to_now": -7.67
         },
         {
           "date": "2025-12-01",
           "type": "golden_cross",
           "price": 53.87641906738281,
           "pct_change_10d": -3.76,
-          "pct_to_now": -10.66
+          "pct_to_now": -10.54
         },
         {
           "date": "2025-12-16",
           "type": "death_cross",
           "price": 52.161949157714844,
           "pct_change_10d": 0.9,
-          "pct_to_now": -7.72
+          "pct_to_now": -7.6
         },
         {
           "date": "2025-12-23",
           "type": "golden_cross",
           "price": 54.83333969116211,
           "pct_change_10d": -1.34,
-          "pct_to_now": -12.22
+          "pct_to_now": -12.1
         },
         {
           "date": "2026-01-02",
           "type": "death_cross",
           "price": 52.263587951660156,
           "pct_change_10d": 3.42,
-          "pct_to_now": -7.9
+          "pct_to_now": -7.78
         },
         {
           "date": "2026-01-06",
           "type": "golden_cross",
           "price": 54.91919708251953,
           "pct_change_10d": -4.14,
-          "pct_to_now": -12.35
+          "pct_to_now": -12.24
         },
         {
           "date": "2026-01-20",
           "type": "death_cross",
           "price": 50.646263122558594,
           "pct_change_10d": 3.53,
-          "pct_to_now": -4.96
+          "pct_to_now": -4.83
         },
         {
           "date": "2026-01-26",
           "type": "golden_cross",
           "price": 54.98908615112305,
           "pct_change_10d": -6.06,
-          "pct_to_now": -12.46
+          "pct_to_now": -12.35
         },
         {
           "date": "2026-02-03",
           "type": "death_cross",
           "price": 52.43330764770508,
           "pct_change_10d": -5.96,
-          "pct_to_now": -8.2
+          "pct_to_now": -8.08
         }
       ],
       "backtest": {
@@ -346,31 +346,31 @@
         "max_drawdown": -19.44,
         "win_rate": 33.3,
         "total_trades": 15,
-        "buy_hold_return": 271.43
+        "buy_hold_return": 271.92
       }
     },
     {
       "ticker": "QLD",
       "name": "QLD 納指2倍",
-      "close": 67.21,
-      "ema5": 64.09,
-      "ema30": 64.54,
-      "gap_pct": -0.7,
+      "close": 67.25,
+      "ema5": 64.11,
+      "ema30": 64.55,
+      "gap_pct": -0.68,
       "signal": "bearish",
       "ma200": 66.9,
       "above_ma200": true,
-      "ma200_dist": 0.46,
+      "ma200_dist": 0.53,
       "action": "短期回調",
       "action_color": "yellow",
       "action_detail": "空頭但MA200上方，留意反轉",
       "ath": 76.34,
-      "ath_dist": -11.97,
-      "rsi": 57.6,
+      "ath_dist": -11.91,
+      "rsi": 57.7,
       "adx": 35.0,
       "plus_di": 39.7,
       "minus_di": 30.9,
-      "vol_today": 3701413.0,
-      "vol_avg20": 6266310.65,
+      "vol_today": 3706594.0,
+      "vol_avg20": 6266569.7,
       "vol_ratio": 0.59,
       "days_since_crossover": 64,
       "chart": {
@@ -496,7 +496,7 @@
           62.6,
           63.35,
           63.39,
-          67.21
+          67.25
         ],
         "ema5": [
           72.59,
@@ -558,7 +558,7 @@
           61.49,
           62.11,
           62.54,
-          64.09
+          64.11
         ],
         "ema30": [
           71.49,
@@ -620,7 +620,7 @@
           64.5,
           64.43,
           64.36,
-          64.54
+          64.55
         ]
       },
       "crossovers": [
@@ -629,63 +629,63 @@
           "type": "death_cross",
           "price": 69.65838623046875,
           "pct_change_10d": 2.37,
-          "pct_to_now": -3.52
+          "pct_to_now": -3.46
         },
         {
           "date": "2025-11-28",
           "type": "golden_cross",
-          "price": 71.77227020263672,
+          "price": 71.77227783203125,
           "pct_change_10d": -2.05,
-          "pct_to_now": -6.36
+          "pct_to_now": -6.3
         },
         {
           "date": "2025-12-16",
           "type": "death_cross",
           "price": 69.86328125,
           "pct_change_10d": 0.76,
-          "pct_to_now": -3.8
+          "pct_to_now": -3.74
         },
         {
           "date": "2025-12-23",
           "type": "golden_cross",
-          "price": 72.32198333740234,
+          "price": 72.32199096679688,
           "pct_change_10d": -0.81,
-          "pct_to_now": -7.08
+          "pct_to_now": -7.01
         },
         {
           "date": "2026-01-02",
           "type": "death_cross",
           "price": 70.08544921875,
           "pct_change_10d": 2.35,
-          "pct_to_now": -4.11
+          "pct_to_now": -4.05
         },
         {
           "date": "2026-01-06",
           "type": "golden_cross",
           "price": 72.44496154785156,
           "pct_change_10d": -2.65,
-          "pct_to_now": -7.23
+          "pct_to_now": -7.17
         },
         {
           "date": "2026-01-20",
           "type": "death_cross",
           "price": 68.71573638916016,
           "pct_change_10d": 2.52,
-          "pct_to_now": -2.2
+          "pct_to_now": -2.13
         },
         {
           "date": "2026-01-26",
           "type": "golden_cross",
           "price": 72.6449203491211,
           "pct_change_10d": -3.89,
-          "pct_to_now": -7.49
+          "pct_to_now": -7.43
         },
         {
           "date": "2026-02-04",
           "type": "death_cross",
           "price": 67.96589660644531,
           "pct_change_10d": -1.09,
-          "pct_to_now": -1.12
+          "pct_to_now": -1.05
         }
       ],
       "backtest": {
@@ -694,31 +694,31 @@
         "max_drawdown": -13.11,
         "win_rate": 35.7,
         "total_trades": 14,
-        "buy_hold_return": 182.9
+        "buy_hold_return": 183.08
       }
     },
     {
       "ticker": "SSO",
       "name": "SSO 標普2倍",
-      "close": 55.96,
-      "ema5": 53.76,
+      "close": 55.98,
+      "ema5": 53.77,
       "ema30": 54.16,
-      "gap_pct": -0.73,
+      "gap_pct": -0.71,
       "signal": "bearish",
       "ma200": 54.99,
       "above_ma200": true,
-      "ma200_dist": 1.75,
+      "ma200_dist": 1.8,
       "action": "短期回調",
       "action_color": "yellow",
       "action_detail": "空頭但MA200上方，留意反轉",
       "ath": 59.95,
-      "ath_dist": -6.66,
-      "rsi": 57.8,
+      "ath_dist": -6.62,
+      "rsi": 57.9,
       "adx": 36.7,
       "plus_di": 37.3,
       "minus_di": 30.5,
-      "vol_today": 2953805.0,
-      "vol_avg20": 5308595.25,
+      "vol_today": 2985902.0,
+      "vol_avg20": 5310200.1,
       "vol_ratio": 0.56,
       "days_since_crossover": 56,
       "chart": {
@@ -844,7 +844,7 @@
           52.74,
           53.22,
           53.25,
-          55.96
+          55.98
         ],
         "ema5": [
           59.45,
@@ -906,7 +906,7 @@
           51.96,
           52.38,
           52.67,
-          53.76
+          53.77
         ],
         "ema30": [
           58.25,
@@ -975,51 +975,51 @@
         {
           "date": "2025-11-17",
           "type": "death_cross",
-          "price": 55.20631790161133,
+          "price": 55.206321716308594,
           "pct_change_10d": 4.5,
-          "pct_to_now": 1.36
+          "pct_to_now": 1.41
         },
         {
           "date": "2025-11-28",
           "type": "golden_cross",
           "price": 58.0196647644043,
           "pct_change_10d": -0.72,
-          "pct_to_now": -3.56
+          "pct_to_now": -3.51
         },
         {
           "date": "2025-12-17",
           "type": "death_cross",
-          "price": 55.82874298095703,
+          "price": 55.828739166259766,
           "pct_change_10d": 3.84,
-          "pct_to_now": 0.23
+          "pct_to_now": 0.28
         },
         {
           "date": "2025-12-19",
           "type": "golden_cross",
           "price": 57.67110824584961,
           "pct_change_10d": 3.07,
-          "pct_to_now": -2.98
+          "pct_to_now": -2.93
         },
         {
           "date": "2026-02-05",
           "type": "death_cross",
           "price": 56.68685531616211,
           "pct_change_10d": 3.22,
-          "pct_to_now": -1.29
+          "pct_to_now": -1.24
         },
         {
           "date": "2026-02-09",
           "type": "golden_cross",
           "price": 59.40095520019531,
           "pct_change_10d": -2.12,
-          "pct_to_now": -5.8
+          "pct_to_now": -5.75
         },
         {
           "date": "2026-02-12",
           "type": "death_cross",
           "price": 57.235660552978516,
           "pct_change_10d": 1.13,
-          "pct_to_now": -2.24
+          "pct_to_now": -2.19
         }
       ],
       "backtest": {
@@ -1028,35 +1028,36 @@
         "max_drawdown": -9.75,
         "win_rate": 33.3,
         "total_trades": 12,
-        "buy_hold_return": 127.59
+        "buy_hold_return": 127.71
       }
     },
     {
       "ticker": "00631L.TW",
       "name": "元大台灣50正2",
-      "close": null,
-      "ema5": 28.2,
-      "ema30": 248.19,
-      "gap_pct": -88.64,
-      "signal": "bearish",
-      "ma200": null,
-      "above_ma200": null,
-      "ma200_dist": null,
-      "action": "空手觀望",
-      "action_color": "red",
-      "action_detail": "空頭排列",
-      "ath": 537.85,
-      "ath_dist": null,
-      "rsi": 16.2,
-      "adx": 68.7,
-      "plus_di": 6.6,
-      "minus_di": 70.0,
-      "vol_today": 266616038.0,
-      "vol_avg20": 85644472.0,
-      "vol_ratio": 3.11,
-      "days_since_crossover": 17,
+      "close": 20.65,
+      "ema5": 20.32,
+      "ema30": 20.05,
+      "gap_pct": 1.36,
+      "signal": "bullish",
+      "ma200": 14.32,
+      "above_ma200": true,
+      "ma200_dist": 44.23,
+      "action": "持有",
+      "action_color": "green",
+      "action_detail": "多頭排列 + MA200上方",
+      "ath": 23.06,
+      "ath_dist": -10.47,
+      "rsi": 53.5,
+      "adx": 10.0,
+      "plus_di": 23.8,
+      "minus_di": 25.4,
+      "vol_today": 131630254.0,
+      "vol_avg20": 170268737.7870909,
+      "vol_ratio": 0.77,
+      "days_since_crossover": 8,
       "chart": {
         "dates": [
+          "12/30",
           "12/31",
           "01/02",
           "01/05",
@@ -1115,59 +1116,59 @@
           "03/31",
           "04/01",
           "04/02",
-          "04/07",
-          "04/08"
+          "04/07"
         ],
         "close": [
-          362.9,
-          375.25,
-          396.2,
-          404.3,
-          401.7,
-          400.7,
-          399.65,
-          406.05,
-          410.0,
-          414.0,
-          414.35,
-          427.35,
-          433.9,
-          434.0,
-          423.8,
-          434.45,
-          441.2,
-          441.45,
-          451.1,
-          463.95,
-          458.75,
-          444.95,
-          427.2,
-          444.35,
-          449.05,
-          433.9,
-          428.65,
-          454.0,
-          469.35,
-          486.1,
-          486.7,
-          514.3,
-          533.9,
-          537.85,
-          526.25,
-          500.45,
-          454.5,
-          478.8,
-          478.05,
-          430.2,
-          449.85,
-          485.6,
-          470.0,
-          464.65,
-          463.6,
-          479.7,
-          496.05,
-          472.5,
-          469.35,
+          15.45,
+          15.56,
+          16.09,
+          16.99,
+          17.34,
+          17.23,
+          17.18,
+          17.14,
+          17.41,
+          17.58,
+          17.75,
+          17.77,
+          18.33,
+          18.61,
+          18.61,
+          18.17,
+          18.63,
+          18.92,
+          18.93,
+          19.34,
+          19.9,
+          19.67,
+          19.08,
+          18.32,
+          19.06,
+          19.26,
+          18.61,
+          18.38,
+          19.47,
+          20.13,
+          20.85,
+          20.87,
+          22.05,
+          22.9,
+          23.06,
+          22.57,
+          21.46,
+          19.49,
+          20.53,
+          20.5,
+          18.45,
+          19.29,
+          20.82,
+          20.16,
+          19.93,
+          19.88,
+          20.57,
+          21.27,
+          20.26,
+          20.13,
           20.13,
           20.14,
           20.14,
@@ -1177,188 +1178,194 @@
           19.26,
           21.0,
           20.0,
-          20.65,
-          null
+          20.65
         ],
         "ema5": [
-          357.58,
-          363.47,
-          374.38,
-          384.35,
-          390.14,
-          393.66,
-          395.65,
-          399.12,
-          402.75,
-          406.5,
-          409.12,
-          415.19,
-          421.43,
-          425.62,
-          425.01,
-          428.16,
-          432.51,
-          435.49,
-          440.69,
-          448.44,
-          451.88,
-          449.57,
-          442.11,
-          442.86,
-          444.92,
-          441.25,
-          437.05,
-          442.7,
-          451.58,
-          463.09,
-          470.96,
-          485.41,
-          501.57,
-          513.66,
-          517.86,
-          512.06,
-          492.87,
-          488.18,
-          484.8,
-          466.6,
-          461.02,
-          469.21,
-          469.47,
-          467.87,
-          466.44,
-          470.86,
-          479.26,
-          477.01,
-          474.45,
-          323.01,
-          222.06,
-          154.75,
-          109.88,
-          79.97,
-          60.03,
-          46.44,
-          37.96,
-          31.97,
-          28.2,
-          28.2
+          15.22,
+          15.33,
+          15.59,
+          16.05,
+          16.48,
+          16.73,
+          16.88,
+          16.97,
+          17.12,
+          17.27,
+          17.43,
+          17.54,
+          17.8,
+          18.07,
+          18.25,
+          18.23,
+          18.36,
+          18.55,
+          18.68,
+          18.9,
+          19.23,
+          19.38,
+          19.28,
+          18.96,
+          18.99,
+          19.08,
+          18.92,
+          18.74,
+          18.98,
+          19.37,
+          19.86,
+          20.2,
+          20.82,
+          21.51,
+          22.03,
+          22.21,
+          21.96,
+          21.14,
+          20.93,
+          20.79,
+          20.01,
+          19.77,
+          20.12,
+          20.13,
+          20.06,
+          20.0,
+          20.19,
+          20.55,
+          20.46,
+          20.35,
+          20.27,
+          20.23,
+          20.2,
+          20.18,
+          20.17,
+          20.16,
+          19.86,
+          20.24,
+          20.16,
+          20.32
         ],
         "ema30": [
-          341.81,
-          343.96,
-          347.33,
-          351.01,
-          354.28,
-          357.28,
-          360.01,
-          362.98,
-          366.01,
-          369.11,
-          372.03,
-          375.6,
-          379.36,
-          382.88,
-          385.52,
-          388.68,
-          392.07,
-          395.25,
-          398.86,
-          403.06,
-          406.65,
-          409.12,
-          410.29,
-          412.48,
-          414.84,
-          416.07,
-          416.88,
-          419.28,
-          422.51,
-          426.61,
-          430.49,
-          435.9,
-          442.22,
-          448.39,
-          453.41,
-          456.45,
-          456.32,
-          457.77,
-          459.08,
-          457.22,
-          456.74,
-          458.6,
-          459.34,
-          459.68,
-          459.93,
-          461.21,
-          463.46,
-          464.04,
-          464.38,
-          435.72,
-          408.91,
-          383.83,
-          360.36,
-          338.41,
-          317.88,
-          298.62,
-          280.7,
-          263.88,
-          248.19,
-          248.19
+          14.6,
+          14.66,
+          14.75,
+          14.89,
+          15.05,
+          15.19,
+          15.32,
+          15.44,
+          15.57,
+          15.7,
+          15.83,
+          15.95,
+          16.11,
+          16.27,
+          16.42,
+          16.53,
+          16.67,
+          16.81,
+          16.95,
+          17.1,
+          17.28,
+          17.44,
+          17.54,
+          17.59,
+          17.69,
+          17.79,
+          17.84,
+          17.88,
+          17.98,
+          18.12,
+          18.29,
+          18.46,
+          18.69,
+          18.96,
+          19.23,
+          19.44,
+          19.57,
+          19.57,
+          19.63,
+          19.69,
+          19.61,
+          19.59,
+          19.67,
+          19.7,
+          19.71,
+          19.72,
+          19.78,
+          19.87,
+          19.9,
+          19.91,
+          19.93,
+          19.94,
+          19.95,
+          19.97,
+          19.98,
+          19.99,
+          19.94,
+          20.01,
+          20.01,
+          20.05
         ]
       },
       "crossovers": [
         {
           "date": "2025-11-18",
           "type": "death_cross",
-          "price": 314.8999938964844,
+          "price": 13.503945962270954,
           "pct_change_10d": 4.91,
-          "pct_to_now": null
+          "pct_to_now": 52.92
         },
         {
           "date": "2025-11-28",
           "type": "golden_cross",
-          "price": 336.6000061035156,
+          "price": 14.434513754916571,
           "pct_change_10d": 3.34,
-          "pct_to_now": null
+          "pct_to_now": 43.06
         },
         {
-          "date": "2026-03-23",
+          "date": "2026-03-31",
           "type": "death_cross",
-          "price": 20.127269744873047,
-          "pct_change_10d": null,
-          "pct_to_now": null
+          "price": 19.260000228881836,
+          "pct_change_10d": 7.22,
+          "pct_to_now": 7.22
+        },
+        {
+          "date": "2026-04-01",
+          "type": "golden_cross",
+          "price": 21.0,
+          "pct_change_10d": -1.67,
+          "pct_to_now": -1.67
         }
       ],
       "backtest": {
-        "total_return": 453.52,
-        "cagr": 81.11,
+        "total_return": 493.94,
+        "cagr": 85.76,
         "max_drawdown": -20.01,
-        "win_rate": 37.5,
-        "total_trades": 16,
-        "buy_hold_return": null
+        "win_rate": 41.2,
+        "total_trades": 17,
+        "buy_hold_return": 308.43
       }
     },
     {
       "ticker": "BTC-USD",
       "name": "比特幣",
-      "close": 71910.05,
-      "ema5": 70258.0,
-      "ema30": 69263.59,
-      "gap_pct": 1.44,
+      "close": 71807.27,
+      "ema5": 70223.74,
+      "ema30": 69256.96,
+      "gap_pct": 1.4,
       "signal": "bullish",
-      "ma200": 88700.38,
+      "ma200": 88699.87,
       "above_ma200": false,
-      "ma200_dist": -18.93,
+      "ma200_dist": -19.04,
       "action": "謹慎持有",
       "action_color": "yellow",
       "action_detail": "多頭但MA200下方",
       "ath": 124752.53,
-      "ath_dist": -42.36,
-      "rsi": 59.3,
+      "ath_dist": -42.44,
+      "rsi": 58.9,
       "adx": 24.9,
       "plus_di": 30.7,
       "minus_di": 12.8,
-      "vol_today": 54740328448.0,
-      "vol_avg20": 35085710948.9,
+      "vol_today": 54643990528.0,
+      "vol_avg20": 35080894052.9,
       "vol_ratio": 1.56,
       "days_since_crossover": 2,
       "chart": {
@@ -1484,7 +1491,7 @@
           68981.9,
           68859.83,
           71940.7,
-          71910.05
+          71807.27
         ],
         "ema5": [
           70663.98,
@@ -1546,7 +1553,7 @@
           67836.51,
           68177.62,
           69431.98,
-          70258.0
+          70223.74
         ],
         "ema30": [
           81844.13,
@@ -1608,7 +1615,7 @@
           68885.52,
           68883.86,
           69081.08,
-          69263.59
+          69256.96
         ]
       },
       "crossovers": [
@@ -1617,58 +1624,58 @@
           "type": "golden_cross",
           "price": 90603.1875,
           "pct_change_10d": 5.21,
-          "pct_to_now": -20.63
+          "pct_to_now": -20.75
         },
         {
           "date": "2026-01-21",
           "type": "death_cross",
           "price": 89376.9609375,
           "pct_change_10d": -12.03,
-          "pct_to_now": -19.54
+          "pct_to_now": -19.66
         },
         {
           "date": "2026-03-13",
           "type": "golden_cross",
           "price": 70968.265625,
           "pct_change_10d": -0.08,
-          "pct_to_now": 1.33
+          "pct_to_now": 1.18
         },
         {
           "date": "2026-03-21",
           "type": "death_cross",
           "price": 68711.5234375,
           "pct_change_10d": -0.7,
-          "pct_to_now": 4.66
+          "pct_to_now": 4.51
         },
         {
           "date": "2026-03-25",
           "type": "golden_cross",
           "price": 71309.8828125,
           "pct_change_10d": -5.64,
-          "pct_to_now": 0.84
+          "pct_to_now": 0.7
         },
         {
           "date": "2026-03-26",
           "type": "death_cross",
           "price": 68791.625,
           "pct_change_10d": 0.28,
-          "pct_to_now": 4.53
+          "pct_to_now": 4.38
         },
         {
           "date": "2026-04-07",
           "type": "golden_cross",
           "price": 71940.703125,
-          "pct_change_10d": -0.04,
-          "pct_to_now": -0.04
+          "pct_change_10d": -0.19,
+          "pct_to_now": -0.19
         }
       ],
       "backtest": {
-        "total_return": 551.49,
-        "cagr": 53.99,
+        "total_return": 550.56,
+        "cagr": 53.94,
         "max_drawdown": -15.28,
         "win_rate": 28.0,
         "total_trades": 25,
-        "buy_hold_return": 137.84
+        "buy_hold_return": 137.5
       }
     },
     {
@@ -1681,7 +1688,7 @@
       "signal": "bearish",
       "ma200": 0.05,
       "above_ma200": false,
-      "ma200_dist": -28.04,
+      "ma200_dist": -28.05,
       "action": "空手觀望",
       "action_color": "red",
       "action_detail": "空頭 + MA200下方",
@@ -1691,8 +1698,8 @@
       "adx": 19.4,
       "plus_di": 25.4,
       "minus_di": 14.0,
-      "vol_today": 31069392.0,
-      "vol_avg20": 22673866.2,
+      "vol_today": 31064482.0,
+      "vol_avg20": 22673620.7,
       "vol_ratio": 1.37,
       "days_since_crossover": 10,
       "chart": {
@@ -1958,21 +1965,21 @@
           "type": "death_cross",
           "price": 0.04869300127029419,
           "pct_change_10d": -7.75,
-          "pct_to_now": -32.65
+          "pct_to_now": -32.66
         },
         {
           "date": "2026-01-04",
           "type": "golden_cross",
           "price": 0.0494690015912056,
           "pct_change_10d": -2.75,
-          "pct_to_now": -33.71
+          "pct_to_now": -33.72
         },
         {
           "date": "2026-01-15",
           "type": "death_cross",
           "price": 0.045534998178482056,
           "pct_change_10d": -13.11,
-          "pct_to_now": -27.98
+          "pct_to_now": -27.99
         },
         {
           "date": "2026-03-16",
@@ -1985,8 +1992,8 @@
           "date": "2026-03-30",
           "type": "death_cross",
           "price": 0.03189300000667572,
-          "pct_change_10d": 2.82,
-          "pct_to_now": 2.82
+          "pct_change_10d": 2.81,
+          "pct_to_now": 2.81
         }
       ],
       "backtest": {
@@ -1995,7 +2002,7 @@
         "max_drawdown": -30.05,
         "win_rate": 29.2,
         "total_trades": 24,
-        "buy_hold_return": -1.17
+        "buy_hold_return": -1.18
       }
     }
   ],
@@ -2006,8 +2013,26 @@
       "date": "2026-04-07",
       "type": "golden_cross",
       "price": 71940.703125,
-      "pct_change_10d": -0.04,
-      "pct_to_now": -0.04
+      "pct_change_10d": -0.19,
+      "pct_to_now": -0.19
+    },
+    {
+      "ticker": "00631L.TW",
+      "name": "元大台灣50正2",
+      "date": "2026-04-01",
+      "type": "golden_cross",
+      "price": 21.0,
+      "pct_change_10d": -1.67,
+      "pct_to_now": -1.67
+    },
+    {
+      "ticker": "00631L.TW",
+      "name": "元大台灣50正2",
+      "date": "2026-03-31",
+      "type": "death_cross",
+      "price": 19.260000228881836,
+      "pct_change_10d": 7.22,
+      "pct_to_now": 7.22
     },
     {
       "ticker": "KAS-USD",
@@ -2015,8 +2040,8 @@
       "date": "2026-03-30",
       "type": "death_cross",
       "price": 0.03189300000667572,
-      "pct_change_10d": 2.82,
-      "pct_to_now": 2.82
+      "pct_change_10d": 2.81,
+      "pct_to_now": 2.81
     },
     {
       "ticker": "BTC-USD",
@@ -2025,7 +2050,7 @@
       "type": "death_cross",
       "price": 68791.625,
       "pct_change_10d": 0.28,
-      "pct_to_now": 4.53
+      "pct_to_now": 4.38
     },
     {
       "ticker": "BTC-USD",
@@ -2034,16 +2059,7 @@
       "type": "golden_cross",
       "price": 71309.8828125,
       "pct_change_10d": -5.64,
-      "pct_to_now": 0.84
-    },
-    {
-      "ticker": "00631L.TW",
-      "name": "元大台灣50正2",
-      "date": "2026-03-23",
-      "type": "death_cross",
-      "price": 20.127269744873047,
-      "pct_change_10d": null,
-      "pct_to_now": null
+      "pct_to_now": 0.7
     },
     {
       "ticker": "BTC-USD",
@@ -2052,7 +2068,7 @@
       "type": "death_cross",
       "price": 68711.5234375,
       "pct_change_10d": -0.7,
-      "pct_to_now": 4.66
+      "pct_to_now": 4.51
     },
     {
       "ticker": "KAS-USD",
@@ -2070,7 +2086,7 @@
       "type": "golden_cross",
       "price": 70968.265625,
       "pct_change_10d": -0.08,
-      "pct_to_now": 1.33
+      "pct_to_now": 1.18
     },
     {
       "ticker": "SSO",
@@ -2079,7 +2095,7 @@
       "type": "death_cross",
       "price": 57.235660552978516,
       "pct_change_10d": 1.13,
-      "pct_to_now": -2.24
+      "pct_to_now": -2.19
     },
     {
       "ticker": "SSO",
@@ -2088,7 +2104,7 @@
       "type": "golden_cross",
       "price": 59.40095520019531,
       "pct_change_10d": -2.12,
-      "pct_to_now": -5.8
+      "pct_to_now": -5.75
     },
     {
       "ticker": "SSO",
@@ -2097,7 +2113,7 @@
       "type": "death_cross",
       "price": 56.68685531616211,
       "pct_change_10d": 3.22,
-      "pct_to_now": -1.29
+      "pct_to_now": -1.24
     },
     {
       "ticker": "QLD",
@@ -2106,7 +2122,7 @@
       "type": "death_cross",
       "price": 67.96589660644531,
       "pct_change_10d": -1.09,
-      "pct_to_now": -1.12
+      "pct_to_now": -1.05
     },
     {
       "ticker": "TQQQ",
@@ -2115,7 +2131,7 @@
       "type": "death_cross",
       "price": 52.43330764770508,
       "pct_change_10d": -5.96,
-      "pct_to_now": -8.2
+      "pct_to_now": -8.08
     },
     {
       "ticker": "TQQQ",
@@ -2124,7 +2140,7 @@
       "type": "golden_cross",
       "price": 54.98908615112305,
       "pct_change_10d": -6.06,
-      "pct_to_now": -12.46
+      "pct_to_now": -12.35
     },
     {
       "ticker": "QLD",
@@ -2133,7 +2149,7 @@
       "type": "golden_cross",
       "price": 72.6449203491211,
       "pct_change_10d": -3.89,
-      "pct_to_now": -7.49
+      "pct_to_now": -7.43
     },
     {
       "ticker": "BTC-USD",
@@ -2142,7 +2158,7 @@
       "type": "death_cross",
       "price": 89376.9609375,
       "pct_change_10d": -12.03,
-      "pct_to_now": -19.54
+      "pct_to_now": -19.66
     },
     {
       "ticker": "TQQQ",
@@ -2151,7 +2167,7 @@
       "type": "death_cross",
       "price": 50.646263122558594,
       "pct_change_10d": 3.53,
-      "pct_to_now": -4.96
+      "pct_to_now": -4.83
     },
     {
       "ticker": "QLD",
@@ -2160,7 +2176,7 @@
       "type": "death_cross",
       "price": 68.71573638916016,
       "pct_change_10d": 2.52,
-      "pct_to_now": -2.2
+      "pct_to_now": -2.13
     },
     {
       "ticker": "KAS-USD",
@@ -2169,7 +2185,7 @@
       "type": "death_cross",
       "price": 0.045534998178482056,
       "pct_change_10d": -13.11,
-      "pct_to_now": -27.98
+      "pct_to_now": -27.99
     },
     {
       "ticker": "TQQQ",
@@ -2178,7 +2194,7 @@
       "type": "golden_cross",
       "price": 54.91919708251953,
       "pct_change_10d": -4.14,
-      "pct_to_now": -12.35
+      "pct_to_now": -12.24
     },
     {
       "ticker": "QLD",
@@ -2187,7 +2203,7 @@
       "type": "golden_cross",
       "price": 72.44496154785156,
       "pct_change_10d": -2.65,
-      "pct_to_now": -7.23
+      "pct_to_now": -7.17
     },
     {
       "ticker": "KAS-USD",
@@ -2196,7 +2212,7 @@
       "type": "golden_cross",
       "price": 0.0494690015912056,
       "pct_change_10d": -2.75,
-      "pct_to_now": -33.71
+      "pct_to_now": -33.72
     },
     {
       "ticker": "BTC-USD",
@@ -2205,7 +2221,7 @@
       "type": "golden_cross",
       "price": 90603.1875,
       "pct_change_10d": 5.21,
-      "pct_to_now": -20.63
+      "pct_to_now": -20.75
     },
     {
       "ticker": "TQQQ",
@@ -2214,7 +2230,7 @@
       "type": "death_cross",
       "price": 52.263587951660156,
       "pct_change_10d": 3.42,
-      "pct_to_now": -7.9
+      "pct_to_now": -7.78
     },
     {
       "ticker": "QLD",
@@ -2223,7 +2239,7 @@
       "type": "death_cross",
       "price": 70.08544921875,
       "pct_change_10d": 2.35,
-      "pct_to_now": -4.11
+      "pct_to_now": -4.05
     },
     {
       "ticker": "TQQQ",
@@ -2232,16 +2248,16 @@
       "type": "golden_cross",
       "price": 54.83333969116211,
       "pct_change_10d": -1.34,
-      "pct_to_now": -12.22
+      "pct_to_now": -12.1
     },
     {
       "ticker": "QLD",
       "name": "QLD 納指2倍",
       "date": "2025-12-23",
       "type": "golden_cross",
-      "price": 72.32198333740234,
+      "price": 72.32199096679688,
       "pct_change_10d": -0.81,
-      "pct_to_now": -7.08
+      "pct_to_now": -7.01
     },
     {
       "ticker": "SSO",
@@ -2250,16 +2266,16 @@
       "type": "golden_cross",
       "price": 57.67110824584961,
       "pct_change_10d": 3.07,
-      "pct_to_now": -2.98
+      "pct_to_now": -2.93
     },
     {
       "ticker": "SSO",
       "name": "SSO 標普2倍",
       "date": "2025-12-17",
       "type": "death_cross",
-      "price": 55.82874298095703,
+      "price": 55.828739166259766,
       "pct_change_10d": 3.84,
-      "pct_to_now": 0.23
+      "pct_to_now": 0.28
     },
     {
       "ticker": "TQQQ",
@@ -2268,7 +2284,7 @@
       "type": "death_cross",
       "price": 52.161949157714844,
       "pct_change_10d": 0.9,
-      "pct_to_now": -7.72
+      "pct_to_now": -7.6
     },
     {
       "ticker": "QLD",
@@ -2277,7 +2293,7 @@
       "type": "death_cross",
       "price": 69.86328125,
       "pct_change_10d": 0.76,
-      "pct_to_now": -3.8
+      "pct_to_now": -3.74
     },
     {
       "ticker": "KAS-USD",
@@ -2286,7 +2302,7 @@
       "type": "death_cross",
       "price": 0.04869300127029419,
       "pct_change_10d": -7.75,
-      "pct_to_now": -32.65
+      "pct_to_now": -32.66
     },
     {
       "ticker": "TQQQ",
@@ -2295,16 +2311,16 @@
       "type": "golden_cross",
       "price": 53.87641906738281,
       "pct_change_10d": -3.76,
-      "pct_to_now": -10.66
+      "pct_to_now": -10.54
     },
     {
       "ticker": "QLD",
       "name": "QLD 納指2倍",
       "date": "2025-11-28",
       "type": "golden_cross",
-      "price": 71.77227020263672,
+      "price": 71.77227783203125,
       "pct_change_10d": -2.05,
-      "pct_to_now": -6.36
+      "pct_to_now": -6.3
     },
     {
       "ticker": "SSO",
@@ -2313,16 +2329,16 @@
       "type": "golden_cross",
       "price": 58.0196647644043,
       "pct_change_10d": -0.72,
-      "pct_to_now": -3.56
+      "pct_to_now": -3.51
     },
     {
       "ticker": "00631L.TW",
       "name": "元大台灣50正2",
       "date": "2025-11-28",
       "type": "golden_cross",
-      "price": 336.6000061035156,
+      "price": 14.434513754916571,
       "pct_change_10d": 3.34,
-      "pct_to_now": null
+      "pct_to_now": 43.06
     },
     {
       "ticker": "KAS-USD",
@@ -2338,18 +2354,18 @@
       "name": "元大台灣50正2",
       "date": "2025-11-18",
       "type": "death_cross",
-      "price": 314.8999938964844,
+      "price": 13.503945962270954,
       "pct_change_10d": 4.91,
-      "pct_to_now": null
+      "pct_to_now": 52.92
     },
     {
       "ticker": "SSO",
       "name": "SSO 標普2倍",
       "date": "2025-11-17",
       "type": "death_cross",
-      "price": 55.20631790161133,
+      "price": 55.206321716308594,
       "pct_change_10d": 4.5,
-      "pct_to_now": 1.36
+      "pct_to_now": 1.41
     },
     {
       "ticker": "TQQQ",
@@ -2358,7 +2374,7 @@
       "type": "death_cross",
       "price": 52.20181655883789,
       "pct_change_10d": 3.21,
-      "pct_to_now": -7.79
+      "pct_to_now": -7.67
     },
     {
       "ticker": "QLD",
@@ -2367,7 +2383,7 @@
       "type": "death_cross",
       "price": 69.65838623046875,
       "pct_change_10d": 2.37,
-      "pct_to_now": -3.52
+      "pct_to_now": -3.46
     }
   ]
 }
