@@ -90,6 +90,21 @@ TICKER_NAMES = {
 }
 
 
+def round_price(value, ticker: str | None = None) -> float | None:
+    """Round price with precision aware of small-price assets like KAS.
+
+    Sub-dollar prices (e.g. KAS at $0.034) lose meaning at 2 decimals,
+    so use 6 decimals when |value| < 1. Dollar-and-up uses 2 decimals.
+    """
+    if value is None:
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(v, 6) if abs(v) < 1 else round(v, 2)
+
+
 def get_signal_action(signal: str, above_ma200: bool | None) -> dict:
     """Signal logic table → action + color + short text"""
     if signal == "golden_cross":
@@ -412,9 +427,9 @@ def analyze_ticker(ticker: str) -> dict:
     recent_ema30 = ema30.iloc[-60:]
     chart_data = {
         "dates": [d.strftime("%m/%d") for d in recent.index],
-        "close": [round(float(v), 2) for v in recent.values],
-        "ema5": [round(float(v), 2) for v in recent_ema5.values],
-        "ema30": [round(float(v), 2) for v in recent_ema30.values],
+        "close": [round_price(v, ticker) for v in recent.values],
+        "ema5": [round_price(v, ticker) for v in recent_ema5.values],
+        "ema30": [round_price(v, ticker) for v in recent_ema30.values],
     }
 
     # Crossovers in last 6 months
@@ -429,18 +444,18 @@ def analyze_ticker(ticker: str) -> dict:
     return {
         "ticker": ticker,
         "name": TICKER_NAMES.get(ticker, ticker),
-        "close": round(last_close, 2),
-        "ema5": round(last_ema5, 2),
-        "ema30": round(last_ema30, 2),
+        "close": round_price(last_close, ticker),
+        "ema5": round_price(last_ema5, ticker),
+        "ema30": round_price(last_ema30, ticker),
         "gap_pct": round(gap_pct, 2),
         "signal": signal,
-        "ma200": round(last_ma200, 2) if last_ma200 else None,
+        "ma200": round_price(last_ma200, ticker),
         "above_ma200": above_ma200,
         "ma200_dist": round(ma200_dist, 2) if ma200_dist else None,
         "action": action_info["action"],
         "action_color": action_info["color"],
         "action_detail": action_info["detail"],
-        "ath": round(ath, 2),
+        "ath": round_price(ath, ticker),
         "ath_dist": round(ath_dist, 2),
         "rsi": round(last_rsi, 1) if last_rsi else None,
         "adx": round(last_adx, 1) if last_adx else None,
