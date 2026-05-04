@@ -33,7 +33,7 @@ def clean_nan(obj):
         return [clean_nan(v) for v in obj]
     return obj
 
-TICKERS = ["TQQQ", "QLD", "SSO", "USD", "00631L.TW", "BTC-USD", "KAS-USD"]
+TICKERS = ["TQQQ", "QLD", "SSO", "USD", "00631L.TW", "006208.TW", "BTC-USD", "KAS-USD"]
 
 # ATH overheat trim alert config
 # Backtest-derived sweet spots (RSI>=75, ADX>=50, cd=0, withdrawal model)
@@ -43,6 +43,7 @@ ATH_TRIM_RULES = {
     "SSO":       {"trim_pct": 3, "label": "SSO 標普2倍"},
     "USD":       {"trim_pct": 3, "label": "USD 半導體2倍"},
     "00631L.TW": {"trim_pct": 3, "label": "元大台灣50正2"},
+    "006208.TW": {"trim_pct": 3, "label": "富邦台灣50"},
     "BTC-USD":   {"trim_pct": 3, "label": "比特幣"},
     "KAS-USD":   {"trim_pct": 3, "label": "Kaspa"},
 }
@@ -63,6 +64,7 @@ TICKER_MARKET = {
     "SSO":       "US",
     "USD":       "US",
     "00631L.TW": "TW",
+    "006208.TW": "TW",
     "BTC-USD":   "CRYPTO",
     "KAS-USD":   "CRYPTO",
 }
@@ -85,6 +87,7 @@ TICKER_NAMES = {
     "SSO": "SSO 標普2倍",
     "USD": "USD 半導體2倍",
     "00631L.TW": "元大台灣50正2",
+    "006208.TW": "富邦台灣50",
     "BTC-USD": "比特幣",
     "KAS-USD": "Kaspa",
 }
