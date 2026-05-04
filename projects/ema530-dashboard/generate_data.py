@@ -786,6 +786,11 @@ def main():
 
     print("✅ data.json generated!", file=sys.stderr)
 
+    # Skip alerts when called from hourly watchdog — alerts only fire from 08:00 morning report
+    if os.environ.get("NO_ALERT") == "1" or "--no-alert" in sys.argv:
+        print("⏭️  NO_ALERT set — skipping ATH overheat + crossover alerts", file=sys.stderr)
+        return
+
     # Check ATH overheat alerts for monitored tickers
     check_ath_overheat_alerts(results)
 
