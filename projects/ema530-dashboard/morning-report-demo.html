@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>EMA530 晨報 — 2026-05-09 (六)</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --border: #2a313a;
+    --text: #e6edf3;
+    --muted: #9aa6b2;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --blue: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font: 14px/1.5 -apple-system, "Helvetica Neue", "PingFang TC", sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 18px 0 8px; color: var(--blue); }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; margin-bottom: 14px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th {
+    cursor: pointer; user-select: none; color: var(--muted);
+    font-weight: 600; position: relative;
+  }
+  th:hover { color: var(--text); }
+  th.sorted::after { content: attr(data-dir); margin-left: 4px; color: var(--blue); }
+  tr.collapsed-detail { display: none; }
+  tr.expanded { background: rgba(88,166,255,.04); }
+  tr.detail td { background: #11161d; padding: 10px 14px; color: var(--muted); font-size: 12px; }
+  tr.detail .label { color: var(--text); display: inline-block; min-width: 4em; }
+  .pill {
+    display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pill.green  { background: rgba(63,185,80,.15);  color: var(--green); }
+  .pill.yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .pill.red    { background: rgba(248,81,73,.15);  color: var(--red); }
+  .rsi-hot { color: var(--red); font-weight: 600; }
+  .ticker { font-weight: 600; }
+  .filters { margin: 8px 0 12px; }
+  .filters button {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; font-size: 12px; cursor: pointer;
+    margin-right: 6px;
+  }
+  .filters button.active { color: var(--text); border-color: var(--blue); }
+  .commentary {
+    color: var(--muted); font-size: 13px;
+    border-left: 3px solid var(--blue); padding: 8px 12px;
+    background: rgba(88,166,255,.04); border-radius: 0 6px 6px 0;
+  }
+  .commentary strong { color: var(--text); }
+  details { margin-top: 8px; }
+  details > summary { cursor: pointer; color: var(--blue); font-size: 12px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv .k { color: var(--muted); }
+  .footer { color: var(--muted); font-size: 11px; margin-top: 20px; text-align: center; }
+  .icon { font-size: 14px; margin-right: 2px; }
+</style>
+</head>
+<body>
+
+<h1>📊 EMA530 晨報 — 5/9 (六)</h1>
+<div class="meta">scaffolded by Nami · data snapshot 2026-05-09 09:35 CST</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">台美股 EMA530（5 檔）</h2>
+  <div class="filters">
+    <button class="active" data-filter="all">全部</button>
+    <button data-filter="hot">RSI &gt; 75 過熱</button>
+    <button data-filter="us">美股</button>
+    <button data-filter="tw">台股</button>
+  </div>
+  <table id="tickers">
+    <thead>
+      <tr>
+        <th data-key="ticker">Ticker</th>
+        <th data-key="close" class="num">Close</th>
+        <th data-key="ema5" class="num">EMA5</th>
+        <th data-key="ema30" class="num">EMA30</th>
+        <th data-key="gap_pct" class="num">Gap%</th>
+        <th data-key="rsi" class="num">RSI</th>
+        <th data-key="adx" class="num">ADX</th>
+        <th data-key="action">Action</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <div class="commentary" style="margin-top:14px">
+    <strong>解讀：</strong> 5 檔全部 RSI > 75，連續第三天「同步超買」— ADX 也全部 > 35（USD/00631L/006208 直接破 50），多方力道在推不是虛胖。<strong>00631L ATH trim 規則仍適用：別賣（backtest -21% vs B&amp;H），但別追高。</strong>
+  </div>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">🌊 KAS 威科夫 — 5/9</h2>
+  <div class="kv">
+    <span class="k">Price</span>      <span><strong>$0.03661</strong> (24h +3.47% / 7d +10.24% / 30d +13.92%)</span>
+    <span class="k">距 ATH</span>      <span class="rsi-hot">-80.73%</span>
+    <span class="k">RSI</span>        <span>63.25 (偏多未超買)</span>
+    <span class="k">MACD hist</span>  <span>+0.000329 → 從 0.000244 擴張，多頭加速</span>
+    <span class="k">布林通道</span>    <span>$0.0317 — $0.0340 — $0.0364 (突破上軌)</span>
+    <span class="k">量比</span>        <span>1.17x</span>
+  </div>
+  <div class="commentary" style="margin-top:14px">
+    <strong>判讀：</strong> 突破 BB 上軌 + MACD hist 擴張 + 量略增 → markup 早期跡象。但仍在 -80% drawdown 通道內，是「築底反彈」不是「新牛起點」。<strong>Toccata hardfork 6/5–6/20 是月底前真正的催化劑。</strong>
+  </div>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">🚢 MSTR/BTC 背離 — 5/9</h2>
+  <div class="kv">
+    <span class="k">BTC</span>   <span>$80,010 (距前高 -35.9%)</span>
+    <span class="k">MSTR</span>  <span>$179.84 (距前高 -50.0%)</span>
+    <span class="k">Beta</span>  <span>1.42x · 30日 BTC +16.3% → MSTR 預期 +23.2% / 實際 +35.3% (偏差 +12.1% 🟡)</span>
+    <span class="k">底部背離</span> <span>3 次 (08/25, 10/17, 01/30)</span>
+    <span class="k">頂部背離</span> <span>4 次</span>
+    <span class="k">大船</span>  <span>COIN $193 🟢 / MARA $13 🟢 / RIOT $24 🟢 — 全部撐住前低</span>
+  </div>
+  <details>
+    <summary>四重確認劇本（2/4）</summary>
+    <ul style="margin:6px 0 0 18px;color:var(--muted);font-size:12px;line-height:1.7">
+      <li>⬜ BTC 跌到 $50K 礦工投降區（現 $80K）</li>
+      <li>✅ MSTR 沒破前低 $107（現 $180）</li>
+      <li>⬜ Beta 偏差 &gt; +15%（現 +12.1%）</li>
+      <li>✅ COIN/礦業股沒破低</li>
+    </ul>
+  </details>
+  <div class="commentary" style="margin-top:14px">
+    <strong>三邊資金沒同步：</strong> 美股全部 RSI 80+ 一起爽、加密大船同時被悄悄接、BTC 卻沒往上推。未來兩週 BTC 上推 + Beta 擴張 = MSTR 領先信號；BTC 不動但 Beta 收斂 = 假動作。先觀察。
+  </div>
+</div>
+
+<div class="footer">
+  Format demo by Nami · 跟舊版 3 則 TG 文字訊息資訊量相同，密度提高、可排序、可篩選 · 🌊
+</div>
+
+<script>
+const data = [
+  { ticker: "QLD",        close: 91.72,  ema5: 87.44,  ema30: 77.16,  gap_pct: 13.32, rsi: 83.1, adx: 60.3, plus_di: 55.4, minus_di: 5.2, days: 30, action: "持有", color: "green", market: "us", crossover: "黃金交叉", ma200: "✅水上" },
+  { ticker: "SSO",        close: 66.22,  ema5: 64.96,  ema30: 60.61,  gap_pct: 7.17,  rsi: 75.0, adx: 36.6, plus_di: 42.3, minus_di: 13.5, days: 30, action: "持有", color: "green", market: "us", crossover: "黃金交叉", ma200: "✅水上" },
+  { ticker: "USD",        close: 95.30,  ema5: 87.68,  ema30: 72.41,  gap_pct: 21.09, rsi: 80.9, adx: 50.9, plus_di: 44.8, minus_di: 7.7, days: 31, action: "持有", color: "green", market: "us", crossover: "黃金交叉", ma200: "✅水上" },
+  { ticker: "00631L.TW",  close: 33.06,  ema5: 31.41,  ema30: 26.51,  gap_pct: 18.48, rsi: 80.6, adx: 65.1, plus_di: 55.2, minus_di: 7.5, days: 31, action: "持有", color: "green", market: "tw", crossover: "黃金交叉", ma200: "✅水上" },
+  { ticker: "006208.TW",  close: 226.80, ema5: 220.48, ema30: 199.51, gap_pct: 10.51, rsi: 80.1, adx: 60.8, plus_di: 57.2, minus_di: 9.5, days: 31, action: "持有", color: "green", market: "tw", crossover: "黃金交叉", ma200: "✅水上" },
+];
+
+const tbody = document.querySelector("#tickers tbody");
+const ths = document.querySelectorAll("#tickers th");
+let sortKey = "ticker", sortDir = 1, filter = "all";
+
+const fmt = (v, dp=2) => typeof v === "number" ? v.toFixed(dp) : v;
+const rsiClass = r => r > 75 ? "rsi-hot" : "";
+const filtered = () => data.filter(d => {
+  if (filter === "all") return true;
+  if (filter === "hot") return d.rsi > 75;
+  return d.market === filter;
+});
+
+function render() {
+  const rows = [...filtered()].sort((a, b) => {
+    const va = a[sortKey], vb = b[sortKey];
+    if (typeof va === "number") return (va - vb) * sortDir;
+    return String(va).localeCompare(String(vb)) * sortDir;
+  });
+
+  tbody.innerHTML = "";
+  rows.forEach((d, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="ticker">${d.ticker}</td>
+      <td>$${fmt(d.close)}</td>
+      <td>${fmt(d.ema5)}</td>
+      <td>${fmt(d.ema30)}</td>
+      <td>${fmt(d.gap_pct, 2)}%</td>
+      <td class="${rsiClass(d.rsi)}">${fmt(d.rsi, 1)}</td>
+      <td>${fmt(d.adx, 1)}</td>
+      <td><span class="pill ${d.color}">${d.action}</span></td>
+    `;
+    tr.style.cursor = "pointer";
+    tr.onclick = () => toggleDetail(tr, d);
+    tbody.appendChild(tr);
+  });
+
+  ths.forEach(th => {
+    th.classList.toggle("sorted", th.dataset.key === sortKey);
+    th.dataset.dir = sortDir > 0 ? "▲" : "▼";
+  });
+}
+
+function toggleDetail(tr, d) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("detail")) {
+    next.remove();
+    tr.classList.remove("expanded");
+    return;
+  }
+  tr.classList.add("expanded");
+  const det = document.createElement("tr");
+  det.className = "detail";
+  det.innerHTML = `<td colspan="8">
+    <span class="label">EMA530:</span> 📈 多頭，${d.days} 天前${d.crossover}<br>
+    <span class="label">MA200:</span> ${d.ma200} ｜ <span class="label">+DI:</span> ${d.plus_di} ｜ <span class="label">-DI:</span> ${d.minus_di}<br>
+    <span class="label">RSI:</span> ${d.rsi.toFixed(1)} ${d.rsi > 75 ? "🔴 超買" : d.rsi < 30 ? "🟢 超賣" : "⚪"} ｜ <span class="label">ADX:</span> ${d.adx.toFixed(1)} ${d.adx > 25 ? "💪" : d.adx > 15 ? "😐" : "💤"}
+  </td>`;
+  tr.after(det);
+}
+
+ths.forEach(th => {
+  th.onclick = () => {
+    const k = th.dataset.key;
+    if (k === sortKey) sortDir *= -1; else { sortKey = k; sortDir = 1; }
+    render();
+  };
+});
+
+document.querySelectorAll(".filters button").forEach(b => {
+  b.onclick = () => {
+    filter = b.dataset.filter;
+    document.querySelectorAll(".filters button").forEach(x => x.classList.toggle("active", x === b));
+    render();
+  };
+});
+
+render();
+</script>
+
+</body>
+</html>

@@ -266,20 +266,90 @@ async function dbDelete(key) {
 }
 
 // ============================================================
-// RPC - Talk to kaspad via API proxy
+// RPC - Two paths: public REST (default) or local proxy
 // ============================================================
+//
+// 2026-05-10 rewrite: backend kaspad + kaspa-api.cjs proxy died after
+// 4/3 mining pause and quant.openclaw-alpha.com took the 18806 port.
+// Rather than ship without revival, route read/write wallet ops through
+// the public testnet REST endpoint (api-tn12.kaspa.org) — no backend
+// needed, works in any browser. Mining-specific methods (getBlockTemplate
+// / submitBlock) stay on the proxy path; they remain disabled until
+// local kaspad is brought back.
+//
+// Source is selectable at runtime via Settings → "RPC Source":
+//   'public' — api-tn12.kaspa.org (default; balance/utxos/send work,
+//              mining returns a clear "needs local kaspad" error)
+//   'proxy'  — same /api/* backend as before (kaspa-api.cjs); full
+//              feature set including mining when backend is up.
+//
+// Stored in localStorage so user choice persists across reloads.
 
-// Auto-detect: standalone domain uses /api, embedded uses /kaspa/api
-const API_BASE = window.location.pathname.startsWith('/kaspa') ? '/kaspa/api' : '/api';
+// Auto-detect proxy base path (standalone /api/ vs embedded /kaspa/api/).
+const PROXY_BASE = window.location.pathname.startsWith('/kaspa') ? '/kaspa/api' : '/api';
+const PUBLIC_REST_BASE = 'https://api-tn12.kaspa.org';
 
-async function rpcCall(method, params = {}) {
-    const res = await fetch(`${API_BASE}/${method}`, {
+const RPC_MINING_METHODS = new Set(['getBlockTemplate', 'submitBlock', 'getBlockDagInfo']);
+
+let rpcSource = localStorage.getItem('rpcSource') || 'public';
+export function setRpcSource(s) {
+    rpcSource = s;
+    localStorage.setItem('rpcSource', s);
+}
+export function getRpcSource() { return rpcSource; }
+
+// Mapping from kaspad RPC method → REST call.
+// Returns the parsed JSON body of the REST response (already shaped to
+// look like the proxy's response so callers don't care about the source).
+async function publicRestCall(method, params) {
+    if (RPC_MINING_METHODS.has(method)) {
+        throw new Error(
+            `${method} requires local kaspad. Switch RPC source to "Local Proxy" ` +
+            `in Settings (and ensure kaspa-api.cjs + kaspad are running).`
+        );
+    }
+    if (method === 'getBalanceByAddress') {
+        const addr = params.address;
+        const r = await fetch(`${PUBLIC_REST_BASE}/addresses/${encodeURIComponent(addr)}/balance`);
+        if (!r.ok) throw new Error(`REST ${r.status}`);
+        const j = await r.json();
+        return { balance: j.balance };
+    }
+    if (method === 'getUtxosByAddresses') {
+        const addr = params.addresses[0];
+        const r = await fetch(`${PUBLIC_REST_BASE}/addresses/${encodeURIComponent(addr)}/utxos`);
+        if (!r.ok) throw new Error(`REST ${r.status}`);
+        const j = await r.json();
+        // Public REST returns a list shaped like [{outpoint, utxoEntry}]; the
+        // proxy returned {entries: [...]}. Normalize so callers see the same.
+        return { entries: Array.isArray(j) ? j : (j.entries || []) };
+    }
+    if (method === 'submitTransaction') {
+        const r = await fetch(`${PUBLIC_REST_BASE}/transactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transaction: params.transaction })
+        });
+        if (!r.ok) throw new Error(`REST ${r.status}: ${await r.text()}`);
+        return r.json();
+    }
+    throw new Error(`Public REST: method "${method}" not mapped`);
+}
+
+async function proxyRpcCall(method, params) {
+    const res = await fetch(`${PROXY_BASE}/${method}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
     });
     if (!res.ok) throw new Error(`RPC error: ${res.status}`);
     return res.json();
+}
+
+async function rpcCall(method, params = {}) {
+    return rpcSource === 'public'
+        ? publicRestCall(method, params)
+        : proxyRpcCall(method, params);
 }
 
 async function getBalance(address) {
@@ -1888,13 +1958,20 @@ function startMining() {
     if (miningActive) return;
     if (!currentAddress) { mineLog('❌ Unlock wallet first'); return; }
 
+    if (rpcSource === 'public') {
+        mineLog('❌ Mining requires Local Proxy (kaspa-api.cjs + kaspad).');
+        mineLog('   Public REST does not expose getBlockTemplate/submitBlock.');
+        mineLog('   → Switch RPC Source in Settings → re-try.');
+        return;
+    }
+
     miningActive = true;
     mineStartTime = Date.now();
     $('btn-mine-start').style.display = 'none';
     $('btn-mine-stop').style.display = 'block';
 
-    // Use HTTP API proxy
-    const apiUrl = `${location.origin}/api/`;
+    // Mining always goes through the proxy (worker fetches /api/* directly).
+    const apiUrl = `${location.origin}${PROXY_BASE}/`;
 
     mineLog('🔧 Creating Web Worker...');
     try {

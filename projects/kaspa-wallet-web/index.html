@@ -236,18 +236,52 @@
             <div id="tab-settings" class="tab-content">
                 <div class="card">
                     <h3>Settings</h3>
+
+                    <div style="margin:16px 0;padding:12px;background:#161b22;border-radius:8px">
+                        <label for="rpc-source" style="display:block;color:#c9d1d9;font-weight:600;margin-bottom:6px">🔌 RPC Source</label>
+                        <select id="rpc-source" style="width:100%;padding:8px;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;font-size:.95rem">
+                            <option value="public">Public REST (api-tn12.kaspa.org) — default</option>
+                            <option value="proxy">Local Proxy (kaspa-api.cjs + kaspad)</option>
+                        </select>
+                        <p id="rpc-source-hint" style="color:#8b949e;font-size:.75rem;margin-top:6px;line-height:1.4"></p>
+                    </div>
+
                     <button id="btn-export" class="btn btn-secondary">🔑 Export Private Key</button>
                     <button id="btn-logout" class="btn btn-secondary">🔒 Lock Wallet</button>
                     <button id="btn-delete" class="btn btn-danger">🗑️ Delete Wallet</button>
                     <div class="info-section">
                         <p><strong>Network:</strong> Testnet-12</p>
-                        <p><strong>Node:</strong> wRPC (Borsh)</p>
+                        <p><strong>Node:</strong> <span id="settings-node">wRPC (Borsh)</span></p>
                         <p><strong>Security:</strong> AES-256-GCM + PBKDF2</p>
                         <p><strong>Key Derivation:</strong> BIP-39 / BIP-32</p>
                         <p><strong>Path:</strong> m/44'/111111'/0'/0/0</p>
                     </div>
                 </div>
             </div>
+
+            <script type="module">
+                // Wire up RPC source dropdown. setRpcSource is exported from kaspa-wallet.js.
+                import('./kaspa-wallet.js?v=22').then(m => {
+                    const sel = document.getElementById('rpc-source');
+                    const hint = document.getElementById('rpc-source-hint');
+                    const nodeLabel = document.getElementById('settings-node');
+                    const HINTS = {
+                        public: '只走公網 REST (api-tn12.kaspa.org)。balance / send / Whisper 收件箱可用，但挖礦會被拒絕（需要 local kaspad 才能 getBlockTemplate / submitBlock）。',
+                        proxy: '走本機 /api/* (kaspa-api.cjs → kaspad)。完整功能含挖礦。需要本機 backend 在跑。'
+                    };
+                    const NODE_LABEL = { public: 'Public REST', proxy: 'Local kaspad (wRPC)' };
+                    function refresh() {
+                        sel.value = m.getRpcSource();
+                        hint.textContent = HINTS[sel.value];
+                        nodeLabel.textContent = NODE_LABEL[sel.value];
+                    }
+                    sel.addEventListener('change', () => {
+                        m.setRpcSource(sel.value);
+                        refresh();
+                    });
+                    refresh();
+                });
+            </script>
         </div>
 
         <!-- Export Modal -->
@@ -263,6 +297,6 @@
         </div>
     </div>
 
-    <script type="module" src="kaspa-wallet.js?v=21"></script>
+    <script type="module" src="kaspa-wallet.js?v=22"></script>
 </body>
 </html>

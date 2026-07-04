@@ -1,21 +1,19 @@
 {
   "TQQQ": {
-    "last_cross_signal": "golden_cross",
-    "detected_at": "2026-04-09 23:59:35",
-    "alert_pending": false,
-    "close": 48.62,
-    "above_ma200": false,
-    "ma200_dist": -1.32,
-    "alert_sent_at": "2026-04-10 00:13:33"
+    "last_cross_signal": "death_cross",
+    "detected_at": "2026-06-29 08:20:16",
+    "alert_pending": true,
+    "close": 71.83,
+    "above_ma200": true,
+    "ma200_dist": 26.34
   },
   "QLD": {
-    "last_cross_signal": "golden_cross",
-    "detected_at": "2026-04-09 23:59:35",
-    "alert_pending": false,
-    "close": 67.65,
+    "last_cross_signal": "death_cross",
+    "detected_at": "2026-06-29 08:20:16",
+    "alert_pending": true,
+    "close": 89.12,
     "above_ma200": true,
-    "ma200_dist": 1.04,
-    "alert_sent_at": "2026-04-10 00:13:35"
+    "ma200_dist": 20.14
   },
   "SSO": {
     "last_cross_signal": "golden_cross",
@@ -27,12 +25,11 @@
     "alert_sent_at": "2026-04-10 00:13:36"
   },
   "KAS-USD": {
-    "last_cross_signal": "golden_cross",
-    "detected_at": "2026-05-04 11:00:05",
-    "alert_pending": false,
-    "close": 0.03434,
+    "last_cross_signal": "death_cross",
+    "detected_at": "2026-05-19 09:00:51",
+    "alert_pending": true,
+    "close": 0.034746,
     "above_ma200": false,
-    "ma200_dist": -15.43,
-    "alert_sent_at": "2026-05-06 08:00:21"
+    "ma200_dist": -11.5
   }
 }
