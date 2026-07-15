@@ -72,6 +72,7 @@ let pressure = 0;                           // 買賣壓（滾動衰減的簽名
 let frontX = W / 2, frontTarget = W / 2;    // 戰線位置（平滑移動）
 let shake = 0;
 const tracers = [], booms = [], planes = [];
+const shells = [], craters = [], smokes = [], tanksNow = [];
 const feedEl = document.getElementById("feed");
 
 const $ = id => document.getElementById(id);
@@ -131,7 +132,7 @@ bybitWS("wss://stream.bybit.com/v5/public/spot",
         const notional = +t.p * +t.v;
         const buyerAggressor = t.S === "Buy";      // taker 方向
         pressure += (buyerAggressor ? 1 : -1) * notional;
-        if (notional > 500) attack(buyerAggressor, notional);  // 小額不畫
+        if (notional > 100) attack(buyerAggressor, notional);  // KAS 盤小，門檻降低
         if (notional > 15000)
           feed(`${buyerAggressor ? "🟢 Large buy" : "🔴 Large sell"} trade ${fmtUsd(notional)}`,
                buyerAggressor ? "fB" : "fS");
@@ -156,7 +157,7 @@ bybitWS("wss://stream.bybit.com/v5/public/linear",
 
 //── 戰鬥事件 ────────────────────────────────────────────────────
 function attack(fromBulls, notional) {       // 成交 = 曳光彈 + 小爆炸
-  const sz = notional > 20000 ? 3 : notional > 5000 ? 2 : 1;
+  const sz = notional > 10000 ? 3 : notional > 2000 ? 2 : 1;   // KAS 尺度分級
   const y = 60 + Math.random() * (H - 100);
   tracers.push({ fromBulls, y, x: fromBulls ? frontX + 60 + Math.random()*40
                                             : frontX - 60 - Math.random()*40,
@@ -168,6 +169,19 @@ function airstrike(side, notional) {         // 爆倉 = 飛機 + 空襲
                             : frontX - 30 - Math.random()*60;
   planes.push({ x, y: -10, tx: x, tier, t: 0 });
   shake = Math.min(10, shake + tier * 3);
+}
+
+// 坦克砲擊：買賣牆的「持續火力」— 牆越厚砲越勤。
+// 拋物線砲彈飛過戰線，落點在敵陣，留下彈坑+硝煙。
+function fireArtillery() {
+  if (!tanksNow.length) return;
+  const t = tanksNow[(Math.random() * tanksNow.length) | 0];
+  const targetX = t.bull ? frontX - 25 - Math.random() * 70
+                         : frontX + 25 + Math.random() * 70;
+  const targetY = 45 + Math.random() * (H - 95);
+  shells.push({ x0: t.x + 4, y0: t.y + 2, x1: targetX, y1: targetY,
+                t: 0, dur: 34 + Math.random() * 14 });
+  booms.push({ x: t.bull ? t.x - 3 : t.x + 11, y: t.y + 1, r: 2, t: 0 }); // 砲口焰
 }
 
 //── 像素小畫家 ──────────────────────────────────────────────────
@@ -244,11 +258,56 @@ function render() {
         const sxp = col + hash(s, i) * 5 + wander + (bull ? -probe : probe);
         soldier(sxp, sy, bull, (frame >> 2) + s);
       }
-      if (notional > wallThresh)
-        tank(col - 2, 30 + (i * 61 % (H - 70)), bull);
+      if (notional > wallThresh) {
+        const ty = 30 + (i * 61 % (H - 70));
+        tank(col - 2, ty, bull);
+        tanksNow.push({ x: col - 2, y: ty, bull });
+      }
     });
   }
+  // 彈坑（畫在軍隊之下、地形之上）＋緩慢淡出
+  for (let i = craters.length - 1; i >= 0; i--) {
+    const c = craters[i]; c.life--;
+    g.globalAlpha = Math.min(1, c.life / 300);
+    px(c.x - c.r, c.y - c.r/2, c.r*2, c.r, "#241c10");
+    px(c.x - c.r + 1, c.y - c.r/2 + 1, c.r*2 - 2, c.r - 2, "#171208");
+    g.globalAlpha = 1;
+    if (c.life <= 0) craters.splice(i, 1);
+  }
+
+  tanksNow.length = 0;
   army(bids, true); army(asks, false);
+
+  // 砲擊節奏：基礎每 ~1.5 秒一發，牆總額越大越密集（上限每 0.4 秒）
+  const fireEvery = Math.max(12, 45 - (buyTot + sellTot) / 8000);
+  if (frame % (fireEvery | 0) === 0) fireArtillery();
+  // 硝煙：往上飄、淡出
+  for (let i = smokes.length - 1; i >= 0; i--) {
+    const s = smokes[i]; s.t++; s.y -= 0.35; s.x += s.vx;
+    g.globalAlpha = Math.max(0, 1 - s.t / s.dur) * 0.5;
+    px(s.x, s.y, s.r, s.r, "#9a9a92");
+    g.globalAlpha = 1;
+    if (s.t > s.dur) smokes.splice(i, 1);
+  }
+  // 砲彈：拋物線 + 影子
+  for (let i = shells.length - 1; i >= 0; i--) {
+    const s = shells[i]; s.t++;
+    const k = s.t / s.dur;
+    const x = s.x0 + (s.x1 - s.x0) * k;
+    const yFlat = s.y0 + (s.y1 - s.y0) * k;
+    const arc = Math.sin(k * Math.PI) * 34;          // 弧高
+    px(x, yFlat, 1, 1, "#333");                      // 地面影子
+    px(x, yFlat - arc, 2, 2, "#ffe9a8");             // 砲彈本體
+    px(x - (s.x1 > s.x0 ? 2 : -2), yFlat - arc, 1, 1, "#caa64f"); // 尾跡
+    if (k >= 1) {
+      booms.push({ x: s.x1, y: s.y1, r: 6, t: 0 });
+      craters.push({ x: s.x1, y: s.y1, r: 3 + Math.random()*2, life: 900 });
+      for (let n = 0; n < 4; n++)
+        smokes.push({ x: s.x1 - 2 + Math.random()*4, y: s.y1 - 2,
+                      vx: (Math.random()-.5)*.3, r: 2, t: 0, dur: 50 + Math.random()*40 });
+      shells.splice(i, 1);
+    }
+  }
 
   // 曳光彈與爆炸
   for (let i = tracers.length - 1; i >= 0; i--) {
@@ -267,6 +326,11 @@ function render() {
     plane(p);
     if (p.y >= 40 + Math.random() * (H - 90)) {
       booms.push({ x: p.tx, y: p.y + 4, r: 5 + p.tier * 5, t: 0 });
+      craters.push({ x: p.tx, y: p.y + 4, r: 3 + p.tier * 2, life: 1200 });
+      for (let n = 0; n < p.tier * 3; n++)
+        smokes.push({ x: p.tx - 3 + Math.random()*6, y: p.y,
+                      vx: (Math.random()-.5)*.4, r: 2 + (p.tier>1?1:0), t: 0,
+                      dur: 60 + Math.random()*50 });
       planes.splice(i, 1);
     }
   }
