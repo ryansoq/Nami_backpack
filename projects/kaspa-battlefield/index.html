@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaspa Battlefield ⚔️</title>
+<style>
+  :root { --bg:#0b0f0a; --panel:#121a10cc; --line:#2a3a22; --green:#7ee787; --red:#ff7b72; --dim:#8b949e; --fg:#e6edf3; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--fg); font-family:"Courier New",ui-monospace,monospace; overflow:hidden; }
+  #stage { position:fixed; inset:0; }
+  canvas#field { width:100%; height:100%; image-rendering:pixelated; display:block; }
+  .hud { position:fixed; z-index:5; }
+  #top { top:10px; left:50%; transform:translateX(-50%); text-align:center; }
+  #price { font-size:clamp(28px,6vw,52px); font-weight:bold; letter-spacing:1px; text-shadow:0 0 12px #000; }
+  #chg { font-size:14px; color:var(--dim); }
+  #pressure { margin-top:6px; display:inline-block; padding:3px 12px; border:1px solid var(--line); background:var(--panel); font-size:13px; letter-spacing:1px; }
+  #pressure.bull { color:var(--green); border-color:var(--green); }
+  #pressure.bear { color:var(--red); border-color:var(--red); }
+  .wall { top:84px; font-size:13px; background:var(--panel); border:1px solid var(--line); padding:6px 10px; }
+  #sellWall { left:10px; color:var(--red); }
+  #buyWall { right:10px; color:var(--green); text-align:right; }
+  .wall b { display:block; font-size:17px; }
+  #depthBox { left:10px; bottom:10px; background:var(--panel); border:1px solid var(--line); padding:6px; }
+  #depthBox div { font-size:11px; color:var(--dim); margin-bottom:3px; }
+  #feedBox { right:10px; bottom:10px; width:min(46vw,340px); background:var(--panel); border:1px solid var(--line); padding:6px 8px; font-size:12px; }
+  #feedBox header { color:var(--dim); font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between; }
+  #live { color:var(--green); animation:blink 1.6s infinite; }
+  @keyframes blink { 50% { opacity:.25; } }
+  #feed div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
+  .fB { color:var(--green); } .fS { color:var(--red); } .fL { color:#ffd75f; }
+  #title { top:10px; left:10px; font-size:13px; color:var(--dim); }
+  #title b { color:var(--fg); }
+  #conn { position:fixed; top:10px; right:10px; font-size:12px; color:var(--dim); }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="field"></canvas></div>
+
+<div class="hud" id="title"><b>⚔️ Kaspa Battlefield</b><br>live order book war · Binance KAS/USDT</div>
+<div class="hud" id="conn">connecting…</div>
+<div class="hud" id="top">
+  <div id="price">$—.——</div>
+  <div id="chg">24h —</div>
+  <div id="pressure">CONNECTING</div>
+</div>
+<div class="hud wall" id="sellWall">SELL WALL<b>$—</b></div>
+<div class="hud wall" id="buyWall">BUY WALL<b>$—</b></div>
+<div class="hud" id="depthBox"><div>ORDER BOOK DEPTH</div><canvas id="depth" width="200" height="70"></canvas></div>
+<div class="hud" id="feedBox"><header>MARKET FEED <span id="live">● LIVE</span></header><div id="feed"></div></div>
+
+<script>
+"use strict";
+//═══════════════════════════════════════════════════════════════════
+// Kaspa Battlefield — 多空戰爭即時可視化（依 Bitcoin Battlefield 概念）
+// 小兵=掛單 · 坦克=買賣牆 · 曳光彈=成交 · 空襲=合約爆倉
+// 資料：Binance 現貨 depth20+aggTrade+ticker、合約 forceOrder（全公開）
+//═══════════════════════════════════════════════════════════════════
+
+//── 遊戲世界（低解析度像素畫布）─────────────────────────────────
+const W = 384, H = 216;                     // 16:9 低解析
+const cv = document.getElementById("field"), cx = cv.getContext("2d");
+const off = document.createElement("canvas"); off.width = W; off.height = H;
+const g = off.getContext("2d");
+function fit() { cv.width = innerWidth; cv.height = innerHeight; cx.imageSmoothingEnabled = false; }
+addEventListener("resize", fit); fit();
+
+//── 市場狀態 ────────────────────────────────────────────────────
+let bids = [], asks = [];                   // [price, qty] ×20
+let last = 0, chg24 = 0;
+let pressure = 0;                           // 買賣壓（滾動衰減的簽名成交額）
+let frontX = W / 2, frontTarget = W / 2;    // 戰線位置（平滑移動）
+let shake = 0;
+const tracers = [], booms = [], planes = [];
+const feedEl = document.getElementById("feed");
+
+const $ = id => document.getElementById(id);
+const fmtUsd = v => v >= 1e6 ? "$" + (v/1e6).toFixed(1) + "M"
+                : v >= 1e3 ? "$" + (v/1e3).toFixed(1) + "K" : "$" + v.toFixed(0);
+
+function feed(html, cls) {
+  const d = document.createElement("div");
+  d.className = cls; d.innerHTML = html;
+  feedEl.prepend(d);
+  while (feedEl.children.length > 8) feedEl.lastChild.remove();
+}
+
+//── 決定論偽亂數（讓草地/樹每幀固定，不閃爍）──────────────────────
+function hash(x, y) { let h = (x*374761393 + y*668265263) ^ 987654321;
+  h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
+
+//── WebSocket：現貨（訂單簿+成交+行情）──────────────────────────
+function spotWS() {
+  const ws = new WebSocket("wss://stream.binance.com:9443/stream?streams=kasusdt@depth20@100ms/kasusdt@aggTrade/kasusdt@ticker");
+  ws.onopen = () => $("conn").textContent = "spot ✓";
+  ws.onclose = () => { $("conn").textContent = "reconnecting…"; setTimeout(spotWS, 3000); };
+  ws.onmessage = ev => {
+    const { stream, data } = JSON.parse(ev.data);
+    if (stream.endsWith("depth20@100ms")) {
+      bids = data.bids.map(([p,q]) => [+p, +q]);
+      asks = data.asks.map(([p,q]) => [+p, +q]);
+    } else if (stream.endsWith("aggTrade")) {
+      const notional = +data.p * +data.q;
+      const buyerAggressor = !data.m;              // m=false → 主動買
+      pressure += (buyerAggressor ? 1 : -1) * notional;
+      if (notional > 800) attack(buyerAggressor, notional);   // 小額不畫，省效能
+      if (notional > 20000)
+        feed(`${buyerAggressor ? "🟢 Large buy" : "🔴 Large sell"} trade ${fmtUsd(notional)}`,
+             buyerAggressor ? "fB" : "fS");
+    } else if (stream.endsWith("ticker")) {
+      last = +data.c; chg24 = +data.P;
+    }
+  };
+}
+//── WebSocket：合約爆倉 ─────────────────────────────────────────
+function futWS() {
+  const ws = new WebSocket("wss://fstream.binance.com/stream?streams=kasusdt@forceOrder");
+  ws.onclose = () => setTimeout(futWS, 5000);
+  ws.onmessage = ev => {
+    const o = JSON.parse(ev.data).data.o;
+    const notional = +o.ap * +o.q;
+    // SELL 強平 = 多單被爆（打在多軍/右側）；BUY 強平 = 空單被爆（左側）
+    const side = o.S === "SELL" ? "long" : "short";
+    airstrike(side, notional);
+    feed(`💥 Liquidated ${side} ${fmtUsd(notional)} @ ${(+o.ap).toFixed(5)}`, "fL");
+  };
+}
+spotWS(); futWS();
+
+//── 戰鬥事件 ────────────────────────────────────────────────────
+function attack(fromBulls, notional) {       // 成交 = 曳光彈 + 小爆炸
+  const sz = notional > 20000 ? 3 : notional > 5000 ? 2 : 1;
+  const y = 60 + Math.random() * (H - 100);
+  tracers.push({ fromBulls, y, x: fromBulls ? frontX + 60 + Math.random()*40
+                                            : frontX - 60 - Math.random()*40,
+                 sz, t: 0 });
+}
+function airstrike(side, notional) {         // 爆倉 = 飛機 + 空襲
+  const tier = notional > 50000 ? 3 : notional > 20000 ? 2 : 1;   // 轟炸/戰機/直升機
+  const x = side === "long" ? frontX + 30 + Math.random()*60      // 多單爆 → 炸右側
+                            : frontX - 30 - Math.random()*60;
+  planes.push({ x, y: -10, tx: x, tier, t: 0 });
+  shake = Math.min(10, shake + tier * 3);
+}
+
+//── 像素小畫家 ──────────────────────────────────────────────────
+function px(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x|0, y|0, w, h); }
+
+function soldier(x, y, bull, frame) {        // 2×3 小兵，第 3 幀換腳 = 行軍感
+  const body = bull ? "#3fb950" : "#f85149";
+  px(x, y, 2, 2, body);
+  px(x + (frame % 2), y + 2, 1, 1, bull ? "#2ea043" : "#da3633");
+}
+function tank(x, y, bull) {                  // 8×6 坦克（砲管朝戰線）
+  const c = bull ? "#2ea043" : "#da3633", d = bull ? "#238636" : "#b62324";
+  px(x, y + 2, 8, 3, c); px(x + 2, y, 4, 2, d);
+  px(bull ? x - 4 : x + 8, y + 1, 4, 1, d);   // 砲管
+  px(x, y + 5, 8, 1, "#111");
+}
+function plane(p) {                          // 直升機/戰機/轟炸機（tier 1/2/3）
+  const c = "#c9d1d9";
+  if (p.tier === 1) { px(p.x-2, p.y, 5, 2, c); px(p.x-4, p.y-1, 9, 1, "#8b949e"); }
+  else if (p.tier === 2) { px(p.x-3, p.y, 7, 2, c); px(p.x-1, p.y-2, 2, 2, c); }
+  else { px(p.x-5, p.y, 11, 3, c); px(p.x-2, p.y-2, 4, 2, "#8b949e"); }
+}
+
+//── 主渲染迴圈 ──────────────────────────────────────────────────
+let frame = 0;
+function render() {
+  frame++;
+  // 戰線：買賣壓正規化 → 目標位置；平滑趨近 + 微顫
+  const norm = Math.max(-1, Math.min(1, pressure / 60000));
+  frontTarget = W/2 + norm * 55;
+  frontX += (frontTarget - frontX) * 0.04;
+  pressure *= 0.995;                          // 壓力隨時間衰減
+
+  // 地形：草地雙色抖動 + 湖 + 樹
+  for (let y = 0; y < H; y += 3) for (let x = 0; x < W; x += 3) {
+    const r = hash(x, y);
+    px(x, y, 3, 3, r > .8 ? "#1a3312" : r > .35 ? "#17300f" : "#142a0d");
+  }
+  for (let i = 0; i < 40; i++) {              // 樹
+    const tx = hash(i, 7) * W, ty = hash(i, 13) * H;
+    if (Math.abs(tx - frontX) > 40) { px(tx, ty, 2, 3, "#0d200a"); px(tx-1, ty, 4, 1, "#123010"); }
+  }
+  g.fillStyle = "#1c4966";                    // 湖
+  g.beginPath(); g.ellipse(W*0.18, H*0.2, 26, 12, 0, 0, 7); g.fill();
+
+  // 戰線道路（鋸齒土路）
+  for (let y = 0; y < H; y += 2) {
+    const wob = Math.sin(y * 0.15 + frame * 0.01) * 3 + hash(y, 99) * 3;
+    px(frontX + wob - 3, y, 6, 2, "#5c4a32");
+    px(frontX + wob - 1, y, 2, 2, "#6e5a3e");
+  }
+
+  // 軍隊：20 檔掛單 → 每檔一縱隊；人數 ∝ log(掛單額)；大牆出坦克
+  const sellTot = asks.reduce((s,[p,q]) => s + p*q, 0);
+  const buyTot  = bids.reduce((s,[p,q]) => s + p*q, 0);
+  const wallThresh = Math.max(15000, (buyTot + sellTot) * 0.04);
+  function army(levels, bull) {
+    levels.forEach(([p, q], i) => {
+      const notional = p * q;
+      const col = (bull ? frontX + 14 : frontX - 14) + (bull ? i : -i) * 8;
+      if (col < 2 || col > W - 10) return;
+      const n = Math.min(14, Math.max(1, Math.log2(notional / 400)));
+      for (let s = 0; s < n; s++) {
+        const sy = 40 + ((s * 37 + i * 53) % (H - 80)) + hash(i, s) * 8;
+        soldier(col + hash(s, i) * 5, sy, bull, (frame >> 3) + s);
+      }
+      if (notional > wallThresh)
+        tank(col - 2, 30 + (i * 61 % (H - 70)), bull);
+    });
+  }
+  army(bids, true); army(asks, false);
+
+  // 曳光彈與爆炸
+  for (let i = tracers.length - 1; i >= 0; i--) {
+    const t = tracers[i]; t.t++;
+    const dir = t.fromBulls ? -1 : 1;
+    const hx = t.x + dir * t.t * 4;
+    px(hx, t.y, 3, 1, "#ffd75f");
+    if ((t.fromBulls && hx < frontX - 30 - Math.random()*30) ||
+        (!t.fromBulls && hx > frontX + 30 + Math.random()*30) || t.t > 40) {
+      booms.push({ x: hx, y: t.y, r: t.sz * 3, t: 0 });
+      tracers.splice(i, 1);
+    }
+  }
+  for (let i = planes.length - 1; i >= 0; i--) {
+    const p = planes[i]; p.t++; p.y += 2.2;
+    plane(p);
+    if (p.y >= 40 + Math.random() * (H - 90)) {
+      booms.push({ x: p.tx, y: p.y + 4, r: 5 + p.tier * 5, t: 0 });
+      planes.splice(i, 1);
+    }
+  }
+  for (let i = booms.length - 1; i >= 0; i--) {
+    const b = booms[i]; b.t++;
+    const rr = Math.min(b.r, b.t * 2);
+    g.fillStyle = b.t < 3 ? "#fff7cc" : b.t < 7 ? "#ffb14e" : "#8b5a2b";
+    g.beginPath(); g.arc(b.x, b.y, rr, 0, 7); g.fill();
+    if (b.t > 14) booms.splice(i, 1);
+  }
+
+  // 上屏（帶震動）
+  const sx = shake ? (Math.random()-.5) * shake : 0;
+  const sy = shake ? (Math.random()-.5) * shake : 0;
+  shake *= 0.85; if (shake < .3) shake = 0;
+  cx.clearRect(0, 0, cv.width, cv.height);
+  cx.drawImage(off, sx, sy, cv.width, cv.height);
+
+  // HUD 更新（每 6 幀一次就夠）
+  if (frame % 6 === 0) {
+    $("price").textContent = last ? "$" + last.toFixed(5) : "$—";
+    $("chg").textContent = "24h " + (chg24 >= 0 ? "+" : "") + chg24.toFixed(2) + "%";
+    $("chg").style.color = chg24 >= 0 ? "var(--green)" : "var(--red)";
+    $("sellWall").innerHTML = "SELL WALL<b>" + fmtUsd(sellTot) + "</b>";
+    $("buyWall").innerHTML = "BUY WALL<b>" + fmtUsd(buyTot) + "</b>";
+    const pEl = $("pressure");
+    if (norm > 0.18)      { pEl.textContent = "BUYERS ADVANCING ▶"; pEl.className = "bull"; }
+    else if (norm < -0.18){ pEl.textContent = "◀ SELLERS ADVANCING"; pEl.className = "bear"; }
+    else                  { pEl.textContent = "CONTESTED"; pEl.className = ""; }
+    drawDepth();
+  }
+  requestAnimationFrame(render);
+}
+
+//── 左下深度圖 ──────────────────────────────────────────────────
+const dcx = document.getElementById("depth").getContext("2d");
+function drawDepth() {
+  dcx.clearRect(0, 0, 200, 70);
+  let acc = 0; const bMax = bids.reduce((s,[p,q]) => s + p*q, 0) || 1;
+  const aMax = asks.reduce((s,[p,q]) => s + p*q, 0) || 1, mx = Math.max(bMax, aMax);
+  dcx.fillStyle = "rgba(126,231,135,.55)"; acc = 0;
+  bids.forEach(([p,q], i) => { acc += p*q;
+    const h = acc/mx*66; dcx.fillRect(100 + i*5, 70-h, 5, h); });
+  dcx.fillStyle = "rgba(255,123,114,.55)"; acc = 0;
+  asks.forEach(([p,q], i) => { acc += p*q;
+    const h = acc/mx*66; dcx.fillRect(95 - i*5, 70-h, 5, h); });
+}
+render();
+</script>
+</body>
+</html>
