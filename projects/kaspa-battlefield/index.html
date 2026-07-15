@@ -37,7 +37,7 @@
 <body>
 <div id="stage"><canvas id="field"></canvas></div>
 
-<div class="hud" id="title"><b>⚔️ Kaspa Battlefield</b><br>live order book war · Binance KAS/USDT</div>
+<div class="hud" id="title"><b>⚔️ Kaspa Battlefield</b><br>live order book war · Bybit KAS/USDT</div>
 <div class="hud" id="conn">connecting…</div>
 <div class="hud" id="top">
   <div id="price">$—.——</div>
@@ -89,43 +89,70 @@ function feed(html, cls) {
 function hash(x, y) { let h = (x*374761393 + y*668265263) ^ 987654321;
   h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
 
-//── WebSocket：現貨（訂單簿+成交+行情）──────────────────────────
-function spotWS() {
-  const ws = new WebSocket("wss://stream.binance.com:9443/stream?streams=kasusdt@depth20@100ms/kasusdt@aggTrade/kasusdt@ticker");
-  ws.onopen = () => $("conn").textContent = "spot ✓";
-  ws.onclose = () => { $("conn").textContent = "reconnecting…"; setTimeout(spotWS, 3000); };
+//── WebSocket：Bybit（Binance 現貨沒有上 KAS，Bybit 現貨+合約都有）────
+// 現貨 v5 公開流：orderbook.50（snapshot+delta 要自己維護）、
+// publicTrade（S = taker 方向）、tickers（現價/24h）。
+// 注意：Bybit 要求 <20s 心跳 ping，否則斷線。
+const book = { b: new Map(), a: new Map() };   // price(str) → qty(num)
+
+function applyDepth(type, data) {
+  if (type === "snapshot") { book.b.clear(); book.a.clear(); }
+  for (const [p, q] of data.b) (+q === 0) ? book.b.delete(p) : book.b.set(p, +q);
+  for (const [p, q] of data.a) (+q === 0) ? book.a.delete(p) : book.a.set(p, +q);
+  // 整理成畫面用的前 20 檔
+  bids = [...book.b].map(([p,q]) => [+p, q]).sort((x,y) => y[0]-x[0]).slice(0, 20);
+  asks = [...book.a].map(([p,q]) => [+p, q]).sort((x,y) => x[0]-y[0]).slice(0, 20);
+}
+
+function bybitWS(url, args, onTopic, tag) {
+  const ws = new WebSocket(url);
+  let ping;
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ op: "subscribe", args }));
+    ping = setInterval(() => ws.readyState === 1 && ws.send('{"op":"ping"}'), 15000);
+    $("conn").textContent = tag + " ✓";
+  };
+  ws.onclose = () => { clearInterval(ping);
+    $("conn").textContent = "reconnecting…";
+    setTimeout(() => bybitWS(url, args, onTopic, tag), 3000); };
   ws.onmessage = ev => {
-    const { stream, data } = JSON.parse(ev.data);
-    if (stream.endsWith("depth20@100ms")) {
-      bids = data.bids.map(([p,q]) => [+p, +q]);
-      asks = data.asks.map(([p,q]) => [+p, +q]);
-    } else if (stream.endsWith("aggTrade")) {
-      const notional = +data.p * +data.q;
-      const buyerAggressor = !data.m;              // m=false → 主動買
-      pressure += (buyerAggressor ? 1 : -1) * notional;
-      if (notional > 800) attack(buyerAggressor, notional);   // 小額不畫，省效能
-      if (notional > 20000)
-        feed(`${buyerAggressor ? "🟢 Large buy" : "🔴 Large sell"} trade ${fmtUsd(notional)}`,
-             buyerAggressor ? "fB" : "fS");
-    } else if (stream.endsWith("ticker")) {
-      last = +data.c; chg24 = +data.P;
+    const m = JSON.parse(ev.data);
+    if (m.topic) onTopic(m);
+  };
+}
+
+bybitWS("wss://stream.bybit.com/v5/public/spot",
+  ["orderbook.50.KASUSDT", "publicTrade.KASUSDT", "tickers.KASUSDT"],
+  m => {
+    if (m.topic.startsWith("orderbook")) {
+      applyDepth(m.type, m.data);
+    } else if (m.topic.startsWith("publicTrade")) {
+      for (const t of m.data) {
+        const notional = +t.p * +t.v;
+        const buyerAggressor = t.S === "Buy";      // taker 方向
+        pressure += (buyerAggressor ? 1 : -1) * notional;
+        if (notional > 500) attack(buyerAggressor, notional);  // 小額不畫
+        if (notional > 15000)
+          feed(`${buyerAggressor ? "🟢 Large buy" : "🔴 Large sell"} trade ${fmtUsd(notional)}`,
+               buyerAggressor ? "fB" : "fS");
+      }
+    } else if (m.topic.startsWith("tickers")) {
+      if (m.data.lastPrice) last = +m.data.lastPrice;
+      if (m.data.price24hPcnt) chg24 = +m.data.price24hPcnt * 100;
     }
-  };
-}
-//── WebSocket：合約爆倉 ─────────────────────────────────────────
-function futWS() {
-  const ws = new WebSocket("wss://fstream.binance.com/stream?streams=kasusdt@forceOrder");
-  ws.onclose = () => setTimeout(futWS, 5000);
-  ws.onmessage = ev => {
-    const o = JSON.parse(ev.data).data.o;
-    const notional = +o.ap * +o.q;
-    // SELL 強平 = 多單被爆（打在多軍/右側）；BUY 強平 = 空單被爆（左側）
-    const side = o.S === "SELL" ? "long" : "short";
-    airstrike(side, notional);
-    feed(`💥 Liquidated ${side} ${fmtUsd(notional)} @ ${(+o.ap).toFixed(5)}`, "fL");
-  };
-}
-spotWS(); futWS();
+  }, "spot");
+
+// 合約爆倉：allLiquidation — S=="Buy" 是空單被平（買回），"Sell" 是多單被平
+bybitWS("wss://stream.bybit.com/v5/public/linear",
+  ["allLiquidation.KASUSDT"],
+  m => {
+    for (const o of m.data) {
+      const notional = +o.p * +o.v;
+      const side = o.S === "Sell" ? "long" : "short";
+      airstrike(side, notional);
+      feed(`💥 Liquidated ${side} ${fmtUsd(notional)} @ ${(+o.p).toFixed(5)}`, "fL");
+    }
+  }, "liq");
 
 //── 戰鬥事件 ────────────────────────────────────────────────────
 function attack(fromBulls, notional) {       // 成交 = 曳光彈 + 小爆炸
