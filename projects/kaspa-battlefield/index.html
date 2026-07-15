@@ -173,10 +173,13 @@ function airstrike(side, notional) {         // 爆倉 = 飛機 + 空襲
 //── 像素小畫家 ──────────────────────────────────────────────────
 function px(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x|0, y|0, w, h); }
 
-function soldier(x, y, bull, frame) {        // 2×3 小兵，第 3 幀換腳 = 行軍感
+function soldier(x, y, bull, frame) {        // 2×3 小兵，交替換腳 = 行軍感
   const body = bull ? "#3fb950" : "#f85149";
   px(x, y, 2, 2, body);
-  px(x + (frame % 2), y + 2, 1, 1, bull ? "#2ea043" : "#da3633");
+  // 兩腳交替開合（比舊版 1px 位移明顯）
+  if (frame % 2) { px(x, y + 2, 1, 1, bull ? "#2ea043" : "#da3633");
+                   px(x + 1, y + 2, 1, 1, "#0000"); }
+  else           { px(x + 1, y + 2, 1, 1, bull ? "#2ea043" : "#da3633"); }
 }
 function tank(x, y, bull) {                  // 8×6 坦克（砲管朝戰線）
   const c = bull ? "#2ea043" : "#da3633", d = bull ? "#238636" : "#b62324";
@@ -231,8 +234,15 @@ function render() {
       if (col < 2 || col > W - 10) return;
       const n = Math.min(14, Math.max(1, Math.log2(notional / 400)));
       for (let s = 0; s < n; s++) {
-        const sy = 40 + ((s * 37 + i * 53) % (H - 80)) + hash(i, s) * 8;
-        soldier(col + hash(s, i) * 5, sy, bull, (frame >> 3) + s);
+        // 巡邏動畫：每個兵有自己的相位，沿 x/y 緩慢游走 + 朝戰線試探
+        const phase = hash(i, s) * 6.28;
+        const wander = Math.sin(frame * 0.025 + phase) * 3
+                     + Math.sin(frame * 0.007 + phase * 2) * 2;
+        const probe  = Math.max(0, Math.sin(frame * 0.012 + phase)) * 6; // 往前線探
+        const sy = 40 + ((s * 37 + i * 53) % (H - 80)) + hash(i, s) * 8
+                 + Math.cos(frame * 0.018 + phase) * 2.5;
+        const sxp = col + hash(s, i) * 5 + wander + (bull ? -probe : probe);
+        soldier(sxp, sy, bull, (frame >> 2) + s);
       }
       if (notional > wallThresh)
         tank(col - 2, 30 + (i * 61 % (H - 70)), bull);
