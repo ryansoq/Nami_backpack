@@ -88,19 +88,36 @@ def fetch_utxos() -> list[dict]:
 
 
 def payer_of(tx_id: str) -> str | None:
-    """Best-effort: who funded this transaction.
+    """Who funded this transaction.
 
-    The indexer exposes previous_outpoint_address on inputs for indexed txs.
-    When it is unavailable the payment still counts, just as anonymous credit.
+    The indexer exposes `previous_outpoint_address` on inputs, but on tn10 it
+    comes back null, so we resolve it ourselves: follow the input's
+    previous_outpoint back to the funding transaction and read the address off
+    the output it spent. Costs one extra request; actually works.
     """
     try:
         tx = fetch_json(f"{INDEXER}/transactions/{tx_id}?inputs=true&outputs=false")
     except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError):
         return None
+
     for inp in tx.get("inputs") or []:
         addr = inp.get("previous_outpoint_address")
         if addr:
             return addr
+
+        prev_hash = inp.get("previous_outpoint_hash")
+        prev_index = inp.get("previous_outpoint_index")
+        if not prev_hash:
+            continue
+        try:
+            prev = fetch_json(
+                f"{INDEXER}/transactions/{prev_hash}?inputs=false&outputs=true"
+            )
+        except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError):
+            continue
+        for out in prev.get("outputs") or []:
+            if str(out.get("index")) == str(prev_index):
+                return out.get("script_public_key_address")
     return None
 
 
@@ -136,6 +153,15 @@ def credit_new_payments() -> list[dict]:
                 continue
 
             payer = payer_of(op.get("transactionId", "")) or "anonymous"
+
+            # Our own change comes back to this address as a brand-new UTXO and
+            # would otherwise read as a customer payment. Spending our own money
+            # must not mint credit.
+            if payer == NAMI_ADDRESS:
+                print(f"[watch] {key} is our own change "
+                      f"({amount/SOMPI:.8f} KAS) — no credit", flush=True)
+                continue
+
             if payer == "anonymous":
                 state["anonymous"] += credits
             else:
