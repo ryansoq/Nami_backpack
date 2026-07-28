@@ -175,6 +175,43 @@ def ask_nami_lm(question: str) -> dict:
         return json.loads(resp.read().decode())
 
 
+# ── x402 ─────────────────────────────────────────────────────────────────────
+# The 402 body follows the x402 v2 shape (x402Version / resource / accepts[]),
+# so an agent that already speaks x402 can pay us without bespoke client code.
+# Amounts are sompi strings, matching the spec's stringly-typed `amount`.
+
+SOMPI_PER_QUESTION = PRICE_PER_QUESTION * SOMPI // CREDITS_PER_KAS
+
+
+def payment_required(have: int, resource_url: str) -> dict:
+    return {
+        "x402Version": 2,
+        "error": f"payment required: {PRICE_PER_QUESTION} credits per question, "
+                 f"you have {have}",
+        "resource": {
+            "url": resource_url,
+            "description": "one question answered by nami-lm",
+            "mimeType": "application/json",
+        },
+        "accepts": [
+            {
+                "scheme": "exact",
+                "network": f"kaspa:{NETWORK}",
+                "amount": str(SOMPI_PER_QUESTION),
+                "asset": "KAS",
+                "payTo": NAMI_ADDRESS,
+                "maxTimeoutSeconds": 300,
+                "extra": {
+                    "credits_per_kas": CREDITS_PER_KAS,
+                    "credits_per_question": PRICE_PER_QUESTION,
+                    "note": "prepaid balance: overpay to buy several questions",
+                },
+            }
+        ],
+        "extensions": {},
+    }
+
+
 # ── http ─────────────────────────────────────────────────────────────────────
 
 
@@ -257,15 +294,10 @@ class Handler(BaseHTTPRequestHandler):
             available = state["credits"].get(payer, 0) if pool == "credits" else state["anonymous"]
 
             if available < PRICE_PER_QUESTION:
-                return self._send(402, {
-                    "error": "insufficient credits",
-                    "have": available,
-                    "need": PRICE_PER_QUESTION,
-                    "pay_to": NAMI_ADDRESS,
-                    "network": NETWORK,
-                    "hint": f"1 KAS = {CREDITS_PER_KAS} credits = "
-                            f"{CREDITS_PER_KAS // PRICE_PER_QUESTION} questions",
-                })
+                return self._send(402, payment_required(
+                    have=available,
+                    resource_url=f"http://127.0.0.1:{PORT}/ask",
+                ))
 
             # Debit before doing the work, so a crash cannot be replayed for free.
             if pool == "credits":

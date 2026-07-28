@@ -43,6 +43,38 @@ the point is the mechanism, not the revenue.
 # KAS_ASK_PORT=18809       to move the port
 ```
 
+## x402
+
+The 402 body follows the **x402 v2** shape (`x402Version` / `resource` /
+`accepts[]`), so an agent that already speaks x402 can pay without bespoke
+client code. Amounts are sompi strings, per the spec's stringly-typed `amount`.
+
+```json
+{
+  "x402Version": 2,
+  "error": "payment required: 10 credits per question, you have 0",
+  "resource": {"url": "...", "description": "one question answered by nami-lm"},
+  "accepts": [{
+    "scheme": "exact",
+    "network": "kaspa:testnet-10",
+    "amount": "1000000",
+    "asset": "KAS",
+    "payTo": "kaspatest:qrnc...",
+    "maxTimeoutSeconds": 300,
+    "extra": {"credits_per_kas": 1000, "credits_per_question": 10}
+  }]
+}
+```
+
+We landed on 402 independently before finding
+[Kaspa x402](https://www.kaspa-402.org/) — which is a decent sign the shape is
+the natural one. Aligning to the published schema costs nothing and buys
+interoperability.
+
+Not yet implemented: the `X-PAYMENT` proof header. We detect payment by
+watching the chain instead, which is simpler and needs no client signing, at
+the cost of a poll delay.
+
 ## API
 
 ```sh
