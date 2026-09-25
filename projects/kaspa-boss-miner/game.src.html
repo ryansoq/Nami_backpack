@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>雜湊討伐</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* One visual world on purpose: Nami's night sea (same tokens as her intro page). */
+  :root{
+    --abyss:#0B1622; --deep:#0F1E2D; --tide:#16324A; --silver:#DCE3EA; --foam:#F4F7FA;
+    --ruby:#D2344F; --kelp:#6FA8A0; --mist:rgba(220,227,234,.62); --faint:rgba(220,227,234,.14);
+    --display:"LXGW WenKai TC",serif; --body:"Noto Sans TC",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{background:var(--abyss);color:var(--foam)}
+  body{font-family:var(--body);min-height:100vh;display:flex;flex-direction:column}
+  .wrap{width:100%;max-width:960px;margin:0 auto;padding:18px 16px 28px;display:flex;flex-direction:column;gap:14px;flex:1}
+
+  header{display:grid;gap:6px}
+  .eyebrow{font-size:12px;letter-spacing:.2em;color:var(--kelp)}
+  .boss-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,6vw,44px);line-height:1.1;text-wrap:balance}
+  h1 small{font-family:var(--mono);font-weight:400;font-size:13px;color:var(--mist);margin-left:10px;letter-spacing:.04em}
+  .lore{color:var(--mist);font-size:14px;max-width:60ch}
+  .hp{position:relative;height:14px;background:var(--deep);border:1px solid var(--faint);border-radius:2px;overflow:hidden;margin-top:6px}
+  .hp i{position:absolute;inset:0 auto 0 0;background:var(--ruby);transition:width .25s ease-out}
+  .hp b{position:absolute;inset:0 auto 0 0;background:rgba(244,247,250,.35);transition:width .9s ease-out .15s}
+  .hp-text{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--mist);font-variant-numeric:tabular-nums}
+
+  .stage{position:relative;width:100%;height:clamp(260px,46vh,440px);border:1px solid var(--faint);background:
+    radial-gradient(120% 90% at 50% 0%,var(--tide) 0%,var(--deep) 55%,var(--abyss) 100%)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .banner{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;text-align:center;padding:16px}
+  .banner p{font-family:var(--display);font-size:clamp(22px,5vw,34px);color:var(--foam);opacity:0;transition:opacity .4s}
+  .banner p.on{opacity:1}
+  .banner p em{font-style:normal;color:var(--ruby)}
+
+  .rig{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+  @media (max-width:680px){.rig{grid-template-columns:1fr}}
+  .panel{border:1px solid var(--faint);background:var(--deep);padding:14px;display:grid;gap:12px;align-content:start}
+  .panel h2{font-size:12px;letter-spacing:.2em;color:var(--kelp);font-weight:500}
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 10px}
+  .stat{display:grid;gap:2px;min-width:0}
+  .stat span{font-size:11px;color:var(--mist);letter-spacing:.06em}
+  .stat strong{font-family:var(--mono);font-weight:500;font-size:clamp(15px,3.4vw,19px);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat strong.hot{color:var(--ruby)}
+  .device{font-family:var(--mono);font-size:12px;color:var(--mist);overflow-wrap:anywhere}
+  .controls{display:flex;gap:10px;flex-wrap:wrap}
+  button{font:inherit;font-size:15px;padding:10px 18px;border:1px solid var(--silver);background:transparent;color:var(--foam);border-radius:2px;cursor:pointer}
+  button.primary{background:var(--ruby);border-color:var(--ruby);color:#fff;min-width:9em}
+  button:hover{filter:brightness(1.12)}
+  button:focus-visible{outline:2px solid var(--kelp);outline-offset:3px}
+  button:disabled{opacity:.45;cursor:default;filter:none}
+
+  .log{list-style:none;padding:0;display:grid;gap:6px;font-family:var(--mono);font-size:12.5px;min-height:9.5em}
+  .log li{display:flex;justify-content:space-between;gap:10px;white-space:nowrap}
+  .log .h{overflow:hidden;text-overflow:ellipsis;color:rgba(220,227,234,.42)}
+  .log .h b{font-weight:500;color:var(--silver)}
+  .log .d{font-variant-numeric:tabular-nums;color:var(--kelp)}
+  .log li.crit .d{color:var(--ruby)}
+  .log li.mega .h b,.log li.mega .d{color:var(--ruby);font-weight:500}
+  .empty{color:var(--mist);font-family:var(--body);font-size:13px}
+
+  footer{font-size:12.5px;color:var(--mist);line-height:1.7;display:grid;gap:4px;max-width:75ch}
+  footer code{font-family:var(--mono);color:var(--silver);font-size:12px}
+  @media (prefers-reduced-motion:reduce){.hp i,.hp b,.banner p{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="stageNo">第 1 關 / 共 7 關</div>
+    <div class="boss-row">
+      <h1 id="bossName">孤塊</h1>
+    </div>
+    <p class="lore" id="bossLore"></p>
+    <div class="hp" role="progressbar" aria-label="Boss 血量" aria-valuemin="0" aria-valuemax="100" id="hpBar"><b id="hpGhost"></b><i id="hpFill"></i></div>
+    <div class="hp-text"><span id="hpText"></span><span id="etaText"></span></div>
+  </header>
+
+  <div class="stage">
+    <canvas id="c"></canvas>
+    <div class="banner"><p id="banner"></p></div>
+  </div>
+
+  <section class="rig">
+    <div class="panel">
+      <h2>你的礦機</h2>
+      <div class="stats">
+        <div class="stat"><span>算力</span><strong id="sRate">—</strong></div>
+        <div class="stat"><span>已算雜湊</span><strong id="sTotal">0</strong></div>
+        <div class="stat"><span>份額難度</span><strong id="sDiff">—</strong></div>
+        <div class="stat"><span>命中</span><strong id="sHits">0</strong></div>
+        <div class="stat"><span>暴擊</span><strong id="sCrits" class="hot">0</strong></div>
+        <div class="stat"><span>最佳雜湊</span><strong id="sBest">—</strong></div>
+      </div>
+      <div class="device" id="device">正在檢查 WebGPU…</div>
+      <div class="controls">
+        <button class="primary" id="go" disabled>開始挖礦</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>最近五擊</h2>
+      <ul class="log" id="log"><li class="empty">按下開始，每個低於份額目標的雜湊就是一擊。前導零越多，傷害越高。</li></ul>
+    </div>
+  </section>
+
+  <footer>
+    <p>每一擊都是真的 kHeavyHash：<code>cSHAKE256 → 64×64 矩陣 × 向量 → cSHAKE256</code>，在你的 GPU 上用 WebGPU 計算，並和 ShioKaze 的參考實作逐位元比對過。</p>
+    <p>傷害等於份額難度（跟礦池記帳一樣），前導零多出的位數給暴擊倍率，平均下來傷害 ≈ 你算過的雜湊數。這是練習場：不連礦池、不送出區塊、不會領到 KAS。</p>
+  </footer>
+</div>
+
+<script id="khh">
+/*KHH*/
+</script>
+<script>
+(() => {
+'use strict';
+const K = window.KHH;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// HP is measured in hashes, so a stronger GPU really does kill faster.
+// Final boss: mainnet 340.8 PH/s at 10 blocks/s (api.kaspa.org, 2026-09-25) ≈ 3.4e16 hashes per block.
+const BOSSES = [
+  { name: '孤塊', en: 'Orphan Block', hp: 2 ** 18, lore: '晚到一步的區塊。DAG 沒有丟下它，但它還是想打一架。' },
+  { name: '自私礦工', en: 'Selfish Miner', hp: 2 ** 22, lore: '把挖到的區塊藏起來，等最有利的時候一次公開。' },
+  { name: '雙花巫妖', en: 'Double-Spend Lich', hp: 2 ** 26, lore: '同一枚 KAS，它想花兩次。' },
+  { name: '51% 九頭蛇', en: '51% Hydra', hp: 2 ** 30, lore: '砍掉一顆頭，會長出兩顆。它要的是整條鏈的一半算力。' },
+  { name: '修剪之影', en: 'Pruning Wraith', hp: 2 ** 34, lore: '以舊歷史為食的影子。節點只留下需要的部分，它想吃掉剩下的。' },
+  { name: 'ASIC 巨像', en: 'ASIC Colossus', hp: 2 ** 38, lore: '專為這個演算法鑄造的巨像。它一秒能做的事，瀏覽器要算很久。' },
+  { name: '主網區塊', en: 'The Mainnet Block', hp: 3.4e16, lore: '真實世界的一個區塊。全網每秒產出十個，每一個平均要 3.4×10¹⁶ 次雜湊。' },
+];
+
+const $ = id => document.getElementById(id);
+const fmt = n => {
+  if (!isFinite(n)) return '—';
+  const u = ['', 'K', 'M', 'G', 'T', 'P', 'E'];
+  let i = 0; while (Math.abs(n) >= 1000 && i < u.length - 1) { n /= 1000; i++; }
+  return (i === 0 ? Math.round(n).toString() : n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0)) + u[i];
+};
+const fmtDur = s => {
+  if (!isFinite(s) || s <= 0) return '';
+  if (s < 90) return `${Math.ceil(s)} 秒`;
+  if (s < 5400) return `${Math.round(s / 60)} 分鐘`;
+  if (s < 172800) return `${(s / 3600).toFixed(1)} 小時`;
+  if (s < 3.15e7 * 2) return `${Math.round(s / 86400)} 天`;
+  return `${fmt(s / 3.15e7)} 年`;
+};
+const bitLen = v => v === 0n ? 0 : v.toString(2).length;
+const hashInt = h => { let v = 0n; for (let j = 31; j >= 0; j--) v = (v << 8n) | BigInt(h[j]); return v; };
+const hex64 = v => v.toString(16).padStart(64, '0');
+
+// ---------------- game state ----------------
+const S = {
+  stage: 0, hpLeft: BOSSES[0].hp, running: false, engine: null,
+  total: 0, hits: 0, crits: 0, best: null, rate: 0, diff: 4096, lastDiffAt: 0,
+  pre: null, ts: 0, nonce: 0n, jobId: 0,
+};
+const T256 = 1n << 256n;
+const targetFor = d => T256 / BigInt(Math.max(1, Math.round(d))) - 1n;
+
+function newJob() {
+  S.pre = crypto.getRandomValues(new Uint8Array(32));
+  S.ts = Date.now();
+  S.nonce = BigInt(crypto.getRandomValues(new Uint32Array(1))[0]) << 24n;
+  S.jobId++;
+  S.engine && S.engine.job(S.pre, S.ts, S.nonce, targetFor(S.diff), S.jobId);
+}
+
+// Pool-style vardiff: aim for about four hits a second whatever the hardware.
+function retarget(now) {
+  if (now - S.lastDiffAt < 1000 || S.rate <= 0) return;
+  S.lastDiffAt = now;
+  const want = Math.max(1, S.rate / 4);
+  if (want / S.diff > 1.5 || S.diff / want > 1.5) {
+    S.diff = want;
+    S.engine.target(targetFor(S.diff));
+  }
+}
+
+// Credit = difficulty × 2^min(extra zero bits, 6) / 4. E[2^min(b,6)] = 4, so the
+// expected credit per hit is exactly the difficulty: damage tracks real work.
+function onHit(v, nonce, T, d) {
+  let b = bitLen(T) - bitLen(v); if ((v << BigInt(b)) > T) b--;
+  b = Math.max(0, b);
+  const mult = 2 ** Math.min(b, 6) / 4;
+  const dmg = d * mult;
+  S.hits++;
+  const tier = b >= 6 ? 'mega' : b >= 3 ? 'crit' : '';
+  if (tier) S.crits++;
+  if (S.best === null || v < S.best) S.best = v;
+  logHit(v, dmg, tier);
+  fx.fire(hex64(v), dmg, tier);
+  damage(dmg);
+}
+
+function damage(dmg) {
+  const boss = BOSSES[S.stage];
+  S.hpLeft = Math.max(0, S.hpLeft - dmg);
+  if (S.hpLeft === 0 && !S.dying) {
+    S.dying = true;
+    fx.shatter();
+    banner(`<em>${boss.name}</em> 倒下了`);
+    setTimeout(() => {
+      S.dying = false;
+      if (S.stage < BOSSES.length - 1) S.stage++;
+      S.hpLeft = BOSSES[S.stage].hp;
+      showBoss(); newJob();
+    }, reduceMotion ? 600 : 1800);
+  }
+}
+
+// ---------------- engines ----------------
+async function gpuEngine() {
+  const m = await K.GpuMiner.create();
+  let batch = 64 * 64, T = 0n, stop = true, jobId = 0;
+  const eng = {
+    label: `WebGPU · ${[m.adapterInfo.vendor, m.adapterInfo.architecture, m.adapterInfo.description].filter(Boolean).join(' ') || '未知 GPU'}`,
+    job(pre, ts, nonce, t, id) { m.setJob(pre, ts, t); T = t; S.nonce = nonce; jobId = id; },
+    target(t) { m.setTarget(t); T = t; },
+    start() { stop = false; loop(); },
+    stop() { stop = true; },
+  };
+  async function loop() {
+    while (!stop) {
+      const t0 = performance.now(), id = jobId, n0 = S.nonce, t = T, d = S.diff, pre = m.pre, ts = m.ts, mat = m.mat;
+      const r = await m.run(n0, batch);
+      const dt = Math.max(1, performance.now() - t0);
+      S.nonce = n0 + BigInt(r.count);
+      S.total += r.count;
+      const inst = r.count / (dt / 1000);
+      S.rate = S.rate ? S.rate * 0.8 + inst * 0.2 : inst;
+      // keep each dispatch near 70 ms so the page stays responsive
+      batch = Math.min(2 ** 28, Math.max(64 * 16, Math.round(r.count * 70 / dt / 64) * 64));
+      if (id === jobId && !S.dying) {
+        for (const nonce of r.hits) onHit(hashInt(K.fastPow(pre, ts, nonce, mat)), nonce, t, d);
+        for (let i = r.hits.length; i < r.hitCount; i++) damage(d);   // more than 31 hits in one batch: credit plainly
+      }
+      retarget(performance.now());
+    }
+  }
+  return eng;
+}
+
+function cpuEngine() {
+  const workerSrc = $('khh').textContent + `
+    let pre, ts, mat, nonce = 0n, T = 0n, run = false, id = 0;
+    onmessage = e => {
+      const m = e.data;
+      if (m.type === 'job') { pre = m.pre; ts = m.ts; mat = generateMatrix(pre); nonce = BigInt(m.nonce); T = BigInt(m.T); id = m.id; }
+      if (m.type === 'target') T = BigInt(m.T);
+      if (m.type === 'start' && !run) { run = true; loop(); }
+      if (m.type === 'stop') run = false;
+    };
+    function loop() {
+      const t0 = performance.now(); let n = 0; const hits = [];
+      while (performance.now() - t0 < 120) {
+        const h = fastPow(pre, ts, nonce, mat);
+        let v = 0n; for (let j = 31; j >= 0; j--) v = (v << 8n) | BigInt(h[j]);
+        if (v <= T) hits.push(v.toString());
+        nonce++; n++;
+      }
+      postMessage({ n, hits, dt: performance.now() - t0, id, T: T.toString() });
+      if (run) setTimeout(loop, 0);
+    }`;
+  // one worker per spare core, each on its own nonce range
+  const nw = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1));
+  const url = URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' }));
+  const rates = new Array(nw).fill(0);
+  const ws = rates.map((_, i) => {
+    const w = new Worker(url);
+    w.onmessage = e => {
+      const { n, hits, dt, id, T } = e.data;
+      S.total += n;
+      const inst = n / (dt / 1000);
+      rates[i] = rates[i] ? rates[i] * 0.8 + inst * 0.2 : inst;
+      S.rate = rates.reduce((a, b) => a + b, 0);
+      if (id === S.jobId && !S.dying) for (const v of hits) onHit(BigInt(v), 0n, BigInt(T), S.diff);
+      retarget(performance.now());
+    };
+    return w;
+  });
+  const all = msg => ws.forEach(w => w.postMessage(msg));
+  return {
+    label: `CPU 模式 · ${nw} 個執行緒（這個瀏覽器沒有 WebGPU，速度會慢很多）`,
+    job(pre, ts, nonce, t, id) { ws.forEach((w, i) => w.postMessage({ type: 'job', pre, ts, nonce: (nonce + (BigInt(i) << 40n)).toString(), T: t.toString(), id })); },
+    target(t) { all({ type: 'target', T: t.toString() }); },
+    start() { all({ type: 'start' }); },
+    stop() { all({ type: 'stop' }); },
+  };
+}
+
+// ---------------- HUD ----------------
+function showBoss() {
+  const b = BOSSES[S.stage];
+  $('stageNo').textContent = `第 ${S.stage + 1} 關 / 共 ${BOSSES.length} 關`;
+  $('bossName').innerHTML = `${b.name}<small>${b.en}</small>`;
+  $('bossLore').textContent = b.lore;
+  fx.spawn(S.stage);
+  hud();
+}
+function hud() {
+  const b = BOSSES[S.stage];
+  const frac = S.hpLeft / b.hp;
+  $('hpFill').style.width = (frac * 100).toFixed(2) + '%';
+  $('hpGhost').style.width = (frac * 100).toFixed(2) + '%';
+  $('hpBar').setAttribute('aria-valuenow', Math.round(frac * 100));
+  $('hpText').textContent = `${fmt(S.hpLeft)} / ${fmt(b.hp)} 雜湊`;
+  $('etaText').textContent = S.running && S.rate > 0 && S.hpLeft > 0 ? `以目前算力約 ${fmtDur(S.hpLeft / S.rate)}` : '';
+  $('sRate').textContent = S.rate ? fmt(S.rate) + 'H/s' : '—';
+  $('sTotal').textContent = fmt(S.total);
+  $('sDiff').textContent = S.running ? fmt(S.diff) : '—';
+  $('sHits').textContent = S.hits.toLocaleString();
+  $('sCrits').textContent = S.crits.toLocaleString();
+  $('sBest').textContent = S.best === null ? '—' : `${256 - bitLen(S.best)} 個零位元`;
+}
+setInterval(hud, 250);
+
+const logEl = $('log'); const logRows = [];
+function logHit(v, dmg, tier) {
+  const h = hex64(v); const z = h.length - h.replace(/^0+/, '').length;
+  logRows.unshift(`<li class="${tier}"><span class="h"><b>${h.slice(0, z)}</b>${h.slice(z, z + 14)}…</span><span class="d">${tier === 'mega' ? '會心 ' : tier === 'crit' ? '暴擊 ' : ''}−${fmt(dmg)}</span></li>`);
+  logRows.length = Math.min(logRows.length, 5);
+  logEl.innerHTML = logRows.join('');
+}
+let bannerTimer;
+function banner(html) {
+  const p = $('banner'); p.innerHTML = html; p.classList.add('on');
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => p.classList.remove('on'), 1600);
+}
+
+// ---------------- canvas: the boss is a small blockDAG ----------------
+const fx = (() => {
+  const cv = $('c'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1, blocks = [], edges = [], shots = [], pops = [], bits = [], shake = 0, order = [], t0 = performance.now();
+  const COL = { tide: '#16324A', silver: '#DCE3EA', ruby: '#D2344F', kelp: '#6FA8A0', foam: '#F4F7FA' };
+  function resize() {
+    dpr = Math.min(2, devicePixelRatio || 1);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    layout();
+  }
+  let seedStage = 0, rnd = Math.random;
+  function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function spawn(stage) { seedStage = stage; build(); }
+  function build() {
+    rnd = mulberry(seedStage * 7919 + 17);
+    const cols = 6 + Math.min(seedStage, 4), raw = [];
+    for (let c = 0; c < cols; c++) {
+      const n = c === cols - 1 ? 1 : 2 + Math.floor(rnd() * (2 + Math.min(seedStage, 3)));
+      for (let k = 0; k < n; k++) raw.push({ c, k, n, core: c === cols - 1, jx: rnd() - .5, jy: rnd() - .5, alive: 1, flash: 0 });
+    }
+    blocks = raw; edges = [];
+    for (const b of blocks) if (b.c > 0) {
+      const prev = blocks.filter(p => p.c === b.c - 1);
+      const k = 1 + Math.floor(rnd() * Math.min(3, prev.length));
+      for (let i = 0; i < k; i++) edges.push([prev[Math.floor(rnd() * prev.length)], b]);
+    }
+    // blocks break away tips-first, the core last
+    order = blocks.filter(b => !b.core).sort((a, b) => a.c - b.c || rnd() - .5);
+    layout();
+  }
+  function layout() {
+    if (!blocks.length) return;
+    const cols = blocks[blocks.length - 1].c + 1, top = H * 0.12, bottom = H * 0.64;
+    const x0 = W * 0.1, x1 = W * 0.9, bw = Math.max(18, Math.min(34, W / (cols * 2.4)));
+    for (const b of blocks) {
+      b.w = b.core ? bw * 1.9 : bw; b.h = b.core ? bw * 1.3 : bw * 0.72;
+      b.x = x0 + (x1 - x0) * (b.c + 0.5) / cols + b.jx * bw * 0.5;
+      b.y = b.core ? (top + bottom) / 2 : top + (bottom - top) * (b.k + 0.5) / b.n + b.jy * bw * 0.4;
+    }
+  }
+  function syncHp() {
+    const frac = S.hpLeft / BOSSES[S.stage].hp, keep = Math.ceil(frac * order.length);
+    order.forEach((b, i) => {
+      const should = i >= order.length - keep;
+      if (b.alive === 1 && !should) { b.alive = 0.999; crumble(b); }
+    });
+  }
+  function crumble(b) {
+    for (let i = 0; i < 10; i++) bits.push({ x: b.x + (Math.random() - .5) * b.w, y: b.y + (Math.random() - .5) * b.h, vx: (Math.random() - .5) * 60, vy: -Math.random() * 40, life: 1, c: COL.silver });
+  }
+  function fire(hex, dmg, tier) {
+    const live = blocks.filter(b => b.alive > 0.5);
+    const tgt = tier === 'mega' ? blocks.find(b => b.core) : live[Math.floor(Math.random() * live.length)] || blocks.find(b => b.core);
+    if (!tgt) return;
+    const z = hex.length - hex.replace(/^0+/, '').length;
+    shots.push({ tgt, t: 0, dur: reduceMotion ? 120 : 520, sx: W / 2 + (Math.random() - .5) * W * 0.3, sy: H + 10, z, txt: hex.slice(0, z) + hex.slice(z, z + 6), dmg, tier });
+  }
+  function shatter() {
+    const core = blocks.find(b => b.core);
+    for (const b of blocks) if (b.alive > 0) { b.alive = 0.999; crumble(b); }
+    if (core) for (let i = 0; i < 40; i++) bits.push({ x: core.x, y: core.y, vx: (Math.random() - .5) * 260, vy: (Math.random() - .7) * 220, life: 1.4, c: COL.ruby });
+    if (!reduceMotion) shake = 10;
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - (frame.last || now)) / 1000); frame.last = now;
+    const t = (now - t0) / 1000;
+    ctx.save(); ctx.clearRect(0, 0, W, H);
+    if (shake > 0) { ctx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake); shake = Math.max(0, shake - 40 * dt); }
+
+    // sea floor: two slow kelp swells under the fight
+    for (let k = 0; k < 2; k++) {
+      ctx.beginPath(); ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 8) ctx.lineTo(x, H * (0.86 + k * 0.05) + Math.sin(x / (90 + k * 40) + t * (0.6 + k * 0.3)) * (6 + k * 3));
+      ctx.lineTo(W, H); ctx.closePath();
+      ctx.fillStyle = k ? 'rgba(111,168,160,.10)' : 'rgba(111,168,160,.06)'; ctx.fill();
+    }
+
+    syncHp();
+    // edges
+    ctx.lineWidth = 1;
+    for (const [a, b] of edges) {
+      const al = Math.min(a.alive, b.alive); if (al <= 0.01) continue;
+      ctx.strokeStyle = `rgba(220,227,234,${0.22 * al})`;
+      ctx.beginPath(); ctx.moveTo(a.x + a.w / 2, a.y); ctx.lineTo(b.x - b.w / 2, b.y); ctx.stroke();
+    }
+    // blocks
+    for (const b of blocks) {
+      if (b.alive < 1) b.alive = Math.max(0, b.alive - dt * 2.5);
+      if (b.alive <= 0.01) continue;
+      const bob = reduceMotion ? 0 : Math.sin(t * 1.3 + b.c + b.k) * 2;
+      ctx.globalAlpha = b.alive;
+      ctx.fillStyle = b.flash > 0 ? COL.foam : b.core ? '#3A1420' : COL.tide;
+      ctx.fillRect(b.x - b.w / 2, b.y - b.h / 2 + bob, b.w, b.h);
+      ctx.strokeStyle = b.core ? COL.ruby : 'rgba(220,227,234,.55)';
+      ctx.lineWidth = b.core ? 2 : 1;
+      ctx.strokeRect(b.x - b.w / 2 + .5, b.y - b.h / 2 + bob + .5, b.w - 1, b.h - 1);
+      if (b.core) { // the core's eye
+        const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+        ctx.fillStyle = `rgba(210,52,79,${0.55 + 0.45 * pulse})`;
+        ctx.fillRect(b.x - b.w * 0.18, b.y - b.h * 0.12 + bob, b.w * 0.36, b.h * 0.24);
+      }
+      b.flash = Math.max(0, b.flash - dt * 6);
+      ctx.globalAlpha = 1;
+    }
+    // shots: the hash itself flies, leading zeros bright
+    ctx.textBaseline = 'middle';
+    shots = shots.filter(s => {
+      s.t += dt * 1000; const p = Math.min(1, s.t / s.dur), e = 1 - (1 - p) ** 3;
+      const x = s.sx + (s.tgt.x - s.sx) * e, y = s.sy + (s.tgt.y - s.sy) * e - Math.sin(p * Math.PI) * 30;
+      ctx.font = `${s.tier ? 500 : 400} ${s.tier === 'mega' ? 15 : 12}px "IBM Plex Mono", monospace`;
+      const zs = s.txt.slice(0, s.z), rest = s.txt.slice(s.z);
+      const wz = ctx.measureText(zs).width, wr = ctx.measureText(rest).width, x0 = x - (wz + wr) / 2;
+      ctx.fillStyle = s.tier ? COL.ruby : COL.silver; ctx.fillText(zs, x0, y);
+      ctx.fillStyle = 'rgba(220,227,234,.35)'; ctx.fillText(rest, x0 + wz, y);
+      if (p >= 1) {
+        s.tgt.flash = 1;
+        pops.push({ x: s.tgt.x, y: s.tgt.y - 14, life: 1, txt: (s.tier === 'mega' ? '會心 ' : s.tier === 'crit' ? '暴擊 ' : '') + fmt(s.dmg), tier: s.tier });
+        if (s.tier === 'mega' && !reduceMotion) shake = 6;
+        return false;
+      }
+      return true;
+    });
+    // damage numbers
+    pops = pops.filter(p => {
+      p.life -= dt * 0.9; p.y -= dt * 28;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.font = `700 ${p.tier === 'mega' ? 26 : p.tier === 'crit' ? 20 : 15}px "LXGW WenKai TC", serif`;
+      ctx.fillStyle = p.tier ? COL.ruby : COL.foam; ctx.textAlign = 'center';
+      ctx.fillText(p.txt, p.x, p.y); ctx.textAlign = 'left'; ctx.globalAlpha = 1;
+      return p.life > 0;
+    });
+    // debris
+    bits = bits.filter(b => {
+      b.life -= dt; b.vy += 220 * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+      ctx.globalAlpha = Math.max(0, Math.min(1, b.life)); ctx.fillStyle = b.c; ctx.fillRect(b.x, b.y, 3, 3); ctx.globalAlpha = 1;
+      return b.life > 0 && b.y < H + 10;
+    });
+    ctx.restore();
+    requestAnimationFrame(frame);
+  }
+  addEventListener('resize', resize);
+  return { init() { resize(); requestAnimationFrame(frame); }, spawn, fire, shatter };
+})();
+
+// ---------------- boot ----------------
+fx.init(); showBoss();
+const go = $('go');
+(async () => {
+  try { S.engine = await gpuEngine(); }
+  catch (e) {
+    console.warn('WebGPU unavailable, falling back to CPU:', e.message);
+    try { S.engine = cpuEngine(); }
+    catch (e2) { $('device').textContent = `這個瀏覽器既沒有 WebGPU，也不允許背景執行緒（${e2.message}）。請換 Chrome、Edge 或 Safari 26 以上。`; return; }
+  }
+  $('device').textContent = S.engine.label;
+  newJob();
+  go.disabled = false;
+})();
+go.addEventListener('click', () => {
+  S.running = !S.running;
+  if (S.running) { S.lastDiffAt = performance.now(); S.engine.start(); go.textContent = '暫停'; banner('開始挖礦'); }
+  else { S.engine.stop(); go.textContent = '繼續挖礦'; }
+  hud();
+});
+window.__game = S; // for the headless test
+})();
+</script>
+</body>
+</html>
