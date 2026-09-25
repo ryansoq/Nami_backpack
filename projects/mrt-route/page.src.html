@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>捷運怎麼搭</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root{
+    --ground:#F6F7F9; --panel:#FFFFFF; --ink:#1B2430; --muted:#5E6B7A; --hair:#DDE2E8; --track:#C9D1DA;
+    --focus:#0070BD; --station:#FFFFFF; --shadow:0 1px 2px rgba(27,36,48,.06),0 8px 24px rgba(27,36,48,.08);
+    --halo:#F6F7F9;
+    --sans:"Noto Sans TC",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ground:#11161C; --panel:#18202A; --ink:#E8EDF2; --muted:#98A5B3; --hair:#2A3542; --track:#3A4757;
+    --focus:#5AB0F0; --station:#18202A; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); --halo:#11161C;
+  }}
+  :root[data-theme="dark"]{
+    --ground:#11161C; --panel:#18202A; --ink:#E8EDF2; --muted:#98A5B3; --hair:#2A3542; --track:#3A4757;
+    --focus:#5AB0F0; --station:#18202A; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); --halo:#11161C;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;min-height:100vh}
+
+  header{display:flex;flex-direction:column;gap:10px;padding:14px 16px 10px;background:var(--panel);border-bottom:1px solid var(--hair);position:relative;z-index:2}
+  .title{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  h1{font-size:19px;font-weight:700;letter-spacing:.02em}
+  .hint{font-size:12.5px;color:var(--muted)}
+  .od{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+  .slot{display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 10px;border:1px solid var(--hair);border-radius:10px;background:var(--ground);cursor:pointer;font:inherit;color:inherit;text-align:left;width:100%}
+  .slot.active{border-color:var(--focus);box-shadow:0 0 0 1px var(--focus) inset}
+  .slot .lbl{font-size:11px;color:var(--muted);letter-spacing:.08em;flex:none}
+  .slot .nm{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot .nm.empty{color:var(--muted);font-weight:400}
+  .swap{width:40px;height:40px;border-radius:50%;border:1px solid var(--hair);background:var(--panel);color:var(--ink);font-size:16px;cursor:pointer}
+  button:focus-visible,.slot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  .search{position:relative}
+  .search input{width:100%;font:inherit;font-size:15px;padding:9px 12px;border:1px solid var(--hair);border-radius:10px;background:var(--ground);color:var(--ink)}
+  .search input:focus{outline:none;border-color:var(--focus)}
+  .sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--hair);border-radius:10px;box-shadow:var(--shadow);list-style:none;padding:4px;max-height:260px;overflow:auto;display:none;z-index:5}
+  .sugg.on{display:block}
+  .sugg li{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:15px}
+  .sugg li:hover,.sugg li.hi{background:var(--ground)}
+
+  .chip{display:inline-flex;align-items:center;gap:2px;font-family:var(--mono);font-size:11px;font-weight:500;line-height:1;padding:3px 5px;border-radius:4px;color:#fff;font-variant-numeric:tabular-nums}
+  .chip.Y{color:#3B3000}
+
+  main{position:relative;flex:1;min-height:52vh}
+  svg#map{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;user-select:none}
+  svg#map.dragging{cursor:grabbing}
+  svg#map .lbl{pointer-events:none}
+  svg#map .st{cursor:pointer;outline:none}
+  svg#map .st:focus-visible .dot{stroke:var(--focus)}
+  .zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+  .zoom button{width:38px;height:38px;border-radius:10px;border:1px solid var(--hair);background:var(--panel);color:var(--ink);font-size:18px;cursor:pointer;box-shadow:var(--shadow)}
+  .legend{position:absolute;left:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 24px)}
+  .legend span{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);background:var(--panel);border:1px solid var(--hair);border-radius:999px;padding:3px 9px 3px 6px}
+  .legend i{width:14px;height:4px;border-radius:2px}
+
+  section.results{background:var(--panel);border-top:1px solid var(--hair);padding:12px 16px 18px;display:grid;gap:12px}
+  .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .card{border:1px solid var(--hair);border-radius:12px;padding:12px;display:grid;gap:4px;cursor:pointer;background:var(--panel);color:inherit;font:inherit;text-align:left}
+  .card.sel{border-color:var(--focus);box-shadow:0 0 0 1px var(--focus) inset}
+  .card .k{font-size:12px;color:var(--muted);letter-spacing:.08em}
+  .card .big{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+  .card .big small{font-size:14px;font-weight:500;margin-left:2px}
+  .card .sub{font-size:13px;color:var(--muted)}
+  .same{grid-column:1/-1;font-size:13px;color:var(--muted)}
+  .fare{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+  .fare b{color:var(--ink);font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+  ol.legs{list-style:none;padding:0;display:grid;gap:0}
+  .leg{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:start;padding:8px 0}
+  .leg .bar{justify-self:center;width:6px;border-radius:3px;align-self:stretch;min-height:40px}
+  .leg .t{font-size:15px;font-weight:500}
+  .leg .d{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:2px}
+  .walk{display:grid;grid-template-columns:44px 1fr;gap:10px;font-size:13px;color:var(--muted);padding:2px 0}
+  .walk span:first-child{justify-self:center}
+  .empty-state{font-size:14px;color:var(--muted);line-height:1.7}
+  footer{font-size:11.5px;color:var(--muted);line-height:1.6;padding:0 16px 16px;background:var(--panel)}
+  @media (min-width:900px){
+    body{display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto 1fr auto}
+    header{grid-column:1/-1}
+    main{grid-column:1;grid-row:2 / span 2;min-height:0}
+    section.results{grid-column:2;grid-row:2;border-top:0;border-left:1px solid var(--hair);overflow:auto;align-content:start}
+    footer{grid-column:2;grid-row:3;border-left:1px solid var(--hair)}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="title"><h1>捷運怎麼搭</h1><span class="hint" id="hint">在圖上點起點</span></div>
+  <div class="od">
+    <button class="slot active" id="slotFrom" type="button"><span class="lbl">起</span><span class="nm empty" id="nmFrom">點地圖或搜尋</span></button>
+    <button class="swap" id="swap" type="button" aria-label="起訖對調">⇄</button>
+    <button class="slot" id="slotTo" type="button"><span class="lbl">訖</span><span class="nm empty" id="nmTo">再點一站</span></button>
+  </div>
+  <div class="search">
+    <input id="q" type="search" placeholder="搜尋車站，例如 大安、淡水、BR09" autocomplete="off" aria-label="搜尋車站">
+    <ul class="sugg" id="sugg" role="listbox"></ul>
+  </div>
+</header>
+
+<main>
+  <svg id="map" role="img" aria-label="台北捷運路線圖，點車站選擇起訖站"></svg>
+  <div class="zoom"><button type="button" id="zin" aria-label="放大">+</button><button type="button" id="zout" aria-label="縮小">−</button><button type="button" id="zfit" aria-label="回到全圖">⤢</button></div>
+  <div class="legend" id="legend"></div>
+</main>
+
+<section class="results" id="results" aria-live="polite">
+  <p class="empty-state">選好起點跟終點，這裡會並排列出兩條路線：<br><b>最快</b>（算進轉乘走路）跟 <b>最少轉乘</b>。<br>北捷票價只看起訖站，走哪條路線都一樣貴。</p>
+</section>
+<footer id="foot"></footer>
+
+<script id="data" type="application/json">/*DATA*/</script>
+<script>/*ROUTER*/</script>
+<script>
+(() => {
+'use strict';
+const D = JSON.parse(document.getElementById('data').textContent);
+const R = window.buildRouter(D, D.model);
+const $ = id => document.getElementById(id);
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+const lineOf = code => code.replace(/[0-9]+A?$/, '');
+const chip = (code) => `<span class="chip ${lineOf(code)}" style="background:${D.lines[lineOf(code)].color}">${code}</span>`;
+
+// ---------- projection: lat/lon -> plane, then a gentle fisheye so downtown gets room ----------
+const all = Object.entries(D.coords);
+const lat0 = all.reduce((a, [, c]) => a + c[0], 0) / all.length;
+const kx = Math.cos(lat0 * Math.PI / 180);
+const center = D.coords['台北車站'];
+const P = {};
+let maxR = 0;
+for (const [n, [la, lo]] of all) {
+  const x = (lo - center[1]) * kx, y = -(la - center[0]);
+  P[n] = [x, y]; maxR = Math.max(maxR, Math.hypot(x, y));
+}
+for (const n in P) {                     // r' = R * (r/R)^0.62
+  const [x, y] = P[n], r = Math.hypot(x, y) / maxR;
+  const f = r > 0 ? Math.pow(r, 0.62) / r : 1;
+  P[n] = [x * f * 1000, y * f * 1000];
+}
+// same-name stations on different lines stay one dot; 新埔 / 新埔民生 are drawn apart as in reality
+const pt = code => P[D.stations[code].name];
+
+// ---------- draw ----------
+const svg = $('map');
+const gRoot = el('g', {}, svg);
+const gLines = el('g', {}, gRoot), gHi = el('g', {}, gRoot), gSt = el('g', {}, gRoot), gLbl = el('g', {}, gRoot);
+const lineEls = [];
+for (const s of D.services) {
+  const d = s.codes.map((c, i) => (i ? 'L' : 'M') + pt(c).map(v => v.toFixed(1)).join(' ')).join(' ');
+  lineEls.push(el('path', { d, fill: 'none', stroke: D.lines[s.line].color, 'stroke-width': 7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'data-line': s.line }, gLines));
+}
+const groupsAt = {};                     // name -> codes
+for (const c in D.stations) (groupsAt[D.stations[c].name] ||= []).push(c);
+const stEls = {};
+for (const [name, cs] of Object.entries(groupsAt)) {
+  const [x, y] = P[name], xfer = cs.length > 1 || D.alias[name] || Object.values(D.alias).includes(name);
+  const g = el('g', { class: 'st', tabindex: 0, role: 'button', 'aria-label': `${name} ${cs.join(' ')}`, 'data-name': name, transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, gSt);
+  el('circle', { r: 16, fill: 'transparent' }, g);            // generous hit area
+  el('circle', { r: xfer ? 6.5 : 4.5, fill: 'var(--station)', stroke: xfer ? 'var(--ink)' : D.lines[lineOf(cs[0])].color, 'stroke-width': xfer ? 2.5 : 2.5, class: 'dot' }, g);
+  const t = el('text', { x: x + 9, y: y + 4, 'font-size': 12, 'font-family': 'Noto Sans TC, sans-serif', fill: 'var(--ink)', stroke: 'var(--halo)', 'stroke-width': 3, 'paint-order': 'stroke', class: 'lbl', 'data-name': name }, gLbl);
+  t.textContent = name;
+  stEls[name] = { g, t, xfer };
+}
+$('legend').innerHTML = Object.values(D.lines).map(l => `<span><i style="background:${l.color}"></i>${l.name}</span>`).join('');
+$('foot').innerHTML = `時間是估計值：用北捷官方「乘車路線規劃」的實際行車與轉乘步行時間校準，另外拿 ${D.model.valN} 組官方沒拿來校準的起訖站比對，平均差 ${D.model.valMae} 分鐘、轉乘站相同 ${D.model.valSame}。票價來自臺北市開放資料。環狀線目前只到 Y07–Y20。`;
+
+// ---------- pan / zoom (viewBox) ----------
+const xs = Object.values(P).map(p => p[0]), ys = Object.values(P).map(p => p[1]);
+const bounds = { x: Math.min(...xs) - 60, y: Math.min(...ys) - 40, w: Math.max(...xs) - Math.min(...xs) + 160, h: Math.max(...ys) - Math.min(...ys) + 80 };
+let vb = { ...bounds };
+// Fit bounds into the part of the map not covered by the zoom buttons (right) and legend (bottom).
+function fitTo(b, pad = 1.15) {
+  const W = svg.clientWidth || 1, H = svg.clientHeight || 1;
+  const legendH = $('legend').getBoundingClientRect().height + 20;
+  const ins = { l: 12, r: 60, t: 12, b: Math.min(legendH, H * 0.35) };
+  const uw = Math.max(40, W - ins.l - ins.r), uh = Math.max(40, H - ins.t - ins.b);
+  const k = Math.max(b.w * pad / uw, b.h * pad / uh);          // world units per screen px
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  vb = { x: cx - (ins.l + uw / 2) * k, y: cy - (ins.t + uh / 2) * k, w: W * k, h: H * k };
+  apply();
+}
+const terminals = new Set(D.services.flatMap(s => [D.stations[s.codes[0]].name, D.stations[s.codes[s.codes.length - 1]].name]));
+function apply() {
+  svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  const s = vb.w / Math.max(1, svg.clientWidth);                // world units per px: keeps marks a constant screen size
+  for (const p of lineEls) p.setAttribute('stroke-width', (6 * s).toFixed(2));
+  for (const p of gHi.children) p.setAttribute('stroke-width', (10 * s).toFixed(2));
+  // Labels: greedy placement by importance; a label that would overlap one already placed is hidden.
+  const rank = n => (n === sel.from || n === sel.to) ? 0 : (route && route.names.has(n)) ? 1 : stEls[n].xfer ? 2 : terminals.has(n) ? 3 : 4;
+  const order = Object.keys(stEls).sort((a, b) => rank(a) - rank(b));
+  const placed = [];
+  for (const n of order) {
+    const { t, g } = stEls[n], [x, y] = P[n];
+    g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${s.toFixed(3)})`);
+    t.setAttribute('font-size', (12 * s).toFixed(2)); t.setAttribute('stroke-width', (3 * s).toFixed(2));
+    t.setAttribute('font-weight', rank(n) <= 1 ? 700 : 400);
+    const sx = (x - vb.x) / s, sy = (y - vb.y) / s, w = n.length * 12.5 + 4;
+    // try right, then left of the dot
+    let spot = null;
+    for (const [bx, anchor] of [[sx + 9, 'start'], [sx - 9 - w, 'end']]) {
+      const box = [bx, sy - 9, bx + w, sy + 7];
+      if (!placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1])) { spot = [box, anchor]; break; }
+    }
+    if (!spot && rank(n) === 0) spot = [[sx + 9, sy - 9, sx + 9 + w, sy + 7], 'start'];  // selected stations always show
+    if (!spot) { t.style.display = 'none'; continue; }
+    placed.push(spot[0]);
+    t.style.display = '';
+    t.setAttribute('text-anchor', spot[1]);
+    t.setAttribute('x', (x + (spot[1] === 'start' ? 9 : -9) * s).toFixed(1));
+    t.setAttribute('y', (y + 4 * s).toFixed(1));
+  }
+}
+function zoomAt(f, cx, cy) {
+  const nx = cx - (cx - vb.x) * f, ny = cy - (cy - vb.y) * f;
+  vb = { x: nx, y: ny, w: vb.w * f, h: vb.h * f };
+  apply();
+}
+const toWorld = (clientX, clientY) => {
+  const r = svg.getBoundingClientRect();
+  return [vb.x + (clientX - r.left) / r.width * vb.w, vb.y + (clientY - r.top) / r.height * vb.h];
+};
+svg.addEventListener('wheel', e => { e.preventDefault(); const [x, y] = toWorld(e.clientX, e.clientY); zoomAt(Math.exp(e.deltaY * 0.0015), x, y); }, { passive: false });
+const ptrs = new Map(); let moved = 0, pinch0 = null;
+svg.addEventListener('pointerdown', e => { svg.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), vb: { ...vb }, mid: toWorld((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) }; } });
+svg.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  const [px, py] = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2 && pinch0) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const f = pinch0.d / Math.max(1, d);
+    vb = { ...pinch0.vb }; zoomAt(f, pinch0.mid[0], pinch0.mid[1]); moved = 99; return;
+  }
+  const r = svg.getBoundingClientRect(), dx = (e.clientX - px) / r.width * vb.w, dy = (e.clientY - py) / r.height * vb.h;
+  moved += Math.abs(e.clientX - px) + Math.abs(e.clientY - py);
+  if (moved > 4) { svg.classList.add('dragging'); vb.x -= dx; vb.y -= dy; apply(); }
+});
+const end = e => {
+  ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = null; svg.classList.remove('dragging');
+  if (e.type === 'pointerup' && moved <= 4 && ptrs.size === 0) {
+    // nearest station on screen, not the DOM hit target: at full-map zoom the
+    // hit circles of neighbouring stations overlap and the last-drawn one wins
+    const [wx, wy] = toWorld(e.clientX, e.clientY), s = vb.w / Math.max(1, svg.clientWidth);
+    let best = null, bd = 24 * s;
+    for (const n in P) { const d = Math.hypot(P[n][0] - wx, P[n][1] - wy); if (d < bd) { bd = d; best = n; } }
+    if (best) pick(best);
+  }
+};
+svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+gSt.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset.name) { e.preventDefault(); pick(e.target.dataset.name); } });
+$('zin').onclick = () => zoomAt(0.7, vb.x + vb.w / 2, vb.y + vb.h / 2);
+$('zout').onclick = () => zoomAt(1 / 0.7, vb.x + vb.w / 2, vb.y + vb.h / 2);
+$('zfit').onclick = () => fitTo(route ? route.bounds : bounds);
+addEventListener('resize', () => fitTo(route ? route.bounds : bounds));
+
+// ---------- selection ----------
+const sel = { from: null, to: null, next: 'from', mode: 'fastest' };
+let route = null, routes = null;
+function pick(name) {
+  sel[sel.next] = name;
+  if (sel.next === 'from') sel.next = 'to';
+  else if (!sel.from) sel.next = 'from';
+  if (sel.from && sel.to && sel.from === sel.to) sel[sel.next === 'to' ? 'from' : 'to'] = null;
+  update();
+}
+$('slotFrom').onclick = () => { sel.next = 'from'; update(false); $('q').focus(); };
+$('slotTo').onclick = () => { sel.next = 'to'; update(false); $('q').focus(); };
+$('swap').onclick = () => { [sel.from, sel.to] = [sel.to, sel.from]; update(); };
+
+// search
+const names = Object.keys(groupsAt);
+const q = $('q'), sugg = $('sugg'); let hi = 0, list = [];
+function renderSugg() {
+  const v = q.value.trim().toUpperCase();
+  list = !v ? [] : names.filter(n => n.toUpperCase().includes(v) || groupsAt[n].some(c => c.startsWith(v))).slice(0, 8);
+  hi = 0;
+  sugg.innerHTML = list.map((n, i) => `<li role="option" data-name="${n}" class="${i === hi ? 'hi' : ''}">${groupsAt[n].map(chip).join('')} ${n}</li>`).join('');
+  sugg.classList.toggle('on', list.length > 0);
+}
+q.addEventListener('input', renderSugg);
+q.addEventListener('keydown', e => {
+  if (!list.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); hi = (hi + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length; [...sugg.children].forEach((li, i) => li.classList.toggle('hi', i === hi)); }
+  if (e.key === 'Enter') { e.preventDefault(); choose(list[hi]); }
+  if (e.key === 'Escape') { sugg.classList.remove('on'); }
+});
+sugg.addEventListener('pointerdown', e => { const li = e.target.closest('li'); if (li) { e.preventDefault(); choose(li.dataset.name); } });
+function choose(n) { q.value = ''; sugg.classList.remove('on'); pick(n); }
+
+function update(recompute = true) {
+  $('slotFrom').classList.toggle('active', sel.next === 'from');
+  $('slotTo').classList.toggle('active', sel.next === 'to');
+  const setNm = (id, n, ph) => { const e = $(id); e.textContent = n || ph; e.classList.toggle('empty', !n); };
+  setNm('nmFrom', sel.from, '點地圖或搜尋'); setNm('nmTo', sel.to, '再點一站');
+  $('hint').textContent = !sel.from ? '在圖上點起點' : !sel.to ? '再點終點' : '點卡片切換路線，點車站可重選';
+  for (const n in stEls) stEls[n].g.querySelector('.dot').setAttribute('stroke-width', n === sel.from || n === sel.to ? 4 : 2.5);
+  if (!recompute) return;
+  routes = null; route = null; gHi.innerHTML = '';
+  if (sel.from && sel.to) {
+    const ga = R.group(groupsAt[sel.from][0]), gb = R.group(groupsAt[sel.to][0]);
+    routes = ga === gb ? null : { fastest: R.route(ga, gb, 'fastest'), fewest: R.route(ga, gb, 'fewest') };
+  }
+  render();
+}
+
+function describe(r) { return r.transfers.length ? `轉 ${r.transfers.length} 次` : '不用轉乘'; }
+function sameRoute(a, b) { return a.legs.map(l => l.sid + l.from + l.to).join() === b.legs.map(l => l.sid + l.from + l.to).join(); }
+
+function render() {
+  const box = $('results');
+  lineEls.forEach(p => p.style.opacity = '');
+  if (!sel.from || !sel.to) {
+    box.innerHTML = `<p class="empty-state">${sel.from ? `起點：<b>${sel.from}</b>。再點一站當終點。` : '選好起點跟終點，這裡會並排列出兩條路線：<br><b>最快</b>（算進轉乘走路）跟 <b>最少轉乘</b>。<br>北捷票價只看起訖站，走哪條路線都一樣貴。'}</p>`;
+    apply(); return;
+  }
+  if (!routes) { box.innerHTML = `<p class="empty-state">${sel.from} 跟 ${sel.to} 是同一個轉乘站，走路就到了。</p>`; apply(); return; }
+  const { fastest: f, fewest: w } = routes, same = sameRoute(f, w);
+  if (same) sel.mode = 'fastest';
+  const cur = sel.mode === 'fewest' ? w : f;
+  const fare = R.fare(sel.from, sel.to);
+  const card = (key, r, title) => `<button type="button" class="card ${sel.mode === key ? 'sel' : ''}" data-mode="${key}"><span class="k">${title}</span><span class="big">${r.minutes}<small>分</small></span><span class="sub">${describe(r)}・${r.stops} 站</span></button>`;
+  box.innerHTML = `
+    <div class="cards">${card('fastest', f, '最快')}${same ? `<p class="same">最少轉乘也是這條，沒有更輕鬆的走法。</p>` : card('fewest', w, '最少轉乘')}</div>
+    ${!same ? `<p class="same">${w.minutes - f.minutes > 0 ? `少轉 ${f.transfers.length - w.transfers.length} 次，要多花 ${w.minutes - f.minutes} 分鐘。` : `兩條差不多快，少轉乘那條比較輕鬆。`}</p>` : ''}
+    <div class="fare"><span>全票 <b>${fare.full}</b> 元</span><span>敬老／愛心／北市新北兒童 <b>${fare.senior}</b> 元</span></div>
+    <ol class="legs">${cur.legs.map((l, i) => `
+      <li class="leg"><span class="bar" style="background:${D.lines[l.line].color}"></span>
+        <div><div class="t">${D.stations[l.from].name} → ${D.stations[l.to].name}</div>
+        <div class="d">${chip(l.from)}${D.lines[l.line].name}・往${l.toward}・${l.stops} 站・約 ${Math.max(1, Math.round(l.minutes))} 分</div></div></li>
+      ${cur.transfers[i] ? `<li class="walk"><span>🚶</span><span>在 ${cur.transfers[i].at} 轉乘${cur.transfers[i].walk ? `，走路約 ${Math.round(cur.transfers[i].walk)} 分` : '（同月台）'}</span></li>` : ''}`).join('')}
+    </ol>`;
+  box.querySelectorAll('.card').forEach(c => c.onclick = () => { sel.mode = c.dataset.mode; render(); });
+  // highlight
+  gHi.innerHTML = '';
+  lineEls.forEach(p => p.style.opacity = '.18');
+  const namesOn = new Set();
+  for (const l of cur.legs) {
+    const d = l.path.map((c, i) => (i ? 'L' : 'M') + pt(c).map(v => v.toFixed(1)).join(' ')).join(' ');
+    el('path', { d, fill: 'none', stroke: D.lines[l.line].color, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, gHi);
+    l.path.forEach(c => namesOn.add(D.stations[c].name));
+  }
+  const px = [...namesOn].map(n => P[n]);
+  const bx = Math.min(...px.map(p => p[0])), by = Math.min(...px.map(p => p[1]));
+  route = { names: namesOn, bounds: { x: bx - 40, y: by - 30, w: Math.max(...px.map(p => p[0])) - bx + 140, h: Math.max(...px.map(p => p[1])) - by + 60 } };
+  fitTo(route.bounds, 1.25);
+}
+
+requestAnimationFrame(() => fitTo(bounds, 1.02));
+window.__mrt = { pick, sel, get routes() { return routes; } };
+})();
+</script>
+</body>
+</html>
