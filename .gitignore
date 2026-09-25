@@ -30,3 +30,12 @@ TOOLS.md
 projects/pixel-agents
 projects/numpy-grad/
 projects/nami-kaspa-bot/bot.log
+
+# Large datasets and simulation state — regenerate locally, never commit.
+# data/ holds the MaleCNS + hemibrain connectome dumps (~1.3G).
+data/
+*.pkl
+*.feather
+*.npz
+*.npy
+*.tar.gz
