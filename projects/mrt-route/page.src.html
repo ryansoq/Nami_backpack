@@ -107,7 +107,7 @@
 
 <main>
   <svg id="map" role="img" aria-label="台北捷運路線圖，點車站選擇起訖站"></svg>
-  <div class="zoom"><button type="button" id="zin" aria-label="放大">+</button><button type="button" id="zout" aria-label="縮小">−</button><button type="button" id="zfit" aria-label="回到全圖">⤢</button></div>
+  <div class="zoom"><button type="button" id="zin" aria-label="放大">+</button><button type="button" id="zout" aria-label="縮小">−</button><button type="button" id="zfit" aria-label="回到全圖">⤢</button><button type="button" id="zlay" aria-label="切換成地理位置圖" title="切換地理／路線圖" style="font-size:12px">地理</button></div>
   <div class="legend" id="legend"></div>
 </main>
 
@@ -134,29 +134,44 @@ const all = Object.entries(D.coords);
 const lat0 = all.reduce((a, [, c]) => a + c[0], 0) / all.length;
 const kx = Math.cos(lat0 * Math.PI / 180);
 const center = D.coords['台北車站'];
-const P = {};
+const PGEO = {};
 let maxR = 0;
 for (const [n, [la, lo]] of all) {
   const x = (lo - center[1]) * kx, y = -(la - center[0]);
-  P[n] = [x, y]; maxR = Math.max(maxR, Math.hypot(x, y));
+  PGEO[n] = [x, y]; maxR = Math.max(maxR, Math.hypot(x, y));
 }
-for (const n in P) {                     // r' = R * (r/R)^0.62
-  const [x, y] = P[n], r = Math.hypot(x, y) / maxR;
+for (const n in PGEO) {                  // r' = R * (r/R)^0.62
+  const [x, y] = PGEO[n], r = Math.hypot(x, y) / maxR;
   const f = r > 0 ? Math.pow(r, 0.62) / r : 1;
-  P[n] = [x * f * 1000, y * f * 1000];
+  PGEO[n] = [x * f * 1000, y * f * 1000];
 }
-// same-name stations on different lines stay one dot; 新埔 / 新埔民生 are drawn apart as in reality
+// Schematic layout (default, Ryan 9/26: straight lines with corners are easier to use than terrain)
+const UNIT = 56;
+const PSCH = Object.fromEntries(Object.entries(D.schema.pos).map(([n, [x, y]]) => [n, [x * UNIT, y * UNIT]]));
+let layoutMode = 'schema', P = PSCH;
 const pt = code => P[D.stations[code].name];
+const svcById = Object.fromEntries(D.services.map(s => [s.id, s]));
+// points from station a to station b (adjacent on service sid), including corners in schematic mode
+function segPts(sid, a, b) {
+  if (layoutMode !== 'schema') return [pt(a), pt(b)];
+  const cs = svcById[sid].codes, i = cs.indexOf(a), j = cs.indexOf(b);
+  const seg = D.schema.segs[sid][Math.min(i, j)].map(([x, y]) => [x * UNIT, y * UNIT]);
+  return i < j ? seg : seg.slice().reverse();
+}
+function pathD(sid, codes) {
+  const pts = [pt(codes[0])];
+  for (let i = 1; i < codes.length; i++) pts.push(...segPts(sid, codes[i - 1], codes[i]).slice(1));
+  return pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+}
 
 // ---------- draw ----------
 const svg = $('map');
 const gRoot = el('g', {}, svg);
 const gLines = el('g', {}, gRoot), gHi = el('g', {}, gRoot), gSt = el('g', {}, gRoot), gLbl = el('g', {}, gRoot);
 const lineEls = [];
-for (const s of D.services) {
-  const d = s.codes.map((c, i) => (i ? 'L' : 'M') + pt(c).map(v => v.toFixed(1)).join(' ')).join(' ');
-  lineEls.push(el('path', { d, fill: 'none', stroke: D.lines[s.line].color, 'stroke-width': 7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'data-line': s.line }, gLines));
-}
+for (const s of D.services) lineEls.push(el('path', { fill: 'none', stroke: D.lines[s.line].color, 'stroke-width': 7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'data-sid': s.id }, gLines));
+function drawLines() { lineEls.forEach(p => p.setAttribute('d', pathD(p.dataset.sid, svcById[p.dataset.sid].codes))); }
+drawLines();
 const groupsAt = {};                     // name -> codes
 for (const c in D.stations) (groupsAt[D.stations[c].name] ||= []).push(c);
 const stEls = {};
@@ -173,8 +188,12 @@ $('legend').innerHTML = Object.values(D.lines).map(l => `<span><i style="backgro
 $('foot').innerHTML = `時間是估計值：用北捷官方「乘車路線規劃」的實際行車與轉乘步行時間校準，另外拿 ${D.model.valN} 組官方沒拿來校準的起訖站比對，平均差 ${D.model.valMae} 分鐘、轉乘站相同 ${D.model.valSame}。票價來自臺北市開放資料。環狀線目前只到 Y07–Y20。`;
 
 // ---------- pan / zoom (viewBox) ----------
-const xs = Object.values(P).map(p => p[0]), ys = Object.values(P).map(p => p[1]);
-const bounds = { x: Math.min(...xs) - 60, y: Math.min(...ys) - 40, w: Math.max(...xs) - Math.min(...xs) + 160, h: Math.max(...ys) - Math.min(...ys) + 80 };
+let bounds;
+function computeBounds() {
+  const xs = Object.values(P).map(p => p[0]), ys = Object.values(P).map(p => p[1]);
+  bounds = { x: Math.min(...xs) - 60, y: Math.min(...ys) - 40, w: Math.max(...xs) - Math.min(...xs) + 160, h: Math.max(...ys) - Math.min(...ys) + 80 };
+}
+computeBounds();
 let vb = { ...bounds };
 // Fit bounds into the part of the map not covered by the zoom buttons (right) and legend (bottom).
 function fitTo(b, pad = 1.15) {
@@ -258,6 +277,14 @@ gSt.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') 
 $('zin').onclick = () => zoomAt(0.7, vb.x + vb.w / 2, vb.y + vb.h / 2);
 $('zout').onclick = () => zoomAt(1 / 0.7, vb.x + vb.w / 2, vb.y + vb.h / 2);
 $('zfit').onclick = () => fitTo(route ? route.bounds : bounds);
+$('zlay').onclick = () => {
+  layoutMode = layoutMode === 'schema' ? 'geo' : 'schema';
+  P = layoutMode === 'schema' ? PSCH : PGEO;
+  $('zlay').textContent = layoutMode === 'schema' ? '地理' : '路線';
+  $('zlay').setAttribute('aria-label', layoutMode === 'schema' ? '切換成地理位置圖' : '切換成路線圖');
+  drawLines(); computeBounds(); render();
+  if (!route) fitTo(bounds, 1.02);
+};
 addEventListener('resize', () => fitTo(route ? route.bounds : bounds));
 
 // ---------- selection ----------
@@ -342,7 +369,7 @@ function render() {
   lineEls.forEach(p => p.style.opacity = '.18');
   const namesOn = new Set();
   for (const l of cur.legs) {
-    const d = l.path.map((c, i) => (i ? 'L' : 'M') + pt(c).map(v => v.toFixed(1)).join(' ')).join(' ');
+    const d = pathD(l.sid, l.path);
     el('path', { d, fill: 'none', stroke: D.lines[l.line].color, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, gHi);
     l.path.forEach(c => namesOn.add(D.stations[c].name));
   }

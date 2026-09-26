@@ -27,6 +27,12 @@ fewest-transfer count 28/28. Penalty 3 was set after seeing val at penalty 1
 (24/28), as a prior not a fit; train score unchanged by it.
 Known gap: 蘆洲 branch runs every other train, so trips from it read ~6 min fast.
 
+## Layout
+Default view is a hand-anchored octilinear schematic (`schematic.py` -> schema.json; Ryan 9/26:
+「線拉成直的…直一點加轉角 比較要好操作」). Transfer stations and terminals are pinned on a grid,
+the rest spaced by arc length along straight/45° legs; a shared station must land on one point
+(asserted). The 地理 button toggles back to the OSM layout.
+
 ## Build
 `python3 build_data.py && python3 build_page.py` → mrt-route.html
 `node final_eval.cjs` for the scores.
