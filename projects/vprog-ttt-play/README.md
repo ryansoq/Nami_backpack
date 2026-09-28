@@ -19,3 +19,15 @@ batch (the operator's GPU; the last one before the match was 9/26) → Claim Exi
 
 UX lesson: on mobile the board sits under MY GAMES and needs the game row tapped first. Ryan
 also clicked "Create game" 4 times and joined 2 strangers' games before finding ours.
+
+## Payout completed 2026-09-28 (full vprog loop)
+Settlement 15:05 (the match proven on L1) → Withdraw 2.00 (`withdraw.cjs`, tx 61a21b…) → settlement
+15:14 → Claim (`claim.cjs`, tx b9e4c4…) → Ryan's L1 +2.5 tKAS (the extra 0.5 is probably the permission rent
+coming back, unverified); fee ~0.011.
+
+**Bug found in the demo web client** (web/src/composition.ts @098be67): `claimExits` passes ALL delegate-pool
+UTXOs (272 at the time) to `claim_tx`, and app-kit rejects more than `MAX_DELEGATE_INPUTS = 8`
+(vprogs zk/backend/risc0/api/src/permission_script.rs:35) → "too many delegate inputs". Every claim
+fails once the pool holds more than 8 UTXOs, even though the pool had a 1,000 tKAS UTXO. Workaround in `claim.cjs`:
+Playwright route-patches the served module to pick the largest UTXOs covering the leaf (≤8); 1 input was enough.
+The fix upstream would be the same selection in composition.ts before calling claim_tx.
