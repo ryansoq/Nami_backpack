@@ -1,0 +1,45 @@
+13:06:58 loaded identity
+13:07:00 create submitted: stake 1 tKAS, 3 rounds
+13:07:06 GAME 76707310e6967279cef1585411fcd23f82a490ccffadc14ce52df7dd0e60f925
+13:07:06 state Open rounds [0,0] draws 0
+13:09:08 state Playing rounds [0,0] draws 0
+13:09:08 round 1 board 000000000 MY turn
+13:09:09 played X at cell 5
+13:09:16 round 1 board 000001000 waiting for Ryan
+13:20:54 round 1 board 000021000 MY turn
+13:20:55 played X at cell 1
+13:21:02 round 1 board 010021000 waiting for Ryan
+13:21:18 round 1 board 012021000 MY turn
+13:21:19 played X at cell 6
+13:21:25 round 1 board 012021100 waiting for Ryan
+13:21:58 round 1 board 212021100 MY turn
+13:21:59 played X at cell 3
+13:22:06 round 1 board 212121100 waiting for Ryan
+13:22:16 round 2 board 000000000 waiting for Ryan
+13:22:25 round 2 board 000010000 MY turn
+13:22:26 played O at cell 0
+13:22:34 round 2 board 200010000 waiting for Ryan
+13:22:37 round 2 board 200010001 MY turn
+13:22:38 played O at cell 2
+13:22:45 round 2 board 202010001 waiting for Ryan
+13:22:54 round 2 board 212010001 MY turn
+13:22:55 played O at cell 7
+13:23:03 round 2 board 212010021 waiting for Ryan
+13:23:13 round 2 board 212011021 MY turn
+13:23:14 played O at cell 3
+13:23:20 round 2 board 212211021 waiting for Ryan
+13:23:27 round 3 board 000000000 MY turn
+13:23:28 played X at cell 8
+13:23:34 round 3 board 000000001 waiting for Ryan
+13:23:41 round 3 board 000020001 MY turn
+13:23:42 played X at cell 5
+13:23:48 round 3 board 000021001 waiting for Ryan
+13:23:58 round 3 board 002021001 MY turn
+13:23:59 played X at cell 6
+13:24:06 round 3 board 002021101 waiting for Ryan
+13:24:09 round 3 board 002021121 MY turn
+13:24:10 played X at cell 3
+13:24:17 round 3 board 002121121 waiting for Ryan
+13:24:27 state Second rounds [0,2] draws 1
+13:24:27 FINISHED Second round_wins [0,2] draws 1
+exit 0
