@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>公平 21 點</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* One world on purpose: a card table under a lamp. Painted explicitly, same on any host theme. */
+  :root{
+    --felt:#0E3B36; --felt-deep:#0A2B28; --rail:#3B2A1C; --brass:#C9A45C; --brass-dim:#8E7442;
+    --ivory:#F5F0E4; --ink:#1B1B1B; --red:#B3263A; --mist:rgba(245,240,228,.68); --line:rgba(245,240,228,.16);
+    --good:#7FC8A9; --bad:#E0707E;
+    --serif:"Noto Serif TC",serif; --sans:"Noto Sans TC",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{background:var(--felt-deep);color:var(--ivory)}
+  body{font-family:var(--sans);min-height:100vh;
+    background:radial-gradient(120% 80% at 50% 0%,#15504A 0%,var(--felt) 45%,var(--felt-deep) 100%)}
+  .wrap{max-width:560px;margin:0 auto;padding:18px 16px 40px;display:grid;gap:16px}
+  header{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  h1{font-family:var(--serif);font-weight:900;font-size:26px;letter-spacing:.04em}
+  h1 span{color:var(--brass)}
+  .bank{font-family:var(--mono);font-size:15px;color:var(--brass);font-variant-numeric:tabular-nums}
+  .commit{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--mist);display:grid;gap:4px;background:rgba(0,0,0,.15)}
+  .commit b{color:var(--ivory);font-weight:500}
+  .hash{font-family:var(--mono);font-size:11.5px;word-break:break-all;color:var(--brass)}
+
+  .seat{display:grid;gap:8px}
+  .seat-head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--mist);letter-spacing:.08em}
+  .seat-head strong{font-family:var(--mono);font-size:18px;color:var(--ivory);letter-spacing:0}
+  .hand{display:flex;gap:8px;flex-wrap:wrap;min-height:100px;align-items:flex-start}
+  .card{width:66px;height:94px;border-radius:8px;background:var(--ivory);color:var(--ink);position:relative;
+    box-shadow:0 2px 0 rgba(0,0,0,.25),0 8px 18px rgba(0,0,0,.28);font-family:var(--serif);font-weight:900;
+    animation:deal .28s ease-out both}
+  .card.red{color:var(--red)}
+  .card .r{position:absolute;left:7px;top:5px;font-size:20px;line-height:1}
+  .card .s{position:absolute;left:8px;top:28px;font-size:16px}
+  .card .big{position:absolute;right:8px;bottom:4px;font-size:34px;line-height:1}
+  .card.back{background:repeating-linear-gradient(45deg,var(--rail) 0 6px,#4A3522 6px 12px);border:3px solid var(--brass-dim)}
+  .card.back::after{content:"";position:absolute;inset:10px;border:1px solid rgba(201,164,92,.5);border-radius:4px}
+  .card.swapped{outline:3px solid var(--bad);outline-offset:2px}
+  @keyframes deal{from{transform:translateY(-14px);opacity:0}to{transform:none;opacity:1}}
+
+  .status{min-height:30px;font-family:var(--serif);font-size:20px;text-align:center}
+  .status .win{color:var(--good)} .status .lose{color:var(--bad)} .status .push{color:var(--brass)}
+
+  .bets{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .chip{width:58px;height:58px;border-radius:50%;border:3px dashed rgba(245,240,228,.55);background:#6E2C35;color:var(--ivory);
+    font-family:var(--mono);font-size:15px;cursor:pointer}
+  .chip.c10{background:#2D4C7A} .chip.c25{background:#2F6B45} .chip.sel{border-style:solid;border-color:var(--brass);box-shadow:0 0 0 3px rgba(201,164,92,.35)}
+  .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .actions.one{grid-template-columns:1fr}
+  button.act{min-height:54px;border-radius:12px;border:1px solid var(--brass-dim);background:rgba(0,0,0,.25);color:var(--ivory);
+    font-family:var(--sans);font-size:18px;font-weight:700;cursor:pointer}
+  button.act.primary{background:var(--brass);color:#231A0E;border-color:var(--brass)}
+  button.act:disabled{opacity:.35;cursor:default}
+  button:focus-visible{outline:2px solid var(--ivory);outline-offset:2px}
+
+  details{border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.18)}
+  summary{cursor:pointer;padding:12px 14px;font-weight:700;list-style:none;display:flex;justify-content:space-between}
+  summary::after{content:"＋";color:var(--brass)} details[open] summary::after{content:"－"}
+  .panel{padding:0 14px 14px;display:grid;gap:10px;font-size:13.5px;color:var(--mist);line-height:1.65}
+  .panel b{color:var(--ivory)}
+  .field{display:grid;gap:4px}
+  .field input{font-family:var(--mono);font-size:13px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--ivory)}
+  .verdict{font-weight:700;font-size:15px}
+  .verdict.ok{color:var(--good)} .verdict.bad{color:var(--bad)}
+  .rows{font-family:var(--mono);font-size:12px;display:grid;gap:2px}
+  .rows .x{color:var(--bad)}
+  code{font-family:var(--mono);font-size:11.5px;color:var(--brass);word-break:break-all}
+  .toggle{display:flex;align-items:center;gap:10px;color:var(--ivory)}
+  .toggle input{width:20px;height:20px}
+  footer{font-size:12px;color:var(--mist);line-height:1.7;text-align:center}
+  @media (prefers-reduced-motion:reduce){.card{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>公平 <span>21</span> 點</h1><div class="bank" id="bank">籌碼 100</div></header>
+
+  <div class="commit" id="commitBox">
+    <div>莊家已先鎖定這副牌 <b>（發牌前公開，之後改不了）</b></div>
+    <div class="hash" id="commitHash">—</div>
+  </div>
+
+  <section class="seat">
+    <div class="seat-head"><span>莊家</span><strong id="dealerTotal"></strong></div>
+    <div class="hand" id="dealerHand"></div>
+  </section>
+
+  <div class="status" id="status" aria-live="polite">選籌碼，按發牌</div>
+
+  <section class="seat">
+    <div class="seat-head"><span>你</span><strong id="playerTotal"></strong></div>
+    <div class="hand" id="playerHand"></div>
+  </section>
+
+  <div class="bets" id="bets">
+    <button class="chip c5 sel" data-v="5">5</button>
+    <button class="chip c10" data-v="10">10</button>
+    <button class="chip c25" data-v="25">25</button>
+  </div>
+  <div class="actions one" id="actions"><button class="act primary" id="deal">發牌</button></div>
+
+  <details id="verify">
+    <summary>公平驗證</summary>
+    <div class="panel">
+      <div>每一局：莊家先公開一個<b>指紋</b>（上面那串），它是莊家秘密種子的 SHA-256。你再給一個<b>你的種子</b>，等於幫忙切牌。牌序由兩個種子一起決定：莊家事先不知道你的種子，沒辦法排好牌；你看不到莊家的種子，也沒辦法算牌。</div>
+      <label class="field">你的種子（可以自己改，下一局生效）<input id="clientSeed" autocomplete="off" spellcheck="false"></label>
+      <label class="toggle"><input type="checkbox" id="cheat"> 莊家作弊模式（快爆牌時偷換一張牌，看驗證抓不抓得到）</label>
+      <div id="verifyOut">打完一局，這裡會公開莊家種子並自動驗證。</div>
+    </div>
+  </details>
+
+  <footer>玩的是遊戲籌碼，沒有真的錢。規則：一副 52 張牌每局重洗、莊家軟 17 停、Blackjack 賠 3:2、可以加倍，不能分牌。</footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const SUITS = ['♠', '♥', '♦', '♣'], RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const cardOf = i => ({ i, rank: RANKS[i % 13], suit: SUITS[Math.floor(i / 13)], red: [1, 2].includes(Math.floor(i / 13)) });
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+const randHex = n => hex(crypto.getRandomValues(new Uint8Array(n)));
+
+// Deck = Fisher–Yates over 0..51. The swap index for position i comes from the first 4 bytes of
+// SHA256(`${serverSeed}:${clientSeed}:${nonce}:${i}`) mod (i+1). Anyone can redo this with any SHA-256 tool.
+async function shuffle(serverSeed, clientSeed, nonce) {
+  const d = [...Array(52).keys()];
+  for (let i = 51; i > 0; i--) {
+    const h = await sha256(`${serverSeed}:${clientSeed}:${nonce}:${i}`);
+    const j = parseInt(h.slice(0, 8), 16) % (i + 1);
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+function total(cards) {
+  let t = 0, aces = 0;
+  for (const c of cards) { const r = c.i % 13; if (r === 0) { aces++; t += 11; } else t += Math.min(10, r + 1); }
+  while (t > 21 && aces) { t -= 10; aces--; }
+  return { t, soft: aces > 0 };
+}
+const isBJ = cards => cards.length === 2 && total(cards).t === 21;
+
+// state
+let bank = 100, bet = 5, nonce = 0;
+try { const b = +localStorage.getItem('bj-bank'); if (b > 0) bank = b; nonce = +localStorage.getItem('bj-nonce') || 0; } catch (e) {}
+let S = null;                       // current hand
+$('clientSeed').value = randHex(8);
+
+async function newCommit() {
+  const serverSeed = randHex(32);
+  S = { serverSeed, commit: await sha256(serverSeed), nonce: ++nonce, pos: 0, player: [], dealer: [], dealt: [], phase: 'bet', bet: 0, doubled: false, swapped: [] };
+  $('commitHash').textContent = S.commit;
+}
+function save() { try { localStorage.setItem('bj-bank', bank); localStorage.setItem('bj-nonce', nonce); } catch (e) {} }
+
+function draw(to, faceDown = false) {
+  let idx = S.deck[S.pos];
+  // Cheat mode: when the dealer draws and this card would bust them, swap in the best
+  // non-busting card still in the shoe. The display shows the swapped card; verification won't.
+  if ($('cheat').checked && to === S.dealer && S.phase === 'dealer') {
+    const cur = total(S.dealer).t;
+    if (total([...S.dealer, cardOf(idx)]).t > 21) {
+      const rest = S.deck.slice(S.pos + 1).filter(k => total([...S.dealer, cardOf(k)]).t <= 21)
+        .sort((a, b) => total([...S.dealer, cardOf(b)]).t - total([...S.dealer, cardOf(a)]).t);
+      if (rest.length) { idx = rest[0]; S.swapped.push(S.pos); }
+    }
+  }
+  const c = cardOf(idx); c.down = faceDown; c.pos = S.pos;
+  S.dealt.push({ pos: S.pos, shown: idx });
+  S.pos++; to.push(c);
+  return c;
+}
+
+function cardEl(c) {
+  const el = document.createElement('div');
+  if (c.down) { el.className = 'card back'; el.setAttribute('aria-label', '暗牌'); return el; }
+  el.className = 'card' + (c.red ? ' red' : '') + (S.swapped.includes(c.pos) ? ' swapped' : '');
+  el.setAttribute('aria-label', c.suit + c.rank);
+  el.innerHTML = `<span class="r">${c.rank}</span><span class="s">${c.suit}</span><span class="big">${c.suit}</span>`;
+  return el;
+}
+function render() {
+  $('bank').textContent = '籌碼 ' + bank;
+  const dh = $('dealerHand'), ph = $('playerHand');
+  dh.replaceChildren(...S.dealer.map(cardEl)); ph.replaceChildren(...S.player.map(cardEl));
+  const pt = total(S.player), dVisible = S.dealer.filter(c => !c.down), dt = total(dVisible);
+  $('playerTotal').textContent = S.player.length ? (pt.soft && pt.t <= 21 ? `${pt.t}（軟）` : pt.t) : '';
+  $('dealerTotal').textContent = S.dealer.length ? (S.dealer.some(c => c.down) ? `${dt.t} + ?` : dt.t) : '';
+  const acts = $('actions');
+  if (S.phase === 'player') {
+    acts.className = 'actions';
+    acts.innerHTML = `<button class="act" id="hit">要牌</button><button class="act primary" id="stand">停牌</button><button class="act" id="dbl">加倍</button>`;
+    $('hit').onclick = hit; $('stand').onclick = stand; $('dbl').onclick = dbl;
+    $('dbl').disabled = S.player.length !== 2 || bank < S.bet;
+    $('bets').style.display = 'none';
+  } else if (S.phase === 'done' || S.phase === 'bet') {
+    acts.className = 'actions one';
+    acts.innerHTML = `<button class="act primary" id="deal">${S.phase === 'done' ? '再來一局' : '發牌'}</button>`;
+    $('deal').onclick = deal; $('deal').disabled = bank < bet;
+    $('bets').style.display = '';
+  } else { acts.innerHTML = ''; }
+}
+function status(html) { $('status').innerHTML = html; }
+
+async function deal() {
+  if (S.phase === 'done') await newCommit();
+  if (bank < bet) return;
+  S.deck = await shuffle(S.serverSeed, $('clientSeed').value.trim() || '0', S.nonce);
+  S.clientSeed = $('clientSeed').value.trim() || '0';
+  S.bet = bet; bank -= bet; S.phase = 'player';
+  draw(S.player); draw(S.dealer); draw(S.player); draw(S.dealer, true);
+  status('');
+  $('verifyOut').textContent = '這局打完就公開莊家種子並驗證。';
+  if (isBJ(S.player) || isBJ(S.dealer)) return finish();
+  render();
+}
+function hit() { draw(S.player); if (total(S.player).t > 21) return finish(); if (total(S.player).t === 21) return stand(); render(); }
+function dbl() { bank -= S.bet; S.bet *= 2; S.doubled = true; draw(S.player); if (total(S.player).t > 21) return finish(); stand(); }
+async function stand() {
+  S.phase = 'dealer';
+  S.dealer.forEach(c => c.down = false);
+  render();
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // S17: the dealer stands on every 17, soft or hard
+  while (total(S.dealer).t < 17) { await new Promise(r => setTimeout(r, reduce ? 0 : 420)); draw(S.dealer); render(); }
+  finish();
+}
+function finish() {
+  S.dealer.forEach(c => c.down = false);
+  const p = total(S.player).t, d = total(S.dealer).t, pbj = isBJ(S.player), dbj = isBJ(S.dealer);
+  let msg, pay = 0;
+  if (p > 21) msg = `<span class="lose">爆牌，輸 ${S.bet}</span>`;
+  else if (pbj && dbj) { msg = `<span class="push">雙方 Blackjack，平手</span>`; pay = S.bet; }
+  else if (pbj) { pay = S.bet + Math.floor(S.bet * 1.5); msg = `<span class="win">Blackjack！贏 ${pay - S.bet}</span>`; }
+  else if (dbj) msg = `<span class="lose">莊家 Blackjack，輸 ${S.bet}</span>`;
+  else if (d > 21) { pay = S.bet * 2; msg = `<span class="win">莊家爆牌，贏 ${S.bet}</span>`; }
+  else if (p > d) { pay = S.bet * 2; msg = `<span class="win">${p} 比 ${d}，贏 ${S.bet}</span>`; }
+  else if (p < d) msg = `<span class="lose">${p} 比 ${d}，輸 ${S.bet}</span>`;
+  else { pay = S.bet; msg = `<span class="push">${p} 平手，退回 ${S.bet}</span>`; }
+  bank += pay; if (bank <= 0) { bank = 100; msg += '<br><small>籌碼用完了，重新發 100</small>'; }
+  S.phase = 'done'; save(); status(msg); render(); verify();
+}
+
+// After the hand: reveal the server seed and redo everything from scratch, independent of the game code above.
+async function verify() {
+  const out = $('verifyOut');
+  const okCommit = (await sha256(S.serverSeed)) === S.commit;
+  const deck = await shuffle(S.serverSeed, S.clientSeed, S.nonce);
+  const rows = S.dealt.map(d => ({ pos: d.pos, shown: d.shown, real: deck[d.pos] }));
+  const bad = rows.filter(r => r.shown !== r.real);
+  const name = i => cardOf(i).suit + cardOf(i).rank;
+  out.innerHTML = `
+    <div class="verdict ${okCommit && !bad.length ? 'ok' : 'bad'}">${okCommit && !bad.length ? '✅ 這局公平：每一張牌都跟事先鎖定的牌序一致' : `❌ 抓到作弊：第 ${bad.map(b => b.pos + 1).join('、')} 張牌跟鎖定的牌序不一樣`}</div>
+    <div>莊家種子（現在才公開）：<code>${S.serverSeed}</code></div>
+    <div>SHA-256(莊家種子) ${okCommit ? '= 開局前公開的指紋 ✅' : '≠ 指紋 ❌'}</div>
+    <div>你的種子 <code>${S.clientSeed}</code>　局號 <code>${S.nonce}</code></div>
+    <div class="rows">${rows.map(r => `<div class="${r.shown !== r.real ? 'x' : ''}">第 ${r.pos + 1} 張　發出 ${name(r.shown)}　應該是 ${name(r.real)}${r.shown !== r.real ? '　← 被換了' : ''}</div>`).join('')}</div>
+    <div>想自己驗？任何 SHA-256 工具都行：對 i = 51…1，取 <code>SHA256("莊家種子:你的種子:局號:i")</code> 前 8 個十六進位字 mod (i+1) 當 j，交換第 i 和第 j 張（0 = ♠A … 51 = ♣K）。</div>`;
+  window.__bj = { rows, okCommit, bad: bad.length };
+}
+
+document.querySelectorAll('.chip').forEach(b => b.onclick = () => {
+  bet = +b.dataset.v; document.querySelectorAll('.chip').forEach(x => x.classList.toggle('sel', x === b)); render();
+});
+newCommit().then(render);
+window.__bjApi = { deal: () => deal(), hit: () => hit(), stand: () => stand(), state: () => S, shuffle };
+})();
+</script>
+</body>
+</html>
