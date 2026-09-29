@@ -330,6 +330,47 @@ def adjust_for_splits(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     return adjusted
 
 
+def repair_last_bar(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """Fill a finished session's NaN close from Yahoo's quote meta.
+
+    yfinance often returns the previous session's bar with Close = NaN (volume
+    present) for hours after the close. The dropna below then silently drops
+    it, and the report shows the day before as if it were current. That
+    happened on 2026-09-29: QLD read 96.95 (Friday) instead of Monday's 94.87.
+    Fill only when the market is out of its regular session and the quote's
+    timestamp falls on that bar's date, so a live session is never
+    frozen into a fake close.
+    """
+    if df.empty or not pd.isna(df['Close'].iloc[-1]):
+        return df
+    try:
+        import json as _json, urllib.request as _ur
+        req = _ur.Request(f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=1d&interval=1d",
+                          headers={"User-Agent": "Mozilla/5.0"})
+        meta = _json.load(_ur.urlopen(req, timeout=15))['chart']['result'][0]['meta']
+    except Exception as e:
+        print(f"  {ticker}: last bar NaN and quote meta unavailable ({e}); dropping it", file=sys.stderr)
+        return df
+    price, qtime = meta.get('regularMarketPrice'), meta.get('regularMarketTime')
+    tz = meta.get('exchangeTimezoneName') or 'UTC'
+    period = (meta.get('currentTradingPeriod') or {}).get('regular') or {}
+    now = pd.Timestamp.now(tz='UTC').timestamp()
+    in_session = period.get('start', 0) <= now < period.get('end', 0)
+    bar_day = pd.Timestamp(df.index[-1]).date()
+    quote_day = pd.Timestamp(qtime, unit='s', tz='UTC').tz_convert(tz).date() if qtime else None
+    if price is None or in_session or quote_day != bar_day:
+        return df
+    df = df.copy()
+    last = df.index[-1]
+    df.loc[last, 'Close'] = price
+    df.loc[last, 'High'] = meta.get('regularMarketDayHigh', price)
+    df.loc[last, 'Low'] = meta.get('regularMarketDayLow', price)
+    if pd.isna(df.loc[last, 'Open']):
+        df.loc[last, 'Open'] = price
+    print(f"  {ticker}: repaired NaN close for {bar_day} from quote meta -> {price}", file=sys.stderr)
+    return df
+
+
 def analyze_ticker(ticker: str) -> dict:
     """Full analysis for one ticker"""
     print(f"  Fetching {ticker}...", file=sys.stderr)
@@ -344,8 +385,9 @@ def analyze_ticker(ticker: str) -> dict:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
-    # Drop rows with NaN Close (e.g. today's bar before the session closes),
-    # then auto-detect and apply any splits yfinance missed.
+    # Repair a finished session's NaN close first; then drop rows still NaN
+    # (e.g. today's bar mid-session), then fix any splits yfinance missed.
+    df = repair_last_bar(df, ticker)
     df = df.dropna(subset=['Close'])
     df = adjust_for_splits(df, ticker)
     if df.empty:
